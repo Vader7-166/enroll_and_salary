@@ -1,0 +1,112 @@
+---
+title: G7 – Tính lương và thưởng (phân hệ 7)
+---
+classDiagram
+direction TB
+class CoCauLuong {
+  +MaCoCau : String
+  +TenCoCau : String
+  +DanhSachKhoan : List
+  +NgayHieuLuc : Date
+  +NgayHetHieuLuc : Date
+  +getCacKhoan() List
+}
+class CongThucLuong {
+  +MaCongThuc : String
+  +MaKhoan : String
+  +BieuThuc : String «tham chiếu mã tham số»
+  +PhienBan : Int
+  +NgayHieuLuc : Date
+  +danhGia(ngCanh) Decimal
+}
+class KhoanThuong {
+  +MaThuong : String
+  +LoaiThuong : String
+  +MaNV : String
+  +MaDonVi : String
+  +SoTien : Decimal
+  +MaKyLuong : String
+  +TrangThai : String
+  +tinhThuong()
+}
+class BangLuongThang {
+  +MaBangLuong : String
+  +MaKy : String
+  +MaCoSo : String
+  +MaVung : String
+  +TongQuyLuong : Decimal
+  +TrangThai : Nhap / DaDuyet / DaKhoa
+  +tinhLuongKy()
+  +duyet()
+  +khoaKyLuong()
+  +xuatFileChiLuong()
+}
+class ChiTietLuongNhanVien {
+  +MaCT : String
+  +MaBangLuong : String
+  +MaNV : String
+  +LuongCoBan : Decimal
+  +SoCongThucTe : Float
+  +TongThuNhap : Decimal
+  +TongKhauTruBH : Decimal
+  +ThueTNCN : Decimal
+  +LuongThucLinh : Decimal
+  +tinhThuNhap()
+  +tinhThucLinh()
+}
+class KhoanMucLuong {
+  +MaKhoanMuc : String
+  +MaCT : String
+  +LoaiKhoan : String
+  +SoLuong : Float «giờ / công»
+  +HeSo : Decimal
+  +SoTien : Decimal
+  +MaThamSoApDung : String
+}
+class ButToanDieuChinh {
+  +MaBT : String
+  +MaQD : String
+  +KyGoc : String
+  +KyNhan : String
+  +LoaiBT : TruyLinh / TruyThu
+  +ChenhLechLuong : Decimal
+  +ChenhLechBH : Decimal
+  +ChenhLechThue : Decimal
+  +TrangThai : String
+  +NguoiXacNhan : String «KT»
+  +tinhChenhLech()
+  +xacNhan()
+  +ghiVaoKyMo()
+}
+class PhieuLuong {
+  +MaPhieu : String
+  +MaChiTietLuong : String
+  +NgayXuat : Date
+  +TrangThai : String
+  +xuatPhieuLuong()
+}
+class KyNghiepVu:::ext
+class NhanVien:::ext
+class QuyetDinhThayDoiLuong:::ext
+class ThamSoPhapLy:::ext
+class BangChamCongThang:::ext
+class BangTrichBH:::ext
+class KhauTruThue:::ext
+CoCauLuong "1" *-- "0..*" CongThucLuong : gồm
+CongThucLuong ..> ThamSoPhapLy : đọc theo hiệu lực
+KyNghiepVu "1" --> "0..*" BangLuongThang : thuộc kỳ
+KyNghiepVu "1" --> "0..*" KhoanThuong : kỳ có thưởng
+BangChamCongThang ..> BangLuongThang : dữ liệu công đã khóa
+BangLuongThang "1" *-- "1..*" ChiTietLuongNhanVien : gồm
+NhanVien "1" --> "0..*" ChiTietLuongNhanVien : hưởng
+ChiTietLuongNhanVien "1" *-- "1..*" KhoanMucLuong : gồm
+CongThucLuong ..> KhoanMucLuong : tính
+ChiTietLuongNhanVien "1" --> "1" PhieuLuong : xuất
+ChiTietLuongNhanVien "1" --> "0..1" BangTrichBH : trích BH
+ChiTietLuongNhanVien "1" --> "1" KhauTruThue : khấu trừ thuế
+QuyetDinhThayDoiLuong "1" --> "0..*" ButToanDieuChinh : sinh
+ButToanDieuChinh ..> BangLuongThang : ghi vào kỳ đang mở
+note for KhoanMucLuong "Thay các cột cố định 150% / 210% / 270% / 390%.<br>LoaiKhoan: LuongNgay, OTNgayThuong, OTDem, PhuCapCaDem,<br>Thuong, TruyLinh, TruyThu…"
+note for BangLuongThang "Tính lại với cùng đầu vào cho cùng kết quả.<br>Xuất file chi lương không đồng nghĩa đã thanh toán."
+note for ButToanDieuChinh "Kỳ đã khóa giữ nguyên số liệu (7.4)."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

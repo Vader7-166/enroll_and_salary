@@ -1,0 +1,51 @@
+---
+title: G9 – Phúc lợi (phân hệ 9)
+---
+classDiagram
+direction TB
+class DanhMucPhucLoi {
+  +MaPhucLoi : String
+  +TenPhucLoi : String
+  +DieuKienHuong : String
+  +MucHuong : Decimal
+  +NgayHieuLuc : Date
+  +kiemTraDieuKien(nv) Boolean
+}
+class CapPhatPhucLoi {
+  +MaCapPhat : String
+  +MaPhucLoi : String
+  +MaNV : String
+  +KyCap : String
+  +SoTien : Decimal
+  +MaDonViChiPhi : String
+  +TrangThai : DuKien / DaXacNhan
+  +lapDanhSachDuKien()
+  +dieuChinhDanhSach()
+  +kiemTraTrungCap()
+  +xacNhan()
+}
+class TroCapThoiViec {
+  +MaTC : String
+  +MaQDChamDut : String
+  +LoaiTroCap : ThoiViec / MatViec
+  +ThamNienTinhTroCap : Float
+  +SoTien : Decimal
+  +KyLuongChiTra : String
+  +tinhTroCap()
+}
+class NhanVien:::ext
+class DonViPhongBan:::ext
+class QuyetDinhChamDut:::ext
+class BangLuongThang:::ext
+class BaoCao:::ext
+DanhMucPhucLoi "1" --> "0..*" CapPhatPhucLoi : cấp phát
+NhanVien "1" --> "0..*" CapPhatPhucLoi : nhận
+DonViPhongBan ..> CapPhatPhucLoi : đơn vị chịu chi phí
+QuyetDinhChamDut "1" --> "0..1" TroCapThoiViec : khởi tạo khi xác nhận
+CapPhatPhucLoi ..> BangLuongThang : phần liên quan lương
+TroCapThoiViec ..> BangLuongThang : kỳ lương chi trả
+CapPhatPhucLoi ..> BaoCao : chi phí phúc lợi 9.4
+TroCapThoiViec ..> BaoCao : chi phí phúc lợi 9.4
+note for CapPhatPhucLoi "Danh sách chưa xác nhận vẫn là dự kiến (9.2).<br>Kiểm tra trùng cấp phát trước khi ghi nhận."
+note for TroCapThoiViec "Tính khi KT xác nhận chấm dứt HĐ (2.5, SQ-09);<br>hiển thị trong theo dõi chi phí 9.4 – không ghi nhận hai lần."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

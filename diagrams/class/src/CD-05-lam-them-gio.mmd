@@ -1,0 +1,74 @@
+---
+title: G5 – Làm thêm giờ (phân hệ 5)
+---
+classDiagram
+direction TB
+class DeXuatOT {
+  +MaDX : String
+  +MaTo : String
+  +NgayOT : Date
+  +GioBatDau : Time
+  +GioKetThuc : Time
+  +LyDo : String
+  +CanCuDongYLamThem : String
+  +NguoiDeXuat : String «TT»
+  +NguoiDuyet : String «QĐ»
+  +TrangThai : ChoDuyet / DaDuyet / TuChoi / TraLai
+  +guiDeXuat()
+  +duyetCap2()
+  +tuChoi()
+  +traLai()
+}
+class ChiTietDeXuatOT {
+  +MaCT : String
+  +MaDX : String
+  +MaNV : String
+  +SoGioDuKien : Float
+}
+class TranOT {
+  +MaTran : String
+  +PhamViApDung : String «cơ sở / ngành»
+  +TranNgay : Float
+  +TranThang : Float
+  +TranNam : Float
+  +NgayHieuLuc : Date
+  +NgayHetHieuLuc : Date
+  +kiemTraTran(nv, soGio) KetQua
+}
+class GioOTThucTe {
+  +MaGioOT : String
+  +MaNV : String
+  +Ngay : Date
+  +LoaiNgay : String
+  +IsOTDem : Boolean
+  +SoGio : Float
+  +MaHeSo : String
+  +MaDX : String «nullable»
+  +TrangThaiDoiChieu : Khop / Lech
+  +phanLoaiGio()
+  +apDungHeSo()
+}
+class QuyDoiNghiBu {
+  +MaQD : String
+  +MaNV : String
+  +MaGioOT : String
+  +SoGioQuyDoi : Float
+  +NguoiThucHien : String «KT»
+  +NgayQuyDoi : Date
+  +kiemTraDieuKien()
+  +thucHien()
+}
+class NhanVien:::ext
+class ChiTietCongNgay:::ext
+class ThamSoPhapLy:::ext
+DeXuatOT "1" *-- "1..*" ChiTietDeXuatOT : gồm
+NhanVien "1" --> "0..*" ChiTietDeXuatOT : được huy động
+DeXuatOT ..> TranOT : kiểm soát trần
+ChiTietCongNgay "1" --> "0..*" GioOTThucTe : phát sinh
+DeXuatOT "0..1" --> "0..*" GioOTThucTe : đối chiếu
+GioOTThucTe ..> ThamSoPhapLy : hệ số OT
+GioOTThucTe "1" --> "0..*" QuyDoiNghiBu : quy đổi
+note for DeXuatOT "TT lập cho nhiều nhân viên; QĐ duyệt cấp 2<br>sau khi kiểm soát trần ngày / tháng / năm."
+note for GioOTThucTe "Lệch đề xuất ⇒ chuyển ngoại lệ công (AD-04)."
+note for QuyDoiNghiBu "ĐIỂM MỞ Q2: phần quy đổi có còn trả tiền<br>và trần OT tính trên giờ nào – chờ nhóm chốt."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

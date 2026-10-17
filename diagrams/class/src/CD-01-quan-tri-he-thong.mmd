@@ -1,0 +1,119 @@
+---
+title: G1 – Quản trị hệ thống (phân hệ 1)
+---
+classDiagram
+direction TB
+class CoSo {
+  +MaCoSo : String
+  +TenCoSo : String
+  +DiaChi : String
+  +MaVung : String
+  +getChinhSach(ngay) ChinhSachCoSo
+  +getCoCauDonVi() List~DonViPhongBan~
+}
+class VungLuong {
+  +MaVung : String «I–IV»
+  +TenVung : String
+  +getLuongToiThieu(ngay) Decimal
+}
+class DonViPhongBan {
+  +MaDonVi : String
+  +TenDonVi : String
+  +CapDo : Int «1..5»
+  +LoaiDonVi : String
+  +MaDonViCha : String
+  +MaCoSo : String
+  +getCoCauCapDuoi() List~DonViPhongBan~
+  +getDanhSachNhanVien() List~NhanVien~
+}
+class TaiKhoan {
+  +TenDangNhap : String
+  +MatKhauHash : String
+  +TrangThai : String
+  +MaNhanVien : String «tùy chọn»
+  +dangNhap()
+  +doiMatKhau()
+  +khoa()
+  +moKhoa()
+}
+class VaiTro {
+  +MaVaiTro : TT / QD / KT / AD
+  +TenVaiTro : String
+  +DanhSachQuyenChucNang : List
+  +kiemTraQuyen(maChucNang) Boolean
+}
+class PhanQuyen {
+  +MaPhanQuyen : String
+  +MaTaiKhoan : String
+  +MaVaiTro : String
+  +MaDonViPhamVi : String
+  +NgayHieuLuc : Date
+  +NgayHetHieuLuc : Date
+  +kiemTraPhamVi(donVi) Boolean
+}
+class ChinhSachCoSo {
+  +MaChinhSach : String
+  +MaCoSo : String
+  +LoaiChinhSach : String
+  +GiaTri : String
+  +NgayHieuLuc : Date
+  +NgayHetHieuLuc : Date
+  +getGiaTri(ngay)
+}
+class ThamSoPhapLy {
+  +MaThamSo : String
+  +TenThamSo : String
+  +GiaTri : Decimal
+  +DonVi : String
+  +MaVung : String «nullable»
+  +CanCuPhapLy : String
+  +NgayHieuLuc : Date
+  +NgayHetHieuLuc : Date
+  +getGiaTriTai(ngay) Decimal
+  +themPhienBanMoi()
+}
+class KyNghiepVu {
+  +MaKy : String
+  +LoaiKy : Cong / Luong
+  +MaPhamVi : String
+  +TuNgay : Date
+  +DenNgay : Date
+  +TrangThai : Mo / DaChot / DaKhoa
+  +NguoiMo : String
+  +NguoiKhoa : String
+  +moKy()
+  +chotKy()
+  +khoaKy()
+}
+class NhatKyKiemToan {
+  +MaLog : String
+  +ThoiGian : DateTime
+  +MaTaiKhoan : String
+  +HanhDong : String
+  +DoiTuong : String
+  +MaDoiTuong : String
+  +GiaTriCu : String
+  +GiaTriMoi : String
+  +LyDo : String
+  +ghiVet()
+  +traCuu(dieuKienLoc)
+}
+class NhanVien:::ext
+class BangChamCongThang:::ext
+class BangLuongThang:::ext
+VungLuong "1" --> "1..*" CoSo : áp dụng cho
+CoSo "1" --> "1..*" DonViPhongBan : gồm
+DonViPhongBan "0..1" --> "0..*" DonViPhongBan : cấp trên của
+DonViPhongBan "1" --> "0..*" NhanVien : quản lý
+CoSo "1" --> "0..*" ChinhSachCoSo : cấu hình
+TaiKhoan "1" --> "1..*" PhanQuyen : được cấp
+VaiTro "1" --> "0..*" PhanQuyen : thuộc
+DonViPhongBan "1" --> "0..*" PhanQuyen : phạm vi
+TaiKhoan "1" --> "0..*" NhatKyKiemToan : ghi vết
+KyNghiepVu "1" --> "0..*" BangChamCongThang : kỳ công
+KyNghiepVu "1" --> "0..*" BangLuongThang : kỳ lương
+note for TaiKhoan "Chỉ cấp cho TT, QĐ, KT, AD.<br>Công nhân không có tài khoản."
+note for ThamSoPhapLy "Thêm phiên bản mới, không sửa đè (SQ-10).<br>Nguồn tham số cho G5, G7, G8."
+note for KyNghiepVu "Không trùng kỳ; kỳ trước cùng loại,<br>cùng phạm vi phải đã khóa (SQ-11)."
+note for NhatKyKiemToan "Chỉ thêm, không sửa/xóa (1.6)."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

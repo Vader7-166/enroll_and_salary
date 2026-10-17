@@ -1,0 +1,37 @@
+sequenceDiagram
+autonumber
+actor AD as Admin
+participant HT as Hệ thống
+participant DB as CSDL
+AD->>HT: Thêm hoặc cập nhật cơ sở, đơn vị (đơn vị cha, cấp, cơ sở, vùng lương) (1.2)
+HT->>DB: Lấy cây đơn vị hiện hành
+DB-->>HT: Cây đơn vị
+HT->>HT: Kiểm tra vòng lặp cha – con, tối đa 5 cấp, đơn vị thuộc đúng cơ sở
+alt Hợp lệ
+  HT->>DB: Lưu đơn vị, giữ lịch sử thay đổi
+  HT->>DB: Ghi nhật ký kiểm toán (1.6)
+  HT-->>AD: Cập nhật thành công
+else Không hợp lệ
+  HT-->>AD: Báo lỗi cấu trúc tổ chức
+end
+AD->>HT: Tạo tài khoản, gán vai trò, đơn vị phạm vi và hiệu lực (1.1)
+HT->>HT: Kiểm tra vai trò thuộc TT, QĐ, KT, AD và phạm vi phù hợp vai trò
+alt Hợp lệ
+  HT->>DB: Lưu tài khoản và phân quyền theo đơn vị
+  HT->>DB: Ghi nhật ký kiểm toán (1.6)
+  HT-->>AD: Tài khoản đã cấp
+else Không hợp lệ
+  HT-->>AD: Báo lỗi vai trò hoặc phạm vi
+end
+Note over AD,DB: Tổ trưởng – phạm vi tổ, Quản đốc – xưởng, Kế toán – cơ sở hoặc đơn vị được giao
+AD->>HT: Cấu hình chính sách theo cơ sở (loại, giá trị, hiệu lực từ ngày) (1.4)
+HT->>DB: Lấy chính sách hiện hành cùng loại của cơ sở
+DB-->>HT: Chính sách hiện hành
+HT->>HT: Kiểm tra chồng lấn khoảng hiệu lực
+alt Hợp lệ
+  HT->>DB: Đóng hiệu lực bản cũ, lưu phiên bản mới
+  HT->>DB: Ghi nhật ký kiểm toán (1.6)
+  HT-->>AD: Lưu thành công
+else Chồng lấn hiệu lực
+  HT-->>AD: Báo lỗi và chỉ ra bản ghi bị chồng lấn
+end

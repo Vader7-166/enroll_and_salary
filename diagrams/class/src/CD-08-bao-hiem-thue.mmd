@@ -1,0 +1,94 @@
+---
+title: G8 – Bảo hiểm và thuế TNCN (phân hệ 8)
+---
+classDiagram
+direction TB
+class MucDongBH {
+  +MaMuc : String
+  +MaVung : String
+  +LoaiBH : BHXH / BHYT / BHTN / KPCD
+  +TyLeNLD : Decimal
+  +TyLeDN : Decimal
+  +MucSan : Decimal
+  +MucTran : Decimal
+  +NgayHieuLuc : Date
+  +NgayHetHieuLuc : Date
+  +getMuc(ngay, vung)
+}
+class BangTrichBH {
+  +MaBang : String
+  +MaKy : String
+  +MaNV : String
+  +LuongDongBH : Decimal
+  +BHXH_NLD : Decimal
+  +BHXH_DN : Decimal
+  +BHYT_NLD : Decimal
+  +BHYT_DN : Decimal
+  +BHTN_NLD : Decimal
+  +BHTN_DN : Decimal
+  +KPCD_DN : Decimal
+  +tinhBH()
+  +kiemTraSanTran()
+}
+class DanhSachBaoTangGiam {
+  +MaDS : String
+  +MaKy : String
+  +MaNV : String
+  +LoaiBienDong : Tang / Giam
+  +LyDo : String
+  +NgayHieuLuc : Date
+  +lapDanhSach()
+}
+class BacThueTNCN {
+  +MaBac : String
+  +TuMuc : Decimal
+  +DenMuc : Decimal
+  +ThueSuat : Decimal
+  +NgayHieuLuc : Date
+  +NgayHetHieuLuc : Date
+  +traBac(thuNhapTinhThue)
+}
+class KhauTruThue {
+  +MaKT : String
+  +MaKy : String
+  +MaNV : String
+  +ThuNhapChiuThue : Decimal
+  +GiamTruBanThan : Decimal
+  +GiamTruNPT : Decimal
+  +GiamTruBH : Decimal
+  +ThuNhapTinhThue : Decimal
+  +ThueKhauTru : Decimal
+  +tinhThueLuyTien()
+}
+class QuyetToanThueNam {
+  +MaQT : String
+  +Nam : Int
+  +MaNV : String
+  +TongThuNhap : Decimal
+  +TongGiamTru : Decimal
+  +ThueDaKhauTru : Decimal
+  +ThuePhaiNop : Decimal
+  +ChenhLech : Decimal
+  +TrangThai : Nhap / HoanTat
+  +tongHopNam()
+  +tinhChenhLech()
+}
+class ChiTietLuongNhanVien:::ext
+class NhanVien:::ext
+class NguoiPhuThuoc:::ext
+class HopDongLaoDong:::ext
+class QuyetDinhThayDoiLuong:::ext
+MucDongBH ..> BangTrichBH : tỷ lệ, sàn, trần
+ChiTietLuongNhanVien "1" --> "0..1" BangTrichBH : trích BH
+ChiTietLuongNhanVien "1" --> "1" KhauTruThue : khấu trừ
+BacThueTNCN ..> KhauTruThue : biểu lũy tiến
+NguoiPhuThuoc ..> KhauTruThue : giảm trừ NPT
+NhanVien "1" --> "0..*" QuyetToanThueNam : quyết toán
+KhauTruThue "1..*" ..> "1" QuyetToanThueNam : tổng hợp năm
+NhanVien "1" --> "0..*" DanhSachBaoTangGiam : biến động
+HopDongLaoDong ..> DanhSachBaoTangGiam : vào làm / nghỉ việc
+QuyetDinhThayDoiLuong ..> DanhSachBaoTangGiam : đổi mức lương
+note for BangTrichBH "Tách phần NLĐ và phần DN; KPCĐ do DN đóng (8.2)."
+note for KhauTruThue "Dùng chung kết quả với G7 – không khấu trừ hai lần (AD-08)."
+note for QuyetToanThueNam "Dự thảo hồ sơ; không bao gồm kê khai điện tử trực tiếp (8.5)."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

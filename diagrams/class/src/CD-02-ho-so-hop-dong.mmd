@@ -1,0 +1,89 @@
+---
+title: G2 – Hồ sơ và hợp đồng (phân hệ 2)
+---
+classDiagram
+direction TB
+class NhanVien {
+  +MaNV : String
+  +HoTen : String
+  +NgaySinh : Date
+  +MaDonVi : String
+  +ChucVu : String
+  +MaSoThue : String
+  +SoSoBHXH : String
+  +NgayVaoLam : Date
+  +NgayNghiViec : Date
+  +TrangThai : String
+  +getHopDongHienHanh() HopDongLaoDong
+  +getLuongHieuLuc(ngay) Decimal
+}
+class NguoiPhuThuoc {
+  +MaNPT : String
+  +MaNV : String
+  +HoTen : String
+  +QuanHe : String
+  +MaSoThueNPT : String
+  +TuThang : Date
+  +DenThang : Date
+  +conHieuLuc(thang) Boolean
+}
+class HopDongLaoDong {
+  +MaHD : String
+  +MaNV : String
+  +LoaiHD : String
+  +NgayBatDau : Date
+  +NgayKetThuc : Date
+  +TrangThai : String
+  +NgayChamDutHieuLuc : Date
+  +getThamNien(ngay)
+  +canhBaoHetHan(soNgay)
+}
+class PhuLucHopDong {
+  +MaPL : String
+  +MaHD : String
+  +NoiDung : String
+  +NgayHieuLuc : Date
+}
+class QuyetDinhThayDoiLuong {
+  +MaQD : String
+  +MaNV : String
+  +LoaiQD : DieuChuyen / DoiLuong
+  +LuongCu : Decimal
+  +LuongMoi : Decimal
+  +NgayHieuLuc : Date
+  +NgayNhap : Date
+  +LaHieuLucHoiTo : Boolean
+  +xacDinhKyBiAnhHuong() List~KyNghiepVu~
+}
+class QuyetDinhChamDut {
+  +MaQD : String
+  +MaHD : String
+  +MaNV : String
+  +NgayHieuLuc : Date
+  +LyDo : String
+  +CanCu : String
+  +TrangThai : Nhap / DaXacNhan
+  +tinhTroCap()
+  +tinhPhepChuaNghi()
+  +lapDanhSachBaoGiam()
+  +xacNhan()
+}
+class DonViPhongBan:::ext
+class ButToanDieuChinh:::ext
+class TroCapThoiViec:::ext
+class QuyPhepNam:::ext
+class DanhSachBaoTangGiam:::ext
+DonViPhongBan "1" --> "0..*" NhanVien : quản lý
+NhanVien "1" --> "0..*" HopDongLaoDong : ký
+NhanVien "1" --> "0..*" NguoiPhuThuoc : đăng ký
+NhanVien "1" --> "0..*" QuyetDinhThayDoiLuong : áp dụng
+HopDongLaoDong "1" *-- "0..*" PhuLucHopDong : gồm
+HopDongLaoDong "1" --> "0..1" QuyetDinhChamDut : chấm dứt bởi
+QuyetDinhThayDoiLuong "1" --> "0..*" ButToanDieuChinh : sinh khi hồi tố
+QuyetDinhChamDut "1" --> "0..1" TroCapThoiViec : khởi tạo
+QuyetDinhChamDut ..> QuyPhepNam : tính phép chưa nghỉ
+QuyetDinhChamDut ..> DanhSachBaoTangGiam : lập báo giảm
+note for NhanVien "Đối tượng dữ liệu, không có tài khoản đăng nhập.<br>Hồ sơ do Kế toán quản lý (2.1)."
+note for QuyetDinhThayDoiLuong "NgayHieuLuc < NgayNhap ⇒ hồi tố (SQ-07).<br>Lưu lịch sử hiệu lực."
+note for HopDongLaoDong "Cảnh báo hết hạn không tự chấm dứt HĐ."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

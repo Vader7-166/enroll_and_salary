@@ -1,0 +1,131 @@
+---
+title: Biểu đồ lớp tổng quan – 54 lớp / 10 gói (đồng bộ BFD)
+---
+classDiagram
+direction TB
+namespace G1_QuanTriHeThong {
+  class CoSo
+  class VungLuong
+  class DonViPhongBan
+  class TaiKhoan
+  class VaiTro
+  class PhanQuyen
+  class ChinhSachCoSo
+  class ThamSoPhapLy
+  class KyNghiepVu
+  class NhatKyKiemToan
+}
+namespace G2_HoSoHopDong {
+  class NhanVien
+  class NguoiPhuThuoc
+  class HopDongLaoDong
+  class PhuLucHopDong
+  class QuyetDinhThayDoiLuong
+  class QuyetDinhChamDut
+}
+namespace G3_CaLamViec {
+  class CaLamViec
+  class NgayNghiLe
+  class MauXoayCa
+  class LichPhanCa
+  class DeXuatDoiCa
+}
+namespace G4_ChamCong {
+  class LoNhapChamCong
+  class DuLieuChamCongTho
+  class ChiTietCongNgay
+  class GiaiTrinhNgoaiLe
+  class XacNhanCongTo
+  class BangChamCongThang
+}
+namespace G5_LamThemGio {
+  class DeXuatOT
+  class ChiTietDeXuatOT
+  class TranOT
+  class GioOTThucTe
+  class QuyDoiNghiBu
+}
+namespace G6_NghiPhepCheDo {
+  class LoaiNghi
+  class QuyPhepNam
+  class DonNghi
+  class HoSoOmDauThaiSan
+}
+namespace G7_TinhLuongThuong {
+  class CoCauLuong
+  class CongThucLuong
+  class KhoanThuong
+  class BangLuongThang
+  class ChiTietLuongNhanVien
+  class KhoanMucLuong
+  class ButToanDieuChinh
+  class PhieuLuong
+}
+namespace G8_BaoHiemThue {
+  class MucDongBH
+  class BangTrichBH
+  class DanhSachBaoTangGiam
+  class BacThueTNCN
+  class KhauTruThue
+  class QuyetToanThueNam
+}
+namespace G9_PhucLoi {
+  class DanhMucPhucLoi
+  class CapPhatPhucLoi
+  class TroCapThoiViec
+}
+namespace G10_BaoCao {
+  class BaoCao
+}
+VungLuong --> CoSo
+CoSo --> DonViPhongBan
+CoSo --> ChinhSachCoSo
+DonViPhongBan --> DonViPhongBan
+DonViPhongBan --> NhanVien
+TaiKhoan --> PhanQuyen
+VaiTro --> PhanQuyen
+DonViPhongBan --> PhanQuyen
+TaiKhoan --> NhatKyKiemToan
+NhanVien --> NguoiPhuThuoc
+NhanVien --> HopDongLaoDong
+HopDongLaoDong *-- PhuLucHopDong
+HopDongLaoDong --> QuyetDinhChamDut
+NhanVien --> QuyetDinhThayDoiLuong
+CaLamViec --> LichPhanCa
+MauXoayCa --> LichPhanCa
+NhanVien --> LichPhanCa
+LichPhanCa --> DeXuatDoiCa
+LoNhapChamCong *-- DuLieuChamCongTho
+DuLieuChamCongTho ..> ChiTietCongNgay
+LichPhanCa ..> ChiTietCongNgay
+NgayNghiLe ..> ChiTietCongNgay
+BangChamCongThang *-- ChiTietCongNgay
+ChiTietCongNgay --> GiaiTrinhNgoaiLe
+BangChamCongThang --> XacNhanCongTo
+KyNghiepVu --> BangChamCongThang
+DeXuatOT *-- ChiTietDeXuatOT
+DeXuatOT ..> TranOT
+ChiTietCongNgay --> GioOTThucTe
+GioOTThucTe --> QuyDoiNghiBu
+LoaiNghi --> DonNghi
+NhanVien --> DonNghi
+DonNghi ..> QuyPhepNam
+NhanVien --> HoSoOmDauThaiSan
+CoCauLuong *-- CongThucLuong
+CongThucLuong ..> ThamSoPhapLy
+KyNghiepVu --> BangLuongThang
+KyNghiepVu --> KhoanThuong
+BangChamCongThang ..> BangLuongThang
+BangLuongThang *-- ChiTietLuongNhanVien
+ChiTietLuongNhanVien *-- KhoanMucLuong
+ChiTietLuongNhanVien --> PhieuLuong
+QuyetDinhThayDoiLuong --> ButToanDieuChinh
+ChiTietLuongNhanVien --> BangTrichBH
+ChiTietLuongNhanVien --> KhauTruThue
+MucDongBH ..> BangTrichBH
+BacThueTNCN ..> KhauTruThue
+KhauTruThue ..> QuyetToanThueNam
+HopDongLaoDong ..> DanhSachBaoTangGiam
+DanhMucPhucLoi --> CapPhatPhucLoi
+QuyetDinhChamDut --> TroCapThoiViec
+BaoCao ..> PhanQuyen

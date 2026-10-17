@@ -1,0 +1,91 @@
+---
+title: G4 – Chấm công (phân hệ 4)
+---
+classDiagram
+direction TB
+class LoNhapChamCong {
+  +MaLo : String
+  +MaKyCong : String
+  +MaCoSo : String
+  +NguonDuLieu : String
+  +NguoiNhap : String «AD»
+  +ThoiDiemNhap : DateTime
+  +SoBanGhi : Int
+  +SoBanGhiLoi : Int
+  +kiemTraDuLieu()
+}
+class DuLieuChamCongTho {
+  +MaLog : String
+  +MaLo : String
+  +MaNV : String
+  +ThoiGian : DateTime
+  +MaThietBi : String
+  +LoaiQuet : Vao / Ra
+  +IsTrung : Boolean
+  +danhDauTrung()
+}
+class ChiTietCongNgay {
+  +MaCTCong : String
+  +MaBangCong : String
+  +MaNV : String
+  +Ngay : Date
+  +MaCa : String
+  +GioVao : DateTime
+  +GioRa : DateTime
+  +SoCongDat : Float
+  +SoGioLamViec : Float
+  +SoGioCaDem : Float
+  +LoaiNgay : Thuong / NghiTuan / Le
+  +TrangThai : BinhThuong / NgoaiLe
+  +ghepCapVaoRa()
+  +tinhSoCong()
+}
+class GiaiTrinhNgoaiLe {
+  +MaGiaiTrinh : String
+  +MaCTCong : String
+  +LoaiNgoaiLe : String
+  +LyDo : String
+  +ChungCu : String
+  +GiaTriCu : String
+  +GiaTriMoi : String
+  +NguoiNhap : String «TT»
+  +nhapGiaiTrinh()
+  +dieuChinhCong()
+}
+class XacNhanCongTo {
+  +MaXacNhan : String
+  +MaTo : String
+  +MaBangCong : String
+  +NguoiXacNhan : String «TT»
+  +ThoiDiem : DateTime
+  +TrangThai : String
+  +xacNhan()
+}
+class BangChamCongThang {
+  +MaBangCong : String
+  +MaKy : String
+  +MaDonViXuong : String
+  +TongCong : Float
+  +TongGioOT : Float
+  +TrangThai : Nhap / ToDaXacNhan / XuongDaChot / DaKhoa
+  +tongHopCong()
+  +chotXuong()
+  +khoaKyCong()
+}
+class LichPhanCa:::ext
+class KyNghiepVu:::ext
+class GioOTThucTe:::ext
+class BangLuongThang:::ext
+LoNhapChamCong "1" *-- "0..*" DuLieuChamCongTho : gồm
+DuLieuChamCongTho "1..*" ..> "0..1" ChiTietCongNgay : ghép cặp thành
+LichPhanCa ..> ChiTietCongNgay : căn cứ ghép
+BangChamCongThang "1" *-- "1..*" ChiTietCongNgay : gồm
+ChiTietCongNgay "1" --> "0..*" GiaiTrinhNgoaiLe : giải trình
+BangChamCongThang "1" --> "0..*" XacNhanCongTo : xác nhận theo tổ
+KyNghiepVu "1" --> "0..*" BangChamCongThang : thuộc kỳ
+ChiTietCongNgay "1" --> "0..*" GioOTThucTe : phát sinh OT
+BangChamCongThang ..> BangLuongThang : cấp dữ liệu
+note for DuLieuChamCongTho "Log gốc bất biến; mọi điều chỉnh nằm ở lớp khác.<br>Hệ thống chỉ tiếp nhận dữ liệu, không thu thập."
+note for BangChamCongThang "Nháp → Tổ đã xác nhận (TT) → Xưởng đã chốt (QĐ)<br>→ Đã khóa (KT, khóa kỳ công)."
+note for GiaiTrinhNgoaiLe "Lưu giá trị cũ, mới, người sửa; ghi NhatKyKiemToan."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

@@ -1,0 +1,69 @@
+---
+title: G3 – Ca làm việc (phân hệ 3)
+---
+classDiagram
+direction TB
+class CaLamViec {
+  +MaCa : String
+  +TenCa : String
+  +GioBatDau : Time
+  +GioKetThuc : Time
+  +GioNghiGiuaCa : Int
+  +IsCaDem : Boolean
+  +CoQuaNgay : Boolean
+  +tinhSoGioCaDem() Float
+  +tinhGioChuan() Float
+}
+class NgayNghiLe {
+  +MaNgay : String
+  +Ngay : Date
+  +TenNgayLe : String
+  +LoaiNgay : String
+  +MaCoSo : String «nullable»
+}
+class MauXoayCa {
+  +MaMau : String
+  +TenMau : String
+  +ChuKyNgay : Int
+  +DanhSachCaTheoThuTu : List
+  +RangBuocNghiToiThieu : Int
+  +kiemTraRangBuoc(lich) Boolean
+}
+class LichPhanCa {
+  +MaLich : String
+  +MaNV : String
+  +MaTo : String
+  +Ngay : Date
+  +MaCa : String
+  +TrangThai : DuThao / ChoDuyet / DaDuyet / TraLai
+  +LyDoTraLai : String
+  +NguoiLap : String
+  +NguoiDuyet : String
+  +lapLichTo()
+  +guiDuyet()
+  +duyet()
+  +traLai(lyDo)
+}
+class DeXuatDoiCa {
+  +MaDX : String
+  +MaLich : String
+  +MaNV : String
+  +CaCu : String
+  +CaMoi : String
+  +LyDo : String
+  +TrangThai : ChoDuyet / DaDuyet / TuChoi
+  +kiemTraRangBuocCaMoi()
+  +duyet()
+}
+class NhanVien:::ext
+class ChiTietCongNgay:::ext
+CaLamViec "1" --> "0..*" LichPhanCa : được xếp
+MauXoayCa "1" --> "0..*" LichPhanCa : sinh lịch
+NhanVien "1" --> "0..*" LichPhanCa : được phân
+LichPhanCa "1" --> "0..*" DeXuatDoiCa : đề xuất đổi
+LichPhanCa ..> ChiTietCongNgay : căn cứ ghép cặp
+NgayNghiLe ..> ChiTietCongNgay : phân loại ngày
+note for CaLamViec "Ca vắt qua nửa đêm (ca bắc cầu): CoQuaNgay = true,<br>công gán về ngày bắt đầu ca (tài liệu 06 §3)."
+note for LichPhanCa "Chỉ lịch Đã duyệt (QĐ) mới có hiệu lực; lưu lịch sử."
+note for DeXuatDoiCa "Chưa duyệt ⇒ giữ lịch hiện hành (AD-03)."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

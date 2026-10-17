@@ -1,0 +1,39 @@
+---
+title: G10 – Báo cáo, thống kê (phân hệ 10)
+---
+classDiagram
+direction TB
+class BaoCao {
+  +MaBaoCao : String
+  +LoaiBaoCao : String
+  +PhamVi : String
+  +KyBaoCao : String
+  +TrangThaiDuLieu : Nhap / ChinhThuc
+  +NguoiLap : String
+  +truyVan()
+  +kiemTraQuyenXem()
+  +kiemTraQuyenXuat()
+  +xuatFile(dinhDang)
+}
+class PhanQuyen:::ext
+class DonViPhongBan:::ext
+class BangChamCongThang:::ext
+class GioOTThucTe:::ext
+class DonNghi:::ext
+class NhanVien:::ext
+class BangLuongThang:::ext
+class BangTrichBH:::ext
+class KhauTruThue:::ext
+class CapPhatPhucLoi:::ext
+BaoCao ..> PhanQuyen : kiểm tra quyền
+BaoCao ..> DonViPhongBan : phạm vi đơn vị
+BaoCao ..> BangChamCongThang : 10.1 công
+BaoCao ..> GioOTThucTe : 10.1 OT
+BaoCao ..> DonNghi : 6.5 vắng mặt
+BaoCao ..> NhanVien : 10.2 biến động nhân sự
+BaoCao ..> BangLuongThang : 10.3 quỹ lương
+BaoCao ..> BangTrichBH : 10.4 BH
+BaoCao ..> KhauTruThue : 10.4 thuế
+BaoCao ..> CapPhatPhucLoi : 9.4 chi phí phúc lợi
+note for BaoCao "LoaiBaoCao: công/OT tổ, công/OT xưởng, biến động nhân sự,<br>quỹ lương, BH, thuế, chi phí phúc lợi.<br>Phạm vi: TT – tổ; QĐ – xưởng; KT – theo quyền được giao."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

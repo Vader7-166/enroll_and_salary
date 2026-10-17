@@ -1,0 +1,31 @@
+sequenceDiagram
+autonumber
+actor KT as Kế toán
+participant HT as Hệ thống
+participant DB as CSDL
+KT->>HT: Thêm hoặc cập nhật hồ sơ nhân viên, người phụ thuộc (2.1)
+HT->>HT: Kiểm tra dữ liệu bắt buộc, trùng mã NV, MST, số sổ BHXH
+alt Hợp lệ
+  HT->>DB: Lưu hồ sơ và lịch sử thay đổi
+  HT->>DB: Ghi nhật ký kiểm toán (1.6)
+  HT-->>KT: Lưu thành công
+else Không hợp lệ
+  HT-->>KT: Báo lỗi, chỉ ra trường cần sửa
+end
+KT->>HT: Lập HĐLĐ hoặc phụ lục (loại HĐ, ngày bắt đầu, ngày kết thúc, nội dung) (2.2)
+HT->>DB: Lấy hợp đồng đang hiệu lực của nhân viên
+DB-->>HT: Hợp đồng hiện hành
+HT->>HT: Kiểm tra chồng lấn thời hạn và loại HĐ được phép ký tiếp
+alt Hợp lệ
+  HT->>DB: Lưu hợp đồng hoặc phụ lục theo ngày hiệu lực
+  HT->>DB: Ghi nhật ký kiểm toán (1.6)
+  HT-->>KT: Hợp đồng đã ghi nhận
+else Chồng lấn hoặc sai loại HĐ
+  HT-->>KT: Báo lỗi và hợp đồng bị chồng lấn
+end
+Note over KT,DB: Thay đổi lương có hiệu lực quá khứ được xử lý hồi tố tại SQ-07
+KT->>HT: Xem cảnh báo hợp đồng sắp hết hạn (2.4)
+HT->>DB: Lọc hợp đồng hết hạn trong N ngày tới hoặc đã quá hạn
+DB-->>HT: Danh sách hợp đồng
+HT-->>KT: Danh sách cảnh báo kèm số ngày còn lại
+Note over KT,DB: Cảnh báo không tự động chấm dứt hợp đồng – chấm dứt thực hiện tại SQ-09

@@ -1,0 +1,64 @@
+---
+title: G6 – Nghỉ phép và chế độ (phân hệ 6)
+---
+classDiagram
+direction TB
+class LoaiNghi {
+  +MaLoai : String
+  +TenLoai : String
+  +CoTruQuyPhep : Boolean
+  +CoHuongBHXH : Boolean
+  +GioiHanNgay : Int
+  +YeuCauChungTu : Boolean
+}
+class QuyPhepNam {
+  +MaQuy : String
+  +MaNV : String
+  +Nam : Int
+  +SoNgayDuocCap : Float
+  +SoNgayDaNghi : Float
+  +SoNgayChuyenSang : Float
+  +getSoDu() Float
+  +truQuy(soNgay)
+  +congQuy(soNgay)
+}
+class DonNghi {
+  +MaDon : String
+  +MaNV : String
+  +MaLoaiNghi : String
+  +TuNgay : Date
+  +DenNgay : Date
+  +SoNgay : Float
+  +TrangThai : ChoDuyetCap1 / DaDuyetCap1 / TuChoi
+  +NguoiGhiNhan : String «TT»
+  +ghiNhanDon()
+  +kiemTraHopLe()
+  +duyetCap1()
+  +tuChoi(lyDo)
+}
+class HoSoOmDauThaiSan {
+  +MaHoSo : String
+  +MaNV : String
+  +LoaiCheDo : String
+  +SoChungTu : String
+  +TuNgay : Date
+  +DenNgay : Date
+  +SoNgayHuong : Float
+  +MucHuong : Decimal
+  +nhapChungTu()
+  +tinhSoNgayVaMucHuong()
+}
+class NhanVien:::ext
+class ChiTietCongNgay:::ext
+class BaoCao:::ext
+LoaiNghi "1" --> "0..*" DonNghi : phân loại
+NhanVien "1" --> "0..*" DonNghi : nghỉ
+NhanVien "1" --> "0..*" QuyPhepNam : có quỹ
+NhanVien "1" --> "0..*" HoSoOmDauThaiSan : hưởng chế độ
+DonNghi ..> QuyPhepNam : trừ quỹ nếu là phép năm
+DonNghi ..> ChiTietCongNgay : chuyển thông tin nghỉ
+DonNghi ..> BaoCao : tỷ lệ vắng mặt 6.5
+note for DonNghi "TT ghi nhận thay công nhân và duyệt – cấp duyệt duy nhất<br>(tên 'Duyệt cấp 1' theo SQ-05). QĐ không duyệt đơn nghỉ."
+note for LoaiNghi "Danh mục do Admin quản lý (6.1)."
+note for QuyPhepNam "Kế toán quản lý (6.2)."
+classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555
