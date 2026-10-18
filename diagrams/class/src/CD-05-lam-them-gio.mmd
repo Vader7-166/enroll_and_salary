@@ -41,7 +41,9 @@ class GioOTThucTe {
   +Ngay : Date
   +LoaiNgay : String
   +IsOTDem : Boolean
-  +SoGio : Float
+  +SoGioThucTe : Decimal
+  +SoGioDaDuyet : Decimal
+  +SoGioTinhTien : Decimal
   +MaHeSo : String
   +MaDX : String «nullable»
   +TrangThaiDoiChieu : Khop / Lech
@@ -70,5 +72,5 @@ GioOTThucTe ..> ThamSoPhapLy : hệ số OT
 GioOTThucTe "1" --> "0..*" QuyDoiNghiBu : quy đổi
 note for DeXuatOT "TT lập cho nhiều nhân viên; QĐ duyệt cấp 2<br>sau khi kiểm soát trần ngày / tháng / năm."
 note for GioOTThucTe "Lệch đề xuất ⇒ chuyển ngoại lệ công (AD-04)."
-note for QuyDoiNghiBu "ĐIỂM MỞ Q2: phần quy đổi có còn trả tiền<br>và trần OT tính trên giờ nào – chờ nhóm chốt."
+note for QuyDoiNghiBu "DEC-01 đã chốt: COMP_TIME_ENABLED=false.<br>Không sinh quỹ, không trừ tiền hoặc giờ OT thực tế.<br>1:1,5 và 3 tháng cũ không áp dụng; xem docs/18."
 classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

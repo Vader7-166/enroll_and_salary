@@ -1,5 +1,10 @@
 # 05. Quy trình nghiệp vụ
 
+**R1:** các quy trình công, lương, BH/thuế, phúc lợi, quyết toán và báo cáo dưới đây đều
+phải hoàn tất phần M trước nghiệm thu theo [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md).
+Phần 5.5 chỉ kiểm tra chưa kích hoạt; email/sáu FR backlog không nằm trong bản đầu.
+Lộ trình tại 16 chỉ quyết định thứ tự thực hiện, không đẩy quy trình bắt buộc sang sau R1.
+
 Tài liệu mô tả các quy trình end-to-end của hệ thống theo **11 activity diagram AD-00 …
 AD-10** (ảnh tại [`diagrams/activity/`](../diagrams/activity/); bản mô tả dạng Word:
 `diagrams/activity/MÔ  TẢ ACTIVITY DIAGRAM.docx`). Mỗi quy trình chỉ rõ tác nhân, chức năng
@@ -62,13 +67,14 @@ phúc lợi và báo cáo được chi tiết tại AD-02, AD-09 và AD-10.
 
 | Thời điểm | Hoạt động | Tác nhân |
 |---|---|---|
-| Trước ngày 20 tháng N-1 | Mở kỳ công tháng N (kỳ trước phải đã khóa); lập và duyệt lịch ca tháng N | AD; TT → QĐ |
+| Trước ngày 20 tháng N-1 | Tạo kỳ công tháng N ở Lập kế hoạch; lập và duyệt lịch ca, không cần kỳ trước khóa | AD; TT → QĐ |
+| Trước cửa sổ Vào đầu tiên của kỳ N | AD chuyển kỳ sang Mở; có thể đồng thời với kỳ trước đang đối soát | AD |
 | Hằng ngày | Nhập tệp chấm công từng cơ sở; ghép cặp vào/ra; xử lý ngoại lệ phát sinh | AD, Hệ thống, TT |
 | Hằng ngày | Đề xuất và duyệt OT; ghi nhận và duyệt đơn nghỉ | TT, QĐ |
-| Ngày 25 tháng N | Cut-off kỳ công | – |
+| Ngày 25 tháng N | Ngày công cuối kỳ; tiếp tục nhận lượt Ra ngày 26 của ca đêm ngày 25 và OT nối tiếp | AD, Hệ thống |
 | Ngày 25 – 27 | Tổ trưởng xác nhận công thực tế của tổ | TT |
 | Ngày 26 – 28 | Đối chiếu công, OT, nghỉ các tổ; chạy đối soát chéo; chốt bảng công xưởng | QĐ, Hệ thống |
-| Ngày 28 | **Kiểm tra và khóa kỳ công** | KT |
+| Ngày 28 (dự kiến) | **Kiểm tra và khóa kỳ công** sau khi đủ nguồn/cửa sổ ca cuối, các xưởng đã chốt; thiếu dữ liệu thì giữ chờ | KT |
 | Ngày 28 – 02 tháng N+1 | Mở kỳ lương; tính lương (bảng nháp), đối chiếu chênh lệch, cổng chặn tuân thủ | AD, KT |
 | Ngày 02 – 06 | Ký duyệt nội bộ trên bản kết xuất (nếu quy chế yêu cầu, ngoài hệ thống); duyệt bảng lương | KT |
 | Ngày 06 – 08 | Khóa kỳ lương, xuất file chi lương | KT |
@@ -88,7 +94,7 @@ Admin chọn một trong ba tác vụ:
 | Tác vụ | Bước | Kết quả / nhánh |
 |---|---|---|
 | **Cập nhật cấu hình** | Nhập thay đổi tài khoản và phân quyền theo đơn vị (1.1), cơ cấu tổ chức (1.2), vùng lương và tham số pháp lý (1.3), chính sách theo cơ sở (1.4) → hệ thống kiểm tra dữ liệu, phạm vi, khoảng hiệu lực | Hợp lệ → lưu, giữ phiên bản theo hiệu lực, ghi nhật ký. Không hợp lệ → trả lỗi để Admin sửa |
-| **Mở kỳ** (1.5) | Chọn loại kỳ (công / lương), cơ sở, khoảng thời gian → hệ thống kiểm tra kỳ trùng và trạng thái kỳ trước cùng loại, cùng phạm vi | Kỳ trước đã khóa → tạo kỳ trạng thái Mở, ghi nhật ký. Chưa khóa → thông báo lý do, không mở. Kỳ đầu tiên xử lý theo trường hợp khởi tạo |
+| **Tạo/mở kỳ** (1.5) | Chọn loại kỳ, cơ sở, khoảng ngày công → kiểm tra không chồng kỳ, tạo Lập kế hoạch; AD mở trước cửa sổ Vào đầu tiên | Không yêu cầu kỳ trước khóa để tạo/mở. Khóa kỳ sau mới kiểm tra thứ tự; mọi chuyển trạng thái ghi nhật ký ([17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md)) |
 | **Xem nhật ký** (1.6) | Chọn phạm vi và điều kiện lọc | Hiển thị nhật ký được phép xem |
 
 **Quy tắc then chốt:** tham số pháp lý được **thêm phiên bản mới** có hiệu lực, đóng hiệu lực
@@ -176,6 +182,13 @@ Hệ thống **chỉ tiếp nhận** tệp dữ liệu chấm công, không bao 
 Mọi điều chỉnh giữ lịch sử và **không ghi đè log gốc**. Thuật toán chi tiết:
 [06](06-thuat-toan-cham-cong-va-tinh-luong.md).
 
+**Qua ngày chốt:** import theo cơ sở rồi phân tuyến theo ca/ngày công, không ép tất cả dòng
+vào kỳ đã chọn. Lượt ra ca ngày 25 có thể nằm ngày 26; ca ngày 26 đi kỳ mới. Chỉ chốt xưởng
+sau `collection_until`, xác nhận đủ nguồn và hết tác vụ/ngoại lệ chặn. Toàn bộ xưởng chốt
+thì kỳ sang `CLOSED`; KT khóa nguyên tử. KT có thể trả lại `CLOSED → OPEN` trước khóa;
+dữ liệu sửa đổi phải xác nhận/chốt lại. Log đến sau khóa được giữ ở hồ sơ muộn, điều chỉnh
+qua kỳ mở và không sửa snapshot ([17 §3–4](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md)).
+
 **Các loại ngoại lệ:**
 
 | Loại ngoại lệ | Cách xử lý | Tác nhân |
@@ -219,16 +232,15 @@ QĐ, ghi nhận người xác nhận.
 | 3a | Vượt trần → cảnh báo, **không cho duyệt**; QĐ từ chối hoặc yêu cầu điều chỉnh, thông báo TT | QĐ | Lưu kết quả, kết thúc lượt |
 | 3b | Trong trần, đủ điều kiện → QĐ duyệt → Đã duyệt, thông báo TT | QĐ | – |
 | 4 | Khi có dữ liệu chấm công: hệ thống đối chiếu OT thực tế với đề xuất, phân loại ngày, đêm, tính giờ OT theo hệ số (5.4) | Hệ thống | Còn giờ cần giải trình → chuyển sang ngoại lệ công AD-04 |
-| 5 | Nếu có yêu cầu quy đổi nghỉ bù (5.5): hệ thống kiểm tra căn cứ và điều kiện | KT, Hệ thống | Không đủ → giữ nguyên kết quả OT |
+| 5 | Yêu cầu quy đổi nghỉ bù (5.5) khi COMP_TIME_ENABLED=false | KT, Hệ thống | Trả COMP_TIME_DISABLED; không sinh quỹ, giữ tiền/giờ OT theo DEC-01 |
 | 6 | Cập nhật kết quả OT cho công và lương | Hệ thống | – |
 
 **Ngưỡng cảnh báo:** chạm 90% trần tháng (36/40 giờ) → cảnh báo tới TT và QĐ. Giá trị trần là
 cấu hình theo cơ sở / ngành (BR-27).
 
-> **Điểm mở Q2 (chờ nhóm chốt).** SQ-04 bước 19 ghi “trừ giờ OT trả tiền, cộng quỹ nghỉ bù”;
-> AD-05 ghi “ghi nhận nghỉ bù và ảnh hưởng chi trả theo chính sách hợp lệ, giữ nguyên giờ OT
-> thực tế”. Hai điểm thống nhất: giờ OT thực tế vẫn giữ để kiểm soát trần, quy đổi chỉ thực
-> hiện khi có căn cứ. Điểm chưa thống nhất: phần giờ đã quy đổi có còn được trả tiền hay không.
+> **Q2 đã chốt:** theo [18 DEC-01](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md), chưa bật
+> quy đổi, tiền OT không bị thay bằng nghỉ bù. Câu “trừ giờ OT trả tiền” trong ảnh SQ-04 cũ
+> đã bị thay thế, không dùng làm yêu cầu hiện hành. Lịch nghỉ bù ngày lễ vẫn theo BR-16.
 
 ---
 
@@ -290,6 +302,12 @@ SQ-11 · **Sơ đồ:** [AD-07](../diagrams/activity/AD-07.png)
 | 8 | KT **khóa kỳ lương** → Đã khóa, ghi nhật ký kiểm toán, lưu snapshot | – |
 | 9 | KT xuất **phiếu lương** và **file chi lương** (7.6) | Xuất file không đồng nghĩa đã thanh toán |
 
+Trước khi tính, KT chọn phương án lương và đối chiếu lô đầu vào CONFIRMED theo
+[18 §4](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md). TT/QĐ xác nhận nguồn sản xuất/KPI
+ngoài hệ thống, KT tiếp nhận trong phân hệ 7. Thiếu sản lượng/đơn giá/KPI bắt buộc không
+được thay bằng 0; phương án không áp dụng khoản nào phải ghi rõ NOT_APPLICABLE. Bộ mẫu
+26 công, dung sai và phép chỉ có phạm vi mô phỏng đồ án theo DEC-03.
+
 **Trình tự tính bên trong một lần chạy:**
 
 ```
@@ -301,9 +319,12 @@ SQ-11 · **Sơ đồ:** [AD-07](../diagrams/activity/AD-07.png)
 6. Tính phụ cấp ca đêm trên số giờ đêm thực tế
 7. Tính thưởng nếu kỳ có thưởng; cộng phụ cấp, thưởng, phúc lợi chịu thuế → TỔNG THU NHẬP
 8. Xác định lương đóng BH (sàn / trần theo vùng) → BHXH, BHYT, BHTN phần NLĐ; KPCĐ phần DN
-9. Bóc tách thu nhập miễn thuế (phần chênh lệch OT / đêm, ăn ca, trang phục…)
-10. Trừ giảm trừ gia cảnh còn hiệu lực → thu nhập tính thuế → biểu lũy tiến theo hiệu lực
-    (5 bậc từ kỳ tính thuế 2026) → thuế TNCN
+9. Xác định kỳ thuế theo thời điểm chi trả (ngày dự kiến nếu tính nháp); bóc tách miễn thuế
+   theo bộ quy tắc: chênh lệch OT/đêm ở bộ 2025; tiền OT/đêm đủ điều kiện ở bộ 2026;
+   ăn ca và các khoản khác tra đúng hiệu lực riêng (BR-54, 12 §2.7)
+10. Chọn cách khấu trừ theo cư trú và hợp đồng; nhánh lũy tiến trừ giảm trừ và BH bắt buộc
+    đủ điều kiện → thu nhập tính thuế → biểu theo kỳ thuế (5 bậc cho cá nhân cư trú từ 2026)
+    → thuế TNCN; các nhánh 10% / không cư trú dùng quy tắc riêng (BR-52)
 11. Áp các khoản khấu trừ khác (trần 30% NET — BR-44)
 12. Cộng bút toán truy lĩnh / truy thu đã xác nhận, tiền đền bù chậm trả nếu có → THỰC LĨNH
 13. Áp chính sách làm tròn đã khai báo (BR-41)
@@ -335,7 +356,8 @@ thực tế do KT ghi nhận.
        └─ Không đủ căn cứ → thông báo dữ liệu cần bổ sung, kết thúc lượt
    → Hệ thống tìm các kỳ lương đã khóa bị ảnh hưởng
    → Với mỗi kỳ: lấy công, OT và tham số còn hiệu lực của kỳ đó, tính lại lương, so với số đã chi
-   → Tính chênh lệch lương, BH, thuế TNCN; loại phần đã được điều chỉnh trước đó
+   → Tính chênh lệch lương, BH; thuế của khoản chi bổ sung tra theo thời điểm chi trả,
+     không tự dùng biểu thuế kỳ công gốc; sửa sai thuế đã khai xử lý riêng; loại phần đã điều chỉnh
    → Bảng chênh lệch theo từng kỳ cho KT đối chiếu
        ├─ KT xác nhận → ghi bút toán điều chỉnh vào kỳ đang mở, ghi nhật ký
        │                (KỲ ĐÃ KHÓA GIỮ NGUYÊN SỐ LIỆU)

@@ -1,5 +1,11 @@
 # 10. Phân quyền và bảo mật
 
+**AI-02 mở rộng:** [24](24-ai-tro-ly-nghiep-vu-theo-vai-tro.md) phục vụ TT/QĐ/KT/AD;
+backend lọc corpus theo quyền trước retrieval/Gemini và kiểm tra lại trước response/
+cache. Không gửi hồ sơ/lương/log thô, không cấp tool/quyền ghi, không tin role/pageKey
+từ client. Key Google Gemini ở server; model/tier/điều kiện dữ liệu chốt trước bật.
+AI-01 giải thích lương chỉ KT tại 23 là hướng sau sprint, chưa mở rộng quyền lương.
+
 Dữ liệu tiền lương và thông tin nhân thân là **dữ liệu cá nhân nhạy cảm** theo NĐ 13/2023/NĐ-CP.
 Tài liệu này đặc tả mô hình kiểm soát truy cập, bảo vệ dữ liệu và nhật ký kiểm toán.
 
@@ -38,6 +44,13 @@ Hệ thống chỉ có **bốn vai trò** (lớp `VaiTro`, chức năng 1.1). C�
 | Quản đốc | `QD` | 3.4, 4.5, 5.2, 5.3, 6.5, 10.1, 10.2 | Duyệt lịch ca, duyệt OT cấp 2, chốt công xưởng, xem vắng mặt và biến động nhân sự |
 | Kế toán | `KT` | 1.5, 2.x, 4.5, 5.5, 6.2, 6.4, 7.x, 8.x, 9.x, 10.3, 10.4 | Hồ sơ – hợp đồng, khóa kỳ công, lương, BH, thuế, phúc lợi |
 | Admin | `AD` | 1.1 – 1.6, 3.1, 4.1, 6.1 | Tài khoản, tổ chức, tham số, chính sách, mở kỳ, danh mục ca và loại nghỉ, nhập dữ liệu chấm công; **không** xem lương chi tiết, **không** sửa / xóa nhật ký |
+
+**Quyền API ca đã triển khai:** mọi vai trò có `shift.read` theo đơn vị được cấp;
+AD có `shift.manage`, TT có `shift.plan`, QĐ có `shift.approve`; KT chỉ đọc lịch.
+Đọc kế thừa danh mục cấp cha không cấp quyền đọc hồ sơ nhân sự cấp cha cho AD/TT.
+Chỉ người lập được sửa/gửi/hủy lịch chưa duyệt; người lập không tự duyệt/trả lại,
+kể cả tài khoản nhiều vai trò. Mỗi lượt/phiên bản cũ đều chịu phạm vi hiện tại và
+theo ngày công, exclusion; không trả lương/hợp đồng trong API ca. Xem 20 §7.10.
 
 ### 1.2. Trục phạm vi dữ liệu
 
@@ -90,7 +103,8 @@ Truy cập che trường được ghi audit log với kết quả `PARTIAL_MASKE
 | Cấu hình cây tổ chức, cơ sở | 1.2 | – | 👁 | 👁 | ✔ |
 | Vùng lương, tham số pháp lý | 1.3 | – | – | 👁 | ✔ |
 | Chính sách theo cơ sở | 1.4 | – | 👁 | 👁 | ✔ |
-| Mở kỳ công, kỳ lương | 1.5 | – | – | 👁 | ✔ |
+| Tạo kỳ Lập kế hoạch, mở kỳ công/kỳ lương | 1.5 | – | – | 👁 | ✔ |
+| Trả kỳ CLOSED về OPEN trước khóa, bắt buộc lý do | 1.5 | – | – | ✔ | – |
 | Khóa kỳ công, kỳ lương | 1.5, 4.5, 7.5 | – | – | ✔ | – |
 | Tra cứu nhật ký kiểm toán | 1.6 | – | – | 👁 (đối tượng thuộc phạm vi) | ✔ |
 | Hồ sơ, người phụ thuộc, hợp đồng, quyết định | 2.1 – 2.4 | 👁 (tổ, không gồm lương) | 👁 (xưởng, không gồm lương) | ✔ | – |
@@ -104,9 +118,11 @@ Truy cập che trường được ghi audit log với kết quả `PARTIAL_MASKE
 | Giải trình, điều chỉnh công | 4.3 | ✔ | – | – | – |
 | Xác nhận công tổ | 4.4 | ✔ | – | – | – |
 | Chốt bảng công xưởng | 4.5 | – | ✔ | – | – |
+| Trả bảng công xưởng về nháp trước khóa, bắt buộc lý do | 4.5 | – | ✔ | – | – |
+| Xác nhận đã nhập đủ nguồn tới mốc thu log | 4.1 | – | – | 👁 | ✔ (cơ sở) |
 | Đề xuất OT | 5.1 | ✔ | 👁 | 👁 | – |
 | Duyệt OT cấp 2 (kiểm soát trần) | 5.2, 5.3 | – | ✔ | 👁 | – |
-| Quy đổi nghỉ bù | 5.5 | – | – | ✔ | – |
+| Yêu cầu quy đổi nghỉ bù (chưa kích hoạt DEC-01, trả COMP_TIME_DISABLED) | 5.5 | – | – | ✔ | – |
 | Danh mục loại nghỉ | 6.1 | 👁 | 👁 | 👁 | ✔ |
 | Quỹ phép năm, ốm đau – thai sản | 6.2, 6.4 | 👁 (số dư của tổ) | – | ✔ | – |
 | Ghi nhận, duyệt đơn nghỉ | 6.3 | ✔ | 👁 | 👁 | – |

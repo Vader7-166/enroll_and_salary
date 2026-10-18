@@ -15,7 +15,8 @@
 | **NĐ 293/2025/NĐ-CP** | 01/01/2026 | Lương tối thiểu vùng 2026 |
 | **NĐ 283/2026/NĐ-CP** | **10/09/2026** | Xử phạt vi phạm hành chính lĩnh vực lao động, BHXH |
 | **NĐ 13/2023/NĐ-CP** | 01/07/2023 | Bảo vệ dữ liệu cá nhân |
-| **NĐ 320/2025/NĐ-CP** | 2025 | Miễn thuế TNCN phần thu nhập chênh lệch OT / làm đêm |
+| **TT 111/2013/TT-BTC; NQ 954/2020/UBTVQH14** | Bộ lịch sử áp dụng cho năm 2025 | Biểu 7 bậc, giảm trừ 11 / 4,4 triệu; điểm i khoản 1 Điều 3 TT 111: miễn phần chênh lệch OT/đêm |
+| **NĐ 253/2026/NĐ-CP** | 01/07/2026; phạm vi áp dụng riêng theo Điều 69 | Điều 26 miễn OT/đêm và tiền ngày không nghỉ phép đủ điều kiện; Điều 50 khấu trừ; Điều 70 chuyển tiếp |
 | **Luật Thuế TNCN 109/2025/QH15** | 01/07/2026 (thu nhập tiền lương của cá nhân cư trú áp dụng từ kỳ tính thuế 2026) | Biểu thuế lũy tiến 5 bậc 5% / 10% / 20% / 30% / 35% |
 | **NQ 110/2025/UBTVQH15** | Kỳ tính thuế 2026 | Giảm trừ gia cảnh 15,5 triệu đồng/tháng (bản thân), 6,2 triệu đồng/tháng (mỗi người phụ thuộc) |
 
@@ -65,12 +66,16 @@
 | Ghi vết truy cập dữ liệu nhạy cảm | FR-1.6.4 — kể cả truy cập bị từ chối |
 | Quyền của chủ thể dữ liệu | [10 §3.4](10-phan-quyen-va-bao-mat.md) |
 
-### 2.5. NĐ 320/2025/NĐ-CP — Miễn thuế TNCN phần OT chênh lệch
+### 2.5. Miễn thuế OT / làm đêm theo kỳ hiệu lực
 
 | Yêu cầu | Chức năng cài đặt |
 |---|---|
-| Bóc tách phần thu nhập chênh lệch do OT / làm đêm | FR-8.4.3 · BR-54 · [06 §7.2](06-thuat-toan-cham-cong-va-tinh-luong.md) |
-| Phần 100% gốc vẫn chịu thuế | Cùng thuật toán bóc tách |
+| Bộ 2025: miễn phần chênh lệch so với làm việc bình thường; phần gốc chịu thuế (điểm i khoản 1 Điều 3 TT 111/2013) | FR-8.4.3 · BR-54 · [06 §7.2](06-thuat-toan-cham-cong-va-tinh-luong.md) |
+| Bộ 2026 của cá nhân cư trú: miễn tiền OT/đêm đáp ứng điều kiện, thời gian và mức theo pháp luật; phần vượt mức chịu thuế (khoản 8 Điều 4 Luật 109; Điều 26 NĐ 253) | Tách lương giờ đêm bình thường và phụ cấp; lưu chứng từ, không đếm trùng |
+| Tiền ngày không nghỉ phép: chỉ miễn khi đủ điều kiện khoản 2 Điều 26 NĐ 253 | Gắn khoản chi với căn cứ chấm dứt HĐ và số ngày phép đủ điều kiện |
+
+**Sửa căn cứ:** NĐ 320/2025/NĐ-CP hướng dẫn **thuế thu nhập doanh nghiệp**, không phải căn cứ
+miễn thuế TNCN OT. Không dùng văn bản này trong tham số TNCN.
 
 ### 2.6. Luật 109/2025/QH15 và NQ 110/2025/UBTVQH15 — Thuế TNCN từ kỳ tính thuế 2026
 
@@ -78,7 +83,40 @@
 |---|---|
 | Biểu thuế lũy tiến 5 bậc thay biểu 7 bậc | FR-8.4.4 · BR-52 · bảng `pit_bracket` theo hiệu lực ([06 §7.1](06-thuat-toan-cham-cong-va-tinh-luong.md)) |
 | Giảm trừ gia cảnh 15,5 / 6,2 triệu đồng/tháng | FR-8.4.2 · BR-53 · tham số `PIT_DEDUCTION_SELF`, `PIT_DEDUCTION_DEPENDENT` |
+| Giảm trừ khác theo Điều 46 NĐ 253: y tế/giáo dục có trần năm, điều kiện chứng từ và nguồn tự chi | FR-8.4.2 · BR-53; lưu số đã dùng, không trừ lặp khi quyết toán |
 | Quyết toán năm 2026 dùng bộ tham số khác năm 2025 | FR-8.5.1 · tra tham số theo kỳ tính thuế (BR-03) |
+
+### 2.7. Ma trận áp dụng thuế tiền lương và điều khoản chuyển tiếp
+
+Ngày đối chiếu nguồn: **17/10/2026**. “Kỳ thuế” trong bảng là kỳ của **khoản chi trả**,
+không phải tên kỳ công. Hiệu lực pháp lý của văn bản và thời gian áp dụng cho từng nhóm
+thu nhập phải lưu riêng; không dùng ngày 01/07/2026 để chia đôi biểu thuế năm của cá nhân cư trú.
+
+| Quy tắc | Bộ lịch sử 2025 | Bộ 2026 / mốc áp dụng | Căn cứ |
+|---|---|---|---|
+| Thời điểm xác định TNCN tiền lương | Thời điểm trả/nhận thu nhập | Tiếp tục theo thời điểm trả/nhận, kể cả truy lĩnh | Khoản 2 Điều 8 TT 111; khoản 3 Điều 8 Luật 109 |
+| Biểu lũy tiến cá nhân cư trú | 7 bậc | 5 bậc từ kỳ tính thuế 2026 | Điều 9, khoản 2 Điều 29 Luật 109 |
+| Giảm trừ tháng bản thân / người phụ thuộc | 11 / 4,4 triệu | 15,5 / 6,2 triệu từ kỳ 2026 | NQ 954/2020; NQ 110/2025; Điều 10 Luật 109 |
+| Miễn OT/đêm của cá nhân cư trú | Phần chênh lệch | Khoản trả đủ điều kiện được miễn từ kỳ 2026; phần vượt mức chịu thuế | Điều 26, điểm a khoản 1 Điều 69 NĐ 253 |
+| Khấu trừ 10% cá nhân cư trú không HĐ/HĐ < 3 tháng | Từ 2 triệu/lần; cam kết theo điều kiện | Bộ 2026: từ 5 triệu/lần; dưới ngưỡng chỉ khấu trừ khi cá nhân yêu cầu; cam kết hợp lệ được tạm chưa khấu trừ | Khoản 2 Điều 50, điểm a khoản 1 Điều 69 NĐ 253 |
+| Tiền ăn giữa ca/ăn trưa trả bằng tiền | Theo quy định có hiệu lực tại thời điểm chi | Mức 1,2 triệu/người/tháng **chỉ từ 01/07/2026**; phần vượt chịu thuế; bữa ăn tổ chức trực tiếp xử lý riêng | Điểm g khoản 2 Điều 8, điểm b khoản 1 Điều 69 NĐ 253 |
+| Cá nhân không cư trú | Thuế suất 20%; không giảm trừ gia cảnh | Tiếp tục 20%; các quy tắc mới thuộc NĐ 253 áp dụng từ 01/07/2026, không tự áp hồi tố theo ngoại lệ dành cho cư trú | Điều 64, 69 NĐ 253 |
+| Hồ sơ tháng/quý 01/01–30/06/2026 đã khai/nộp theo bộ cũ | Giữ số thực tế đã khai/nộp | Không phải nộp lại hồ sơ tháng/quý do chuyển tiếp; điều chỉnh tại quyết toán 2026 | Khoản 2 Điều 70 NĐ 253 |
+
+**Ví dụ bắt buộc:** lương 12/2025 chi ngày 09/01/2026 cho cá nhân cư trú thuộc kỳ thuế 2026;
+chạy lại trong 2027 không đổi kỳ thuế. Ngược lại, tái hiện khoản đã chi ngày 31/12/2025 vẫn
+dùng bộ 2025. Nếu bảng lương mới là dự kiến, phải lưu ngày trả dự kiến; đối chiếu lại khi
+biết ngày trả thực tế. Hồ sơ khấu trừ đã nộp, bản tính lại nghĩa vụ và bút toán điều chỉnh
+là các bản ghi liên kết, không ghi đè nhau hoặc sửa bảng lương đã khóa.
+
+**Nguồn chính thức để duy trì bộ tham số:**
+
+- [Luật 109/2025/QH15](https://vanban.chinhphu.vn/?docid=216495&pageid=27160).
+- [NĐ 253/2026/NĐ-CP — bản gốc Công báo](https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-253-2026-nd-cp-469959.htm), đặc biệt Điều 26, 50, 69, 70.
+- [NQ 110/2025/UBTVQH15](https://vanban.chinhphu.vn/?docid=215927&pageid=27160).
+- [TT 111/2013/TT-BTC](https://chinhphu.vn/?docid=169566&pageid=27160), dùng bản quy định còn áp dụng cho hồ sơ lịch sử.
+- [Giải đáp của cơ quan thuế về OT 12/2025 chi trong 01/2026](https://chinhsachonline.chinhphu.vn/thoi-diem-xac-dinh-thu-nhap-tinh-thue-thu-nhap-ca-nhan-85393.htm).
+- [NĐ 320/2025 về thuế thu nhập doanh nghiệp](https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-320-2025-nd-cp-46841.htm) — chỉ để xác nhận và loại bỏ tham chiếu TNCN nhầm.
 
 ---
 

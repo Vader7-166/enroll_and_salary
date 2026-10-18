@@ -23,14 +23,14 @@ Kỳ công và kỳ lương là hai **kỳ nghiệp vụ** (lớp `KyNghiepVu`, 
 (cơ sở / đơn vị), khoảng ngày và vòng trạng thái riêng. Ràng buộc:
 
 - **Không trùng kỳ**: cùng loại, cùng phạm vi không được chồng khoảng ngày.
-- **Kỳ trước cùng loại, cùng phạm vi phải đã khóa** mới mở được kỳ sau (SQ-11); kỳ đầu tiên
-  xử lý theo trường hợp khởi tạo.
+- Được tạo/lập kế hoạch và mở kỳ sau khi kỳ trước còn đối soát. Chỉ khi **khóa kỳ sau**
+  mới yêu cầu kỳ trước đã tồn tại cùng loại/phạm vi đã khóa; kỳ đầu xử lý theo khởi tạo.
 - **Kỳ lương chỉ tính được khi kỳ công tương ứng đã khóa.**
 
 | Đối tượng | Chu kỳ mặc định | Trạng thái | Người chuyển trạng thái |
 |---|---|---|---|
-| Kỳ công | 26 tháng trước → 25 tháng hiện tại | Mở → Đã chốt → Đã khóa | AD mở; KT khóa sau khi các xưởng đã chốt (4.5) |
-| Kỳ lương | Tính sau khi khóa công, chi ngày 10 tháng sau | Mở → Đã chốt → Đã khóa | AD mở; KT duyệt và khóa (7.5) |
+| Kỳ công | 26 tháng trước → 25 tháng hiện tại, tính theo **ngày công của ca** | Lập kế hoạch → Mở → Đã chốt → Đã khóa | AD tạo/mở; hệ thống chốt toàn kỳ khi đủ xưởng; KT khóa (4.5) |
+| Kỳ lương | Tính sau khi khóa các kỳ công nguồn, chi ngày 10 tháng sau | Lập kế hoạch → Mở → Đã chốt → Đã khóa | AD tạo/mở; KT duyệt và khóa (7.5) |
 | Bảng chấm công tháng (theo xưởng) | Theo kỳ công | Nháp → Tổ đã xác nhận → Xưởng đã chốt → Đã khóa | TT xác nhận tổ (4.4) → QĐ chốt xưởng → KT khóa kỳ công (4.5) |
 | Bảng lương (theo cơ sở) | Theo kỳ lương | Nháp → Đã duyệt → Đã khóa | KT (7.5) |
 
@@ -38,10 +38,18 @@ Ngày chốt công có thể khác nhau giữa các cơ sở và giữa khối t
 theo cơ sở, 1.4). Xuất file chi lương (7.6) **không** chuyển bảng lương sang trạng thái “đã
 thanh toán”.
 
+Đã chốt (`CLOSED`) được KT trả lại Mở có lý do **trước khóa**; sửa dữ liệu làm mất hiệu lực
+xác nhận/chốt xưởng liên quan, phải duyệt lại. `LOCKED` không có đường quay lại. Ngày 25
+không tự khóa: phải chờ cửa sổ Ra của mọi ca cuối kỳ (kể cả OT), xác nhận đủ nguồn, xử lý
+hết tác vụ/ngoại lệ chặn trước chốt và khóa. Vòng đời, phân tuyến log muộn và lỗi nghiệp vụ
+được quy định thống nhất tại [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md).
+
 ### BR-02 · Mọi giá trị pháp lý là tham số theo khoảng hiệu lực 🔴
 
 Không giá trị pháp lý nào được viết cứng trong mã nguồn. Mỗi tham số có khóa
-`(mã tham số, hiệu_lực_từ, hiệu_lực_đến)` và **không được chồng lấn khoảng hiệu lực**.
+`(mã tham số, phạm_vi, đối_tượng, cơ_sở_áp_dụng, hiệu_lực_từ, hiệu_lực_đến)` và **không
+được chồng lấn khoảng hiệu lực** trên cùng mã/phạm vi/đối tượng/cơ sở áp dụng. Tham số
+không phân biệt đối tượng dùng giá trị chung; quy tắc phân giải phải trả về đúng một phiên bản.
 
 Danh mục tham số bắt buộc tối thiểu:
 
@@ -49,7 +57,7 @@ Danh mục tham số bắt buộc tối thiểu:
 |---|---|
 | Lương tối thiểu | Mức tháng và mức giờ theo từng vùng I–IV |
 | Bảo hiểm | Tỷ lệ BHXH / BHYT / BHTN hai phía, trần đóng, sàn đóng |
-| Thuế TNCN | Giảm trừ bản thân, giảm trừ người phụ thuộc, biểu thuế lũy tiến (7 bậc đến hết 2025; 5 bậc từ kỳ tính thuế 2026), thuế suất không cư trú, thuế suất khấu trừ 10% |
+| Thuế TNCN | Giảm trừ bản thân/người phụ thuộc; biểu thuế; chế độ miễn OT/đêm; thuế suất và ngưỡng khấu trừ mỗi lần trả; định mức ăn ca; tất cả theo đối tượng, thời điểm chi trả và phạm vi áp dụng của văn bản |
 | Làm thêm giờ | Hệ số OT ngày thường / nghỉ tuần / lễ, phụ cấp đêm, hệ số cộng thêm OT đêm |
 | Trần OT | Trần theo ngày / tháng / năm, cờ đăng ký 300h/năm |
 | Công đoàn | Tỷ lệ KPCĐ, tỷ lệ đoàn phí, trần đoàn phí |
@@ -61,6 +69,15 @@ Mọi phép tính tra tham số theo **ngày nghiệp vụ của giao dịch**. 
 tháng 02/2026 phải cho ra mức lương tối thiểu của năm 2025.
 
 *Hệ quả:* bảo đảm tính idempotent và khả năng đối chiếu với hồ sơ đã nộp cho cơ quan quản lý.
+
+**Riêng TNCN tiền lương:** kỳ tính thuế xác định theo **thời điểm chi trả/nhận thu nhập**,
+không lấy tháng công, ngày hiệu lực quyết định lương hoặc ngày chạy chương trình làm kỳ thuế.
+Lương tháng 12/2025 đã trả trong 12/2025 dùng bộ thuế 2025 khi tái hiện; lương tháng 12/2025
+trả vào 01/2026 dùng bộ thuế 2026 đối với cá nhân cư trú. Phần lương/công và BH vẫn tra theo
+quy tắc thời gian riêng. Chi tiết ma trận hiệu lực và chuyển tiếp tại [12 §2.7](12-tuan-thu-phap-ly.md).
+Tính nháp dùng ngày dự kiến trả và đánh dấu `PROJECTED`; khi trả thực tế phải đối chiếu lại.
+Tái hiện số đã khấu trừ dùng snapshot đã lưu; tính nghĩa vụ đúng luật để quyết toán là một
+kết quả riêng, không ghi đè hồ sơ tháng/quý đã nộp.
 
 ### BR-04 · Mọi tham số phải khai báo văn bản căn cứ 🔴
 
@@ -125,14 +142,18 @@ hơn lương tối thiểu vùng.
 |---|---|---|---|
 | Ca A (sáng) | 06:00 – 14:00 | 8h | 30 phút, **tính vào giờ làm việc** |
 | Ca B (chiều) | 14:00 – 22:00 | 8h | 30 phút, tính vào giờ làm việc |
-| Ca C (đêm) | 22:00 – 06:00 hôm sau | 8h | 30 phút, tính vào giờ làm việc |
-| Hành chính | 08:00 – 17:00, T2–T7 | 8h | Theo nội quy |
+| Ca C (đêm) | 22:00 – 06:00 hôm sau | 8h | 45 phút, tính vào giờ làm việc |
+| Hành chính | 08:00 – 17:00, T2–T7 | 8h | 60 phút không tính vào giờ làm việc |
 
 Khối trực tiếp xoay ca theo **chu kỳ tuần**; mỗi người phải làm đủ 3 loại ca trong tháng.
 
 ### BR-11 · Giới hạn thời giờ làm việc bình thường 🔴
 
 Không quá **8 giờ/ngày** và **48 giờ/tuần** (khuyến khích 40 giờ/tuần).
+Nghỉ giữa hai ca ít nhất **12 giờ**; không xếp ca đêm rồi ngay ca sáng hôm sau.
+Trong module local, tuần tính thứ Hai–Chủ nhật theo ngày bắt đầu ca; tham số cơ sở/vùng
+có thể chặt hơn nhưng không được nới các giới hạn này. Nghỉ giữa ca làm từ 6 giờ
+ít nhất 30 phút; làm ban đêm từ 6 giờ ít nhất 45 phút (Điều 109 BLLĐ 2019).
 
 ### BR-12 · Khung giờ làm việc ban đêm 🔴
 
@@ -144,19 +165,27 @@ mọi ca, không riêng ca C.
 Ca C bắt đầu 22:00 ngày T sinh **đúng một** bản ghi ngày công của ngày T, chứa cả phần giờ
 rơi sang ngày T+1. Không tách thành hai ngày lẻ.
 
+Ngày T lấy từ **ngày bắt đầu ca trong lịch đã duyệt**, không lấy ngày lịch của lượt Vào.
+Ca 00:00 ngày 26 có lượt vào sớm 23:45 ngày 25 vẫn thuộc ngày công 26. Kỳ công chứa ngày T
+sở hữu toàn bộ ca và OT nối tiếp; cửa sổ thu log được đi qua ngày chốt, không cắt theo
+timestamp ngày 25/26 ([17 §2–4](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md)).
+
 *Ngoại lệ cần xử lý riêng:* việc **phân loại ngày** để áp hệ số OT vẫn tách theo mốc 00:00,
 vì một ca có thể vắt từ ngày thường sang ngày lễ. Xem **BR-24**
 và [thuật toán 06](06-thuat-toan-cham-cong-va-tinh-luong.md).
 
 ### BR-14 · Ngày công chuẩn tháng 🟡
 
-Cấu hình được: cố định 26 công hoặc theo ngày làm việc thực tế. Mặc định **26** cho khối
-sản xuất. Giá trị này ảnh hưởng trực tiếp tới công thức đơn giá ngày và đơn giá giờ.
+Cấu hình được: 26 công hoặc theo lịch làm việc. **26** là cấu hình mô phỏng khối sản xuất
+được xác nhận theo DEC-03, không phải quy chế doanh nghiệp. Dùng cho lương thời gian/
+phân bổ công; căn cứ và mẫu số OT xác định riêng theo BR-15, không tự lấy 26 × 8.
 
 ### BR-15 · Bẫy mẫu số khi tính lương giờ 🔴
 
-Lương giờ thực trả = **lương tháng ÷ tổng số giờ làm việc thực tế trong tháng**, trong đó
-**không tính** giờ nghỉ lễ / Tết có hưởng lương vào mẫu số.
+Đối với lương theo thời gian, đơn giá giờ OT lấy **tiền lương công việc đủ điều kiện ÷ số
+giờ làm việc bình thường tương ứng** theo Điều 55 NĐ 145/2020. Tách các khoản bị loại khỏi
+tử số, loại giờ OT và giờ nghỉ lễ/Tết hưởng lương khỏi mẫu số; lưu căn cứ từng cấu phần.
+Không mặc định tử số chỉ là lương cơ bản hoặc dùng công chuẩn 26 làm mẫu số cho mọi người.
 
 > Đưa ngày lễ vào mẫu số làm "pha loãng" đơn giá → trả thiếu lương làm thêm giờ → vi phạm
 > hành vi "trả không đủ lương".
@@ -179,6 +208,10 @@ cho Check-In và **lượt cuối cùng** cho Check-Out.
 
 Hệ thống tìm lượt quẹt **sớm nhất** trong khung giờ Vào và lượt quẹt **muộn nhất** trong
 khung giờ Ra của ca đã phân bổ để tạo một cặp công hoàn chỉnh.
+
+Cửa sổ là timestamp có ngày/múi giờ; giờ kết thúc kỳ vọng gồm OT nối tiếp đã duyệt. Ca C
+OT đến 08:00 có cửa sổ Ra theo 08:00 (ví dụ 07:45–08:30), thay cho 05:45–06:30. Ghép được
+lượt không tự duyệt OT; một lượt chỉ thuộc một ca, ứng viên chồng lấn phải giải trình.
 
 Thiếu một trong hai lượt → gán trạng thái ngoại lệ **`ERR` (Lỗi quẹt thẻ)** và đưa vào danh
 sách ngoại lệ của tổ để **tổ trưởng** nhập giải trình kèm lý do, chứng cứ (4.3). Công nhân
@@ -248,8 +281,10 @@ Kiểm chứng:
 | Lễ, Tết | 300% + 30% + 20%×300% | **390%** |
 
 > **Vì sao không lưu con số kết quả.** Nếu doanh nghiệp nâng hệ số OT ngày thường lên 160%
-> (cao hơn luật, được phép), hệ số OT đêm phải tự động thành 212%. Lưu con số kết quả sẽ
-> khiến hai chỗ lệch nhau.
+> (cao hơn luật, được phép), hệ số OT đêm ngày thường phải tự động thành **210%** khi chưa
+> có OT ban ngày (`160% + 30% + 20% × 100%`) hoặc **222%** khi đã có OT ban ngày
+> (`160% + 30% + 20% × 160%`). Chỉ thay tham số OT ngày thường; phụ cấp đêm vẫn là 30%
+> và hệ số cộng vẫn là 20%. Lưu con số kết quả sẽ khiến hai chỗ lệch nhau.
 
 ### BR-24 · Tách đoạn giờ theo mốc thời gian và loại ngày 🔴
 
@@ -260,10 +295,13 @@ Một ca OT có thể vắt qua nhiều đoạn. Hệ thống tách theo các m�
 - 00:00 → ranh giới loại ngày (thường / nghỉ tuần / lễ).
 
 *Ví dụ:* ca OT từ 20:00 ngày thường đến 02:00 ngày lễ được tách thành 3 đoạn:
-20:00–22:00 (OT ngày thường 150%), 22:00–24:00 (OT đêm ngày thường 200/210%),
+20:00–22:00 (OT ngày thường 150%), 22:00–24:00 (OT đêm ngày thường **210%**, đã có OT ban ngày từ 20:00–22:00),
 00:00–02:00 (OT đêm ngày lễ 390%).
 
-### BR-25 · Phân biệt 200% và 210% 🔴
+### BR-25 · Phân biệt OT đêm ngày thường có và chưa có OT ban ngày 🔴
+
+Với tham số OT ngày thường 150%, hai nhánh cho 200% / 210%; nếu nâng tham số lên 160%
+(giữ phụ cấp đêm 30%, hệ số cộng 20%), hai nhánh tương ứng cho 210% / 222%.
 
 Mốc phân biệt là trạng thái **"đã có OT ban ngày trước đó trong cùng ngày công"** — đây là
 thuộc tính của **ngày công**, không phải của đoạn giờ. Phải xác định ngày công trước, rồi
@@ -296,13 +334,14 @@ phạt 40 – 50 triệu VND.
 
 ### BR-29 · Quy đổi OT sang nghỉ bù 🟡
 
-KT thực hiện quy đổi giờ OT sang nghỉ bù (5.5) khi đủ điều kiện. Quỹ nghỉ bù sinh ra có **tỷ
-lệ quy đổi** và **hạn sử dụng** cấu hình được (giả định tạm: 1 : 1,5 — hạn 3 tháng). Giờ OT
-thực tế vẫn được giữ để kiểm soát trần.
+**Đã chốt ngày 17/10/2026 — DEC-01:** chưa kích hoạt quy đổi, `COMP_TIME_ENABLED = false`.
+OT vẫn tính/trả tiền theo quy tắc đã chốt; giữ giờ thực tế để kiểm soát trần. Không sinh quỹ,
+không giảm tiền/giờ OT khi yêu cầu quy đổi; trả `COMP_TIME_DISABLED`. Tỷ lệ 1:1,5 và hạn
+3 tháng cũ không còn là cấu hình đang áp dụng.
 
-> **Điểm mở Q2 (chờ nhóm chốt).** SQ-04 ghi “trừ giờ OT trả tiền, cộng quỹ nghỉ bù”, còn
-> AD-05 ghi “ghi nhận nghỉ bù và ảnh hưởng chi trả theo chính sách hợp lệ”. Cần thống nhất phần
-> giờ đã quy đổi có còn được trả tiền hay không, và trần OT tính trên giờ nào.
+Không dùng nghỉ bù thay nghĩa vụ trả tiền OT. Nếu sau này cấp thêm quyền nghỉ, cần chính
+sách riêng và quyết định kích hoạt mới; không làm giảm khoản OT. Nghỉ bù ngày lễ trùng nghỉ
+hằng tuần (BR-16) và phép năm vẫn hoạt động độc lập. Xem [18 §3](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md).
 
 ### BR-30 · Luồng đề xuất và duyệt OT 🟡
 
@@ -337,8 +376,10 @@ tính **pro-rata** theo số tháng làm việc thực tế.
 
 ### BR-32 · Chuyển phép và ứng phép 🟡
 
-- Phép dư cuối năm: chuyển tối đa **5 ngày**, hạn sử dụng đến **31/03 năm sau** (giả định tạm).
-- Ứng phép trước của năm sau: cho phép tối đa **3 ngày** (giả định tạm).
+- Cấu hình **mô phỏng đồ án** đã xác nhận theo DEC-03: chuyển tối đa **5 ngày**, hạn đến
+  **31/03 năm sau**; phần vượt/hết hạn đưa đối soát, không tự xóa quyền lợi từ dữ liệu mẫu.
+- Mô phỏng cho ứng tối đa **3 ngày** phép năm sau; dùng thực tế cần quy chế/căn cứ riêng
+  ([18 PS-08/09](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md)).
 - Cả hai đều là tham số cấu hình.
 
 ### BR-33 · Đơn nghỉ và kiểm soát số dư 🔵
@@ -391,6 +432,12 @@ lương theo doanh số – hoa hồng; mô hình 3P.
 Khối văn phòng: lương thời gian + phụ cấp. Khối sản xuất: lương thời gian / sản phẩm theo
 KPI + phụ cấp.
 
+**Đã chốt DEC-02:** giữ đủ các hình thức trên. Mỗi nhân viên/đoạn hiệu lực có phương án
+lương xác định khoản thay thế và khoản cộng thêm; không tự cộng tất cả hình thức. Sản lượng,
+khoán, hoa hồng và P1/P2/P3 phải có nguồn/công thức/đơn giá và xác nhận tương ứng. Thiếu
+dữ liệu khác với 0 hợp lệ, không được mặc định 0 rồi duyệt lương. Hợp đồng đầu vào và mẫu
+đối chứng tại [18 §4–5](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md).
+
 ### BR-39 · Công thức tính là dữ liệu, không phải mã nguồn 🔵
 
 Mọi thành phần lương được định nghĩa bằng bản ghi có công thức dạng biểu thức. Engine dựng
@@ -422,7 +469,7 @@ Mọi số tiền dùng kiểu **decimal**, tuyệt đối không dùng float.
 
 Kỳ đã khóa **giữ nguyên số liệu, không mở khóa lại**. Sai sót hoặc quyết định có hiệu lực quá
 khứ phát hiện sau khi kỳ đã khóa được xử lý bằng **bút toán điều chỉnh** (truy lĩnh / truy thu)
-ghi vào kỳ đang mở, sau khi KT xác nhận (7.4; SQ-07; SQ-11 bước 14 – 16). Không xác nhận thì
+ghi vào kỳ đang mở, sau khi KT xác nhận (7.4; SQ-07; [17 §3](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md)). Không xác nhận thì
 không thay đổi dữ liệu. Mọi bút toán ghi nhật ký kiểm toán.
 
 ### BR-43 · Duyệt và khóa bảng lương 🟡
@@ -520,7 +567,11 @@ liệt kê chênh lệch theo từng nhân sự (dùng báo cáo BH 10.4).
 |---|---|
 | Cá nhân cư trú, HĐLĐ ≥ 3 tháng | Biểu lũy tiến từng phần theo hiệu lực: **5 bậc** từ kỳ tính thuế 2026 (Luật 109/2025/QH15), 7 bậc đến hết 2025 |
 | Cá nhân không cư trú | **20%** trên thu nhập chịu thuế |
-| Lao động thời vụ / HĐ < 3 tháng | Khấu trừ **10%** trên thu nhập từ ngưỡng quy định; hỗ trợ cam kết 02/CK-TNCN |
+| Cá nhân cư trú không ký HĐ / HĐ < 3 tháng | Khấu trừ **10%** theo ngưỡng mỗi lần trả: bộ cũ 2 triệu; bộ 2026 là **5 triệu** theo khoản 2 Điều 50 NĐ 253/2026; dưới 5 triệu chỉ khấu trừ khi cá nhân yêu cầu. Cam kết tạm không khấu trừ phải đúng điều kiện và mẫu theo hiệu lực |
+
+Phân loại cư trú độc lập với loại hợp đồng: không dùng “thời vụ” làm trạng thái cư trú.
+Ngưỡng 10%, mẫu cam kết và điều kiện áp dụng được tra theo bộ quy tắc thuế; xử lý hồ sơ
+đã nộp trước 01/07/2026 theo khoản 2 Điều 70 NĐ 253/2026 ([12 §2.7](12-tuan-thu-phap-ly.md)).
 
 ### BR-53 · Các khoản giảm trừ 🔴
 
@@ -534,21 +585,40 @@ buộc; quỹ hưu trí tự nguyện có trần; đóng góp từ thiện – n
 
 Tất cả mức giảm trừ là tham số theo BR-02.
 
+Các giảm trừ khác chọn đúng bộ quy tắc, điều kiện và chứng từ. Với bộ 2026, khoản y tế và
+giáo dục–đào tạo theo Điều 46 NĐ 253/2026 có trần năm riêng (23 triệu và 24 triệu), không
+tự nhân thành trần tháng hoặc trừ khoản đã được đơn vị khác/bảo hiểm tài trợ. Phải lưu số
+đã sử dụng trong năm, không trừ lặp khi khấu trừ và quyết toán.
+
 ### BR-54 · Bóc tách thu nhập miễn thuế 🔴
 
-Chỉ **phần thu nhập chênh lệch** do làm thêm giờ / làm đêm mới được miễn thuế; phần 100%
-gốc vẫn chịu thuế bình thường.
+Chế độ miễn thuế lấy theo **kỳ thuế và đối tượng**, không áp một công thức cho mọi năm:
 
-| Khoản OT | Phần chịu thuế | Phần miễn thuế |
+| Khoản thu nhập | Bộ 2025: chịu / miễn | Bộ 2026 của cá nhân cư trú: chịu / miễn |
 |---|---|---|
-| OT ngày thường 150% | 100% | 50% |
-| OT nghỉ tuần 200% | 100% | 100% |
-| OT lễ Tết 300% | 100% | 200% |
-| OT đêm lễ 390% | 100% | 290% |
+| OT ngày thường 150% | 100% / 50% | 0% / 150% |
+| OT nghỉ tuần 200% | 100% / 100% | 0% / 200% |
+| OT lễ Tết 300% | 100% / 200% | 0% / 300% |
+| OT đêm lễ 390% | 100% / 290% | 0% / 390% |
+| Giờ làm đêm bình thường 130% | 100% / 30% | 0% / 130% |
+
+Bộ 2025 căn cứ điểm i khoản 1 Điều 3 TT 111/2013/TT-BTC. Bộ 2026 căn cứ khoản 8 Điều 4,
+khoản 2 Điều 29 Luật 109/2025/QH15 và Điều 26, 69 NĐ 253/2026/NĐ-CP. Các ví dụ bộ 2026
+giả định khoản trả **đủ điều kiện, thời gian, mức được miễn và có chứng từ**. Phần vượt
+mức quy định tính vào thu nhập chịu thuế; không suy ra được miễn chỉ từ hệ số OT.
+Tiền trả ngày không nghỉ phép chỉ miễn khi đủ điều kiện khoản 2 Điều 26 (trong doanh nghiệp:
+khoản 3 Điều 113 BLLĐ); không mặc định mọi khoản thanh toán phép đều miễn.
+
+Với lương ca đêm, phải phân bổ cả lương giờ bình thường trong khung đêm và phụ cấp đêm;
+không chỉ miễn phụ cấp 30%, không đếm trùng với OT. Phần miễn và chịu thuế phải cộng lại
+đúng khoản thực trả. Hồ sơ thiếu căn cứ đưa về ngoại lệ để KT xác minh trước khi duyệt.
 
 Các khoản miễn / không tính thuế khác cần bóc tách: ăn giữa ca trong định mức, trang phục
 trong định mức, công tác phí khoán, điện thoại khoán, tiền thuê nhà do công ty trả (khống
-chế **không quá 15%** tổng thu nhập chịu thuế chưa gồm tiền nhà).
+chế **không quá 15%** tổng thu nhập chịu thuế chưa gồm tiền nhà). Mỗi khoản có quy tắc và
+định mức theo hiệu lực; tiền ăn trả bằng tiền có mức không tính thuế **1.200.000 đ/người/tháng
+từ 01/07/2026**, không áp ngược mức này cho sáu tháng đầu năm. Bữa ăn do doanh nghiệp tổ
+chức/nấu/mua suất/cấp phiếu xử lý riêng theo điểm g khoản 2 Điều 8 NĐ 253/2026.
 
 ### BR-55 · Khấu trừ tháng và quyết toán năm 🔴
 
@@ -556,6 +626,11 @@ Khấu trừ theo tháng (8.4) → quyết toán năm (8.5) ở dạng **dự th
 nộp thiếu; quản lý ủy quyền quyết toán. Kết quả khấu trừ tháng dùng chung với bảng lương —
 không khấu trừ hai lần (AD-08). Kê khai điện tử và phát hành chứng từ khấu trừ thực hiện ngoài
 hệ thống.
+
+Quyết toán năm tổng hợp theo năm **chi trả**, tra biểu năm (ngưỡng tháng × 12), số tháng
+giảm trừ đủ điều kiện và số đã khấu trừ thực tế. Khoản đã khai/nộp trong 01/01–30/06/2026
+theo bộ cũ được đối chiếu và điều chỉnh ở quyết toán 2026 theo khoản 2 Điều 70 NĐ 253/2026;
+không tự sửa/xóa snapshot khấu trừ hoặc nộp lại hồ sơ tháng/quý chỉ vì chuyển tiếp này.
 
 ### BR-56 · Thuế do doanh nghiệp chịu thay 🟡
 

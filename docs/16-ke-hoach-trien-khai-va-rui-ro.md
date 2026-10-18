@@ -1,32 +1,52 @@
 # 16. Kế hoạch triển khai và rủi ro
 
+**Kế hoạch thực hiện 5 ngày:** xem [21](21-roadmap-trien-khai-5-ngay.md) cho phân công
+Codex/Claude Code/Antigravity và điều kiện kiểm tra mỗi ngày. Đây là timebox xây dựng
+và kiểm chứng trên dữ liệu mô phỏng; các điều kiện nghiệm thu/cắt chuyển dưới đây
+tiếp tục áp dụng và không tự đạt khi hết năm ngày.
+
 ## 1. Lộ trình bốn giai đoạn
 
+**AI-02 trong kế hoạch:** [Trợ lý nghiệp vụ theo vai trò](24-ai-tro-ly-nghiep-vu-theo-vai-tro.md)
+dùng Google Gemini cho TT/QĐ/KT/AD, tích hợp ngày 4–5 sau gate quyền/corpus/navigation.
+Có 12 AC riêng và fallback; model/tier chưa chọn. AI-01 giải thích lương chuyển sang
+hướng sau sprint. Không coi UI/mock là hoàn thành và không giảm yêu cầu lõi để kịp AI.
+
+Baseline **HRTP-R1-2026-10-17** tại [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md) quyết
+định nội dung bản đầu. Bốn giai đoạn dưới đây là trình tự xây dựng/kiểm chứng/cắt chuyển
+của **cùng R1**, không phải bốn bản phát hành. Tất cả 152 M, gồm phúc lợi/quyết toán/báo
+cáo, phải hoàn tất trước nghiệm thu R1. Đồ án dùng dữ liệu SIMULATION theo 18; không tự
+coi các bước mô phỏng là đã vận hành doanh nghiệp thật.
+
 ```
- GĐ 0 · CHUẨN BỊ DỮ LIỆU NỀN
+ GĐ 0 · CHUẨN BỊ VÀ XÂY DỰNG ĐỦ PHẠM VI R1
  ├─ Khai báo cây tổ chức, danh mục dùng chung
  ├─ Nhập toàn bộ tham số pháp lý 2025–2026
  ├─ Định nghĩa ca, lịch nghỉ lễ, cấu trúc lương và công thức
- └─ Nhập hồ sơ nhân sự, hợp đồng, số dư phép đầu kỳ
+ ├─ Nhập hồ sơ nhân sự, hợp đồng, số dư phép đầu kỳ
+ └─ Hoàn thiện toàn bộ M: công, lương đủ hình thức, BH/thuế, phúc lợi, quyết toán, báo cáo
                     │
                     ▼
- GĐ 1 · CHẤM CÔNG CHẠY THẬT — LƯƠNG CHẠY SONG SONG          ⏱ tối thiểu 2 kỳ
- ├─ AD nhập tệp chấm công từng cơ sở, chạy xử lý công thật (TT, QĐ, KT thao tác trên hệ thống)
+ GĐ 1 · KIỂM CHỨNG TÍCH HỢP VÀ CHẠY SONG SONG             tối thiểu 2 kỳ
+ ├─ AD nhập tệp từng cơ sở; TT, QĐ, KT thực hiện toàn bộ luồng R1
  ├─ Bảng lương chạy ĐỒNG THỜI trên hệ thống và trên Excel
  ├─ Đối chiếu từng nhân sự, từng cấu phần
- ├─ Cổng chặn CP-01…CP-09 chạy ở chế độ CẢNH BÁO
+ ├─ CP/XC giữ đúng BLOCKING hoặc WARNING; kiểm thử cả trường hợp bị chặn
+ ├─ Kiểm thử phúc lợi, quyết toán năm bằng fixture; hiệu năng và khôi phục
  └─ Tiêu chí qua: chênh lệch = 0 hoặc giải thích được toàn bộ, trong 2 kỳ liên tiếp
                     │
                     ▼
- GĐ 2 · CẮT CHUYỂN
- ├─ Hệ thống trở thành NGUỒN DỮ LIỆU CHÍNH THỨC
+ GĐ 2 · NGHIỆM THU R1, SAU ĐÓ MỚI CẮT CHUYỂN NẾU ĐỦ ĐIỀU KIỆN THỰC TẾ
+ ├─ Đạt 152 M, 29 UAT, TC/NFR và đối soát toàn bộ R1
+ ├─ Khi vận hành thật: hoàn tất chứng từ/mẫu/hạ tầng và dữ liệu doanh nghiệp
+ ├─ Hệ thống trở thành nguồn chính thức sau khi được nghiệm thu/cắt chuyển
  ├─ Excel chỉ còn để tra cứu lịch sử
- └─ Bật cổng chặn CP-01…CP-09 ở chế độ CHẶN
+ └─ CP-08 vẫn WARNING; không tự bật quy đổi OT hay tích hợp ngoài
                     │
                     ▼
- GĐ 3 · HOÀN THIỆN
- ├─ Phúc lợi (phân hệ 9), quyết toán thuế năm (8.5), bộ báo cáo đầy đủ (phân hệ 10)
- └─ Đánh giá nhu cầu mở rộng ngoài BFD (ESS, kết nối thiết bị, ngân hàng, ERP, kê khai điện tử)
+ GĐ 3 · ỔN ĐỊNH SAU R1
+ ├─ Theo dõi, bảo trì và khắc phục sau nghiệm thu; không để lại yêu cầu M chưa bàn giao
+ └─ Sáu FR backlog và mở rộng ngoài R1 chỉ xét theo quyết định phạm vi mới
 ```
 
 ### 1.1. Giai đoạn 0 — Chuẩn bị dữ liệu nền
@@ -37,7 +57,7 @@
 | Tài khoản, phân quyền | Tài khoản TT, QĐ, KT, AD kèm đơn vị phạm vi | AD |
 | Chức danh | 8 cấp chức vụ, 6 ngạch lương, danh mục chức danh | KT |
 | Danh mục | Loại HĐ, loại nghỉ, loại phụ cấp, ngân hàng, trình độ | AD, KT |
-| Tham số pháp lý | Toàn bộ tham số 2025 – 2026 (gồm biểu thuế 5 bậc, giảm trừ 15,5 / 6,2 triệu), mỗi bản ghi kèm văn bản căn cứ | AD (KT xác nhận) |
+| Tham số pháp lý | Bộ 2025 và 2026: biểu/giảm trừ, chế độ miễn OT/đêm, ngưỡng 10%, ăn ca theo mốc riêng; lưu số đã khai/nộp để đối soát chuyển tiếp NĐ 253/2026, mỗi bản ghi có căn cứ ([12 §2.7](12-tuan-thu-phap-ly.md)) | AD (KT xác nhận) |
 | Định nghĩa ca, mẫu xoay ca | Ca A / B / C, ca hành chính, biên độ nhận diện, cờ qua nửa đêm | AD (QĐ cung cấp) |
 | Lịch nghỉ lễ | Lịch năm, quy tắc nghỉ bù, hoán đổi ngày nghỉ Tết | AD |
 | Chính sách theo cơ sở | Chế độ ca, ngày chốt công, dung sai, định dạng tệp chấm công | AD |
@@ -46,8 +66,10 @@
 
 ### 1.2. Giai đoạn 1 — Chạy song song
 
-**Ưu tiên triển khai:** hoàn thiện **module chấm công + OT trước** — đây là khối lượng thủ
-công nặng nhất, giảm được ngay từ kỳ đầu.
+**Phụ thuộc bắt buộc:** có ca/OT/nghỉ đã duyệt trước ghép công; đầu vào đủ hình thức lương
+và BH/thuế trước xác định thực lĩnh. Giai đoạn này kiểm chứng toàn bộ R1, không nghiệm thu
+riêng công/lương rồi hoãn phúc lợi, quyết toán hoặc báo cáo. Hồ sơ năm dùng fixture năm
+đầy đủ để kiểm tra, không cần chờ hết năm mới nghiệm thu chức năng.
 
 | Tiêu chí qua giai đoạn | Ngưỡng |
 |---|---|
@@ -78,14 +100,15 @@ Mỗi đợt vẫn phải qua đủ tiêu chí chạy song song 2 kỳ của gia
 | Việc | Điều kiện |
 |---|---|
 | Hệ thống thành nguồn chính thức | Đã qua tiêu chí giai đoạn 1 |
-| Bật cổng chặn `CP-01`…`CP-09` ở chế độ **CHẶN** | Doanh nghiệp đã xử lý xong các vi phạm tồn đọng phát hiện ở giai đoạn 1 |
+| Giữ đúng mức từng CP/XC; BLOCKING chặn, WARNING theo xác nhận (CP-08 vẫn WARNING) | Đã kiểm thử cả trường hợp đạt/chặn/cảnh báo; không hạ kiểm soát trong lúc chạy song song |
 | Excel chuyển sang chỉ tra cứu | Đã kết xuất và lưu trữ toàn bộ file lịch sử |
 
-### 1.4. Giai đoạn 3 — Hoàn thiện
+### 1.4. Giai đoạn 3 — Ổn định sau R1
 
-Phúc lợi (9.1 – 9.4) · Quyết toán thuế năm (8.5) · Bộ báo cáo đầy đủ (10.1 – 10.4). Các hạng mục
-ngoài phạm vi BFD (ESS cho người lao động, kết nối máy chấm công, Bank Hub, ERP, kê khai điện
-tử) chỉ xem xét khi doanh nghiệp có yêu cầu mới — xem [11 §6](11-tich-hop-he-thong.md).
+Theo dõi vận hành/mô phỏng, đối soát và khắc phục lỗi sau nghiệm thu. **Phúc lợi 9.x,
+quyết toán năm 8.5 và báo cáo 10.x đã thuộc R1**, không nằm trong phần bổ sung sau này.
+Sáu FR backlog, email và các mở rộng ngoài phạm vi chỉ xem xét theo quyết định mới, không
+tự đưa vào R1 — xem [19 §2](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md).
 
 ---
 
@@ -98,7 +121,7 @@ tử) chỉ xem xét khi doanh nghiệp có yêu cầu mới — xem [11 §6](11
 | Hồ sơ nhân sự | File Excel, hồ sơ giấy | Bắt buộc |
 | Hợp đồng lao động | Hồ sơ giấy | Bắt buộc; cần số lần ký HĐ xác định thời hạn để cảnh báo lần 3 |
 | Số dư phép đầu kỳ | `mau-bang-cham-cong-thang-2026.xlsx` | Bắt buộc |
-| Lịch sử lương | `mau-bang-luong-tu-dong-2026.xlsx` | **12 tháng gần nhất** (giả định tạm — PV5-13 chưa chốt) |
+| Lịch sử lương | `mau-bang-luong-tu-dong-2026.xlsx` | Mô phỏng **12 tháng gần nhất** theo PS-16/DEC-03; dữ liệu và phạm vi chuyển đổi thật vẫn cần đối soát |
 | Người phụ thuộc | Hồ sơ đăng ký giảm trừ | Bắt buộc, kèm tháng hiệu lực |
 | Lũy kế OT trong năm | Bảng theo dõi OT | Bắt buộc — cần để kiểm soát trần 200/300 giờ/năm |
 | Sổ quản lý lao động | `mau-so-quan-ly-lao-dong-2026.xlsx` | Đối chiếu, hệ thống sẽ tự sinh lại |
@@ -129,17 +152,17 @@ Thứ tự phản ánh **phụ thuộc kỹ thuật**, đánh số theo phân h�
         ↓
  2. DỮ LIỆU GỐC (2, 3.1, 6.1)  hồ sơ · hợp đồng · ca · mẫu xoay ca · lịch nghỉ lễ · loại nghỉ
         ↓
- 3. CHẤM CÔNG (4)         nhập tệp · khử trùng · ghép cặp · ca đêm bắc cầu · ngoại lệ · xác nhận · chốt · khóa
+ 3. CA, OT, NGHỈ (3, 5, 6)     xếp/duyệt lịch · duyệt OT · trần · quỹ phép · đơn nghỉ
         ↓
- 4. CA, OT, NGHỈ (3, 5, 6)     xếp ca, duyệt lịch · đề xuất, duyệt OT · trần OT · hệ số · quỹ phép · đơn nghỉ
+ 4. CHẤM CÔNG (4)         nhập/ghép theo ca đã duyệt · ca qua ngày chốt · ngoại lệ · đủ nguồn · khóa
         ↓
- 5. TÍNH LƯƠNG (7)        cơ cấu · formula engine · bảng nháp · cổng chặn · duyệt · khóa · hồi tố
+ 5. NGUỒN LƯƠNG VÀ PHÚC LỢI (7, 9)  phương án đủ hình thức · đầu vào/đơn giá · cấp phát/trợ cấp
         ↓
- 6. BH & THUẾ (8)         mức đóng theo vùng · trích BH · báo tăng giảm · biểu 5 bậc · khấu trừ
+ 6. TÍNH LƯƠNG + BH/THUẾ (7, 8)  công thức · đóng BH · thuế theo kỳ chi · cổng chặn · hồi tố
         ↓
- 7. PHIẾU LƯƠNG, FILE CHI (7.6)  phiếu lương PDF bảo vệ · file chi lương theo mẫu ngân hàng
+ 7. DUYỆT/KHÓA VÀ ĐẦU RA (7.5, 7.6)  snapshot · phiếu lương PDF bảo vệ · mẫu file chi
         ↓
- 8. PHÚC LỢI (9), QUYẾT TOÁN (8.5), BÁO CÁO (10)
+ 8. QUYẾT TOÁN NĂM (8.5), BÁO CÁO (10)  gồm giờ tuần, phúc lợi và cost center
         ↓
  9. NGHIỆM THU            bộ kiểm thử pháp lý · UAT · hiệu năng 3.000 nhân sự
 ```
@@ -150,8 +173,8 @@ Thứ tự phản ánh **phụ thuộc kỹ thuật**, đánh số theo phân h�
 
 | Giai đoạn | Phương án lùi |
 |---|---|
-| **GĐ 1 và 2** | Quay lại quy trình Excel trong vòng **một kỳ**: dữ liệu công và lương luôn kết xuất được ra **đúng định dạng file mẫu hiện hành** |
-| **Từ GĐ 3** | Khôi phục từ bản sao lưu theo chỉ tiêu **RPO ≤ 1 giờ / RTO ≤ 4 giờ** |
+| **Trước cắt chuyển** | Chạy song song/đối soát bằng bản nguồn đã kiểm chứng; xuất dữ liệu để đối chiếu, không dùng công thức Excel sai làm chuẩn |
+| **Trước nghiệm thu R1 và khi vận hành** | Kiểm chứng phục hồi theo **RPO ≤ 1 giờ / RTO ≤ 4 giờ**; khi sự cố giữ snapshot đã khóa, dùng quy trình dự phòng có đối soát, không đợi GĐ 3 mới xây dựng khôi phục |
 
 ---
 
@@ -175,28 +198,31 @@ Thứ tự phản ánh **phụ thuộc kỹ thuật**, đánh số theo phân h�
 | **R-15** | Nhà máy tỉnh nhập tệp chấm công trễ, chậm chốt công toàn công ty | 🟠 Cao | Kỳ công mở và khóa theo từng cơ sở; theo dõi trạng thái nhập theo cơ sở; chốt công theo cơ sở rồi mới hợp nhất báo cáo |
 | **R-16** | Điều chuyển liên tỉnh làm giảm lương xuống dưới mức đã thỏa thuận | 🟠 Cao | Cảnh báo khi lưu quyết định điều chuyển kèm giảm lương (BR-08, BR-68) |
 | **R-17** | Khối lượng thao tác của tổ trưởng tăng vì làm thay công nhân | 🟡 Trung bình | Đề xuất OT cho nhiều công nhân trong một lần; ghi nhận đơn nghỉ nhanh; QĐ theo dõi tiến độ xác nhận công của các tổ |
-| **R-18** | Điểm mở Q2 (quy đổi nghỉ bù) chưa chốt | 🟡 Trung bình | FR-5.5.1 để mức **S**; triển khai sau khi nhóm chốt; trong lúc chờ, giờ OT thực tế luôn được giữ để kiểm soát trần |
-| **R-13** | Vi phạm tồn đọng bị phát hiện khi bật cổng chặn ở GĐ 2 | 🟠 Cao | Chạy cổng chặn ở chế độ **cảnh báo** suốt GĐ 1 để doanh nghiệp có thời gian xử lý trước khi chuyển sang chế độ chặn |
+| **R-18** | Dùng giả định nghỉ bù để giảm tiền OT | 🟡 Trung bình | Q2 đã chốt DEC-01: COMP_TIME_ENABLED=false, vẫn trả OT; tỷ lệ 1:1,5/3 tháng cũ không áp dụng; xem [18](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md) |
+| **R-13** | Vi phạm tồn đọng hoặc hạ mức kiểm tra trong lúc chạy thử | 🟠 Cao | CP/XC giữ đúng mức trong mọi giai đoạn; có báo cáo ngoại lệ để sửa nguồn, nhưng không duyệt/khóa khi còn BLOCKING; CP-08 vẫn WARNING |
 
 ---
 
-## 6. Câu hỏi còn mở
+## 6. Theo dõi giả định và kết quả xác nhận
 
-Các câu hỏi sau **chưa có đáp án từ khảo sát**. Mỗi mục ghi kèm **giả định tạm** đang dùng để
-không chặn tiến độ. Cần xác nhận tại **buổi walkthrough** với Kế toán + Quản đốc + Tổ trưởng.
+Ngày 17/10/2026, chủ dự án xác nhận DEC-01…03: chưa bật quy đổi nghỉ bù; giữ đủ hình thức
+trả lương; dùng cấu hình mô phỏng đồ án. **Sổ trạng thái và giá trị hiện hành nằm ở
+[18 §2](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md)**, gồm PS-01…PS-24 tương ứng số dưới.
+Bảng này giữ dấu vết câu hỏi/giả định ban đầu; các mục dữ liệu thực tế còn thiếu không
+được ghi là doanh nghiệp đã xác nhận. Không dùng lại giả định cũ khi khác quyết định ở 18.
 
-| # | Câu hỏi | Nguồn | Giả định tạm đang dùng | Ảnh hưởng nếu sai |
+| # | Câu hỏi | Nguồn | Giả định ban đầu / kết quả cập nhật | Ảnh hưởng nếu sai |
 |---|---|---|---|---|
 | 1 | Ngày công chuẩn tháng: cố định 26 hay theo thực tế? | PV1-32, PV1-33 | Cấu hình được; mặc định **26** cho khối sản xuất | Sai toàn bộ đơn giá giờ và ngày |
 | 2 | Dung sai đi muộn/về sớm bao nhiêu phút, xử lý khi vượt? | PV3-07 | **15 phút**; vượt thì ghi nhận nhưng không trừ lương | Ảnh hưởng số công và báo cáo chuyên cần |
 | 3 | Chu kỳ xoay ca cụ thể (3 ca 3 kíp hay 3 ca 4 kíp)? | PV3-03 | Chu kỳ tuần, khai báo được | Ảnh hưởng module xếp ca |
-| 4 | Tập cấu phần cấu thành "lương làm căn cứ tính OT" | PV1-29 | Lương cơ bản theo HĐLĐ; cấu hình được | Sai toàn bộ tiền OT |
+| 4 | Tập cấu phần cấu thành "lương làm căn cứ tính OT" | PV1-29 | PS-04: tổng cấu phần đủ điều kiện theo công việc/căn cứ; không mặc định chỉ lương cơ bản | Sai toàn bộ tiền OT |
 | 5 | Tập cấu phần cấu thành "lương đóng bảo hiểm" | PV2-01 | Các cấu phần có `is_insurable = true` | Sai số liệu nộp BHXH |
 | 6 | Định mức miễn thuế ăn ca / đồng phục / điện thoại | PV2-09 | Theo định mức pháp luật, tham số hóa | Sai thuế TNCN |
 | 7 | Số lần giải trình quên chấm công tối đa mỗi tháng | PV3-09 | **3 lần**; vượt thì cảnh báo QĐ khi chốt xưởng (không thêm cấp duyệt) | Ảnh hưởng kiểm soát ngoại lệ |
 | 8 | Chính sách phép dư cuối năm: chuyển / hủy / thanh toán | PV1-18 | Chuyển tối đa **5 ngày**, hạn dùng **31/03** năm sau | Sai số dư phép |
 | 9 | Có cho ứng phép trước của năm sau không, tối đa mấy ngày | PV1-17 | Cho phép, tối đa **3 ngày** | Ảnh hưởng kiểm tra số dư |
-| 10 | Tỷ lệ quy đổi OT sang nghỉ bù và hạn sử dụng | PV3-21 | **1 : 1,5**, hạn **3 tháng** (gắn với điểm mở Q2) | Ảnh hưởng quỹ nghỉ bù |
+| 10 | Tỷ lệ quy đổi OT sang nghỉ bù và hạn sử dụng | PV3-21 | Đã chốt PS-10/DEC-01: chưa bật quy đổi, bỏ mặc định 1:1,5/3 tháng | Không được dùng để giảm tiền OT |
 | 11 | Doanh nghiệp đã đăng ký trần OT 300 giờ/năm chưa? | Checklist tuân thủ | **Chưa**; áp trần 200 giờ, có cờ bật | Rủi ro phạt 150 triệu nếu áp sai |
 | 12 | Danh sách ngân hàng chi lương và định dạng từng ngân hàng | PV2-22 | Cấu hình mẫu tệp, chưa có mẫu cụ thể | Chậm xuất file chi lương |
 | 13 | Phần mềm kế toán / ERP đang dùng | PV5-10 | Chỉ xuất bảng phân bổ chi phí lương; kế toán tổng hợp nhập vào phần mềm | Mẫu bảng phân bổ cần khớp phần mềm kế toán |
@@ -208,7 +234,7 @@ không chặn tiến độ. Cần xác nhận tại **buổi walkthrough** với
 | 19 | Ngày chốt công có khác nhau giữa 3 nhà máy không? | Mới phát sinh | Giả định tạm: **thống nhất ngày 25** cho cả 4 địa điểm; `CUTOFF_DAY` cấu hình được theo `SITE` | Lệch ranh giới kỳ giữa các nhà máy |
 | 20 | Điều chuyển liên tỉnh có kèm phụ cấp thu hút / hỗ trợ nhà ở không? | Mới phát sinh | Giả định tạm: **có**, khai báo thành cấu phần lương riêng có cờ chịu thuế | Sai thu nhập chịu thuế |
 | 21 | NM Nghệ An chạy 2 ca — có kế hoạch mở ca 3 không? | Mới phát sinh | Giả định tạm: **chưa**; chế độ ca khai báo theo `SITE` nên mở thêm ca không cần sửa mã | Ảnh hưởng kế hoạch nhân lực |
-| 22 | **Q2 – Quy đổi nghỉ bù:** phần giờ OT đã quy đổi có còn được trả tiền không, trần OT tính trên giờ nào? (SQ-04 ghi “trừ giờ OT trả tiền, cộng quỹ nghỉ bù”; AD-05 ghi giờ thực tế vẫn giữ để kiểm soát trần) | Bản cập nhật thiết kế v2 | Giờ OT thực tế luôn giữ để kiểm soát trần; quy đổi chỉ khi có căn cứ | Cách lưu `comp_time_conversion` / `ot_actual`, câu chữ AD-05 và SQ-04 |
+| 22 | Q2 – cách xử lý nghỉ bù và tiền OT | Bản cập nhật thiết kế v2; quyết định 17/10/2026 | Đã chốt PS-22/DEC-01: chưa quy đổi, vẫn trả tiền và giữ giờ OT thực tế; câu “trừ giờ OT trả tiền” cũ bị thay thế | Đồng bộ BR-29, FR-5.5.1 và nguồn dữ liệu theo 18 |
 | 23 | Ai ghi nhận đơn nghỉ, giải trình công của **chính tổ trưởng**? | Mới phát sinh (đồng bộ BFD) | Người được cấp vai trò TT khác cho tổ đó (ví dụ tổ phó); hệ thống chặn tự duyệt | Kiểm soát nội bộ ([10 §7](10-phan-quyen-va-bao-mat.md)) |
 | 24 | KT tập trung tại trụ sở hay có KT tại từng nhà máy? | Mới phát sinh (đồng bộ BFD) | KT tập trung, phạm vi `ALL`; có thể cấp thêm KT phạm vi `SITE` | Phân quyền và phân công khóa kỳ |
 
@@ -232,7 +258,7 @@ nào?"* — đây là nguồn phát hiện quy tắc nghiệp vụ ẩn hiệu q
 | # | Tình huống | Đối tượng cần hỏi | Trạng thái xử lý trong tài liệu |
 |---|---|---|---|
 | 1 | Nhân viên vào làm ngày 20, nghỉ việc ngày 10 tháng sau | HR + Kế toán | ✔ BR-40 (pro-rata theo ngày công thực tế) |
-| 2 | Ca đêm bắt đầu 22h ngày cuối tháng, kết thúc 6h ngày đầu tháng sau | QL bộ phận + IT | ✔ BR-13, TC-A04 (thuộc trọn kỳ cũ) |
+| 2 | Ca đêm ngày chốt 25, Ra sáng 26; OT tới 08h; ca 00h ngày 26 vào sớm ngày 25 | QL bộ phận + IT | BR-13; TC-A04…TC-A04f và TC-K01…TC-K08; thu đủ log trước chốt/khóa ([17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md)) |
 | 3 | Làm thêm giờ vào ngày lễ trùng Chủ nhật | HR + QL bộ phận | ⚠ Cần xác nhận: áp hệ số ngày lễ (390%) |
 | 4 | Nghỉ phép 5 ngày, trong đó có 1 ngày lễ | HR + QL bộ phận | ✔ BR-34 (ngày lễ không trừ quỹ phép) |
 | 5 | Quên chấm công vào, đúng hôm đó lại có làm thêm giờ | QL bộ phận | ✔ Trạng thái `ERR`, giải trình rồi mới tính OT |
@@ -247,7 +273,9 @@ nào?"* — đây là nguồn phát hiện quy tắc nghiệp vụ ẩn hiệu q
 | 14 | Ngày lễ trùng ngày nghỉ hằng tuần, có được nghỉ bù không | HR + QL bộ phận | ✔ BR-16 (nghỉ bù ngày làm việc kế tiếp) |
 | 15 | Nhân viên làm việc tại 2 chi nhánh trong cùng một tháng | HR + IT | ✔ **BR-67** — tách đoạn, áp mức vùng từng đoạn, phân bổ 2 cost center |
 
-**Chú thích:** ✔ đã có quy tắc rõ ràng · ⚠ còn giả định tạm, cần xác nhận tại walkthrough.
+**Chú thích:** ✔ đã có quy tắc thiết kế · cấu hình mô phỏng đã xác nhận theo DEC-03 tại 18;
+⚠ là mục còn cần căn cứ/dữ liệu khi triển khai doanh nghiệp thật, không phủ nhận ba quyết
+định DEC-01…03 đã được chủ dự án xác nhận.
 
 ---
 
@@ -278,8 +306,8 @@ Trước khi vận hành chính thức, doanh nghiệp phải hoàn thành:
 
 | Nhóm | Tiêu chí |
 |---|---|
-| **Chức năng** | 100% yêu cầu mức **M** (Must) trong [07](07-yeu-cau-chuc-nang.md) đã cài đặt và nghiệm thu |
-| **Nghiệp vụ** | 28 kịch bản UAT trong [14 §4](14-user-story-va-tieu-chi-nghiem-thu.md) đều đạt |
+| **Chức năng** | **152/152 M** theo [manifest R1](config/hrtp-release-r1.json) đạt: 151 hoạt động + kiểm tra chưa kích hoạt FR-5.5.1; sáu FR backlog không chặn R1. Phúc lợi/quyết toán/báo cáo không được hoãn |
+| **Nghiệp vụ** | 29 dòng UAT trong [14 §4](14-user-story-va-tieu-chi-nghiem-thu.md), gồm UAT-05b, đều đạt; UAT-24 bao gồm nhóm ca qua ngày chốt và vòng đời kỳ tại [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
 | **Thiết kế** | Luồng cài đặt khớp activity AD-00 … AD-10 và sequence SQ-01 … SQ-15; mô hình dữ liệu khớp biểu đồ lớp 54 lớp / 10 gói |
 | **Thuật toán** | Bộ dữ liệu kiểm thử TC-A01…TC-L02 trong [06 §11](06-thuat-toan-cham-cong-va-tinh-luong.md) đều đạt |
 | **Tuân thủ** | Cổng chặn `CP-01`…`CP-09` và đối soát `XC-01`…`XC-10` hoạt động đúng mức đã định nghĩa |

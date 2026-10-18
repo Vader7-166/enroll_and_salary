@@ -1,0 +1,28 @@
+sequenceDiagram
+autonumber
+actor AD as Admin
+participant HT as Nhập và ghép công
+participant DB as CSDL
+AD->>HT: Chọn cơ sở/kỳ tham chiếu, tải file (4.1)
+HT->>HT: Kiểm tra cấu trúc, mã NV và cơ sở
+alt Lỗi cứng
+  HT-->>AD: REJECTED, danh sách dòng lỗi, không lưu log
+else File hợp lệ
+  HT->>DB: Ghi log bất biến, bỏ trùng chính xác theo cơ sở/máy/NV/thời điểm
+  loop Từng log mới
+    HT->>DB: Lấy lịch ca duyệt/cửa sổ và các kỳ tham chiếu, liền kề
+    HT->>HT: Ghép ca duy nhất, work_date theo lịch, xác định kỳ đích
+    alt Thiếu hoặc nhiều ứng viên
+      HT->>DB: Ngoại lệ chờ phân tuyến
+    else Kỳ đích OPEN
+      HT->>DB: Kiểm tra lại revision, ghi công và hủy xác nhận bị ảnh hưởng
+    else Kỳ đích PLANNED hoặc CLOSED
+      HT->>DB: Chờ AD mở hoặc KT trả lại, chưa ghi công
+    else Kỳ đích LOCKED
+      HT->>DB: Hồ sơ log muộn, không sửa snapshot
+    end
+  end
+  HT-->>AD: Số lưu/trùng/xử lý/chờ/muộn theo kỳ đích
+end
+Note over AD,DB: Ca ngày 25 ra sáng 26 thuộc kỳ cũ; ca ngày 26 thuộc kỳ mới
+Note over HT,DB: Có dòng chờ/muộn: ACCEPTED_WITH_EXCEPTIONS; không chặn kỳ mở khác

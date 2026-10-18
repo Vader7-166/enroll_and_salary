@@ -1,0 +1,16 @@
+flowchart TD
+    A["1. Nền tảng: quyền, tổ chức, tham số, kỳ, audit"] --> B["2. Hồ sơ, HĐ, lương hiệu lực"]
+    B --> C["3/5/6. Ca được duyệt, OT, nghỉ và phép"]
+    C --> D["4. Công, ca qua ngày chốt, khóa nguồn"]
+    B --> E["7. Phương án và đầu vào đủ hình thức lương"]
+    D --> F["7/8. Tính lương, BH và thuế đúng thời điểm"]
+    E --> F
+    F --> G["7. Duyệt, khóa, phiếu lương, file chi"]
+    B --> H["9. Phúc lợi và trợ cấp"]
+    H --> F
+    F --> I["8.5/10. Quyết toán năm và báo cáo"]
+    G --> J["Nghiệm thu toàn bộ R1 trước cắt chuyển"]
+    I --> J
+    H --> J
+    K["5.5: COMP_TIME_DISABLED, không giảm tiền OT"] -.-> F
+    L["Sáu FR backlog, email và tích hợp ngoài: sau R1"]

@@ -1,0 +1,488 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  TT
+  QD
+  KT
+  AD
+}
+
+enum OrgUnitType {
+  COMPANY
+  SITE
+  BLOCK
+  DEPARTMENT
+  TEAM
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  TERMINATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+model WageRegion {
+  code  String @id @db.VarChar(3)
+  name  String @db.VarChar(100)
+  sites Site[]
+  @@map("wage_region")
+}
+
+model Site {
+  id             String @id @default(uuid()) @db.Uuid
+  code           String @unique @db.VarChar(32)
+  name           String @db.VarChar(150)
+  address        String
+  wageRegionCode String @map("wage_region_code") @db.VarChar(3)
+  wageRegion     WageRegion @relation(fields: [wageRegionCode], references: [code])
+  unitVersions   OrgUnitVersion[]
+  @@map("site")
+}
+
+// Stable unit identity; assignments survive changes to dated organization versions.
+model OrgUnit {
+  id              String @id @default(uuid()) @db.Uuid
+  code            String @unique @db.VarChar(40)
+  versions        OrgUnitVersion[] @relation("UnitVersions")
+  childVersions   OrgUnitVersion[] @relation("ParentUnit")
+  roleAssignments RoleAssignment[]
+  employees       OrgAssignment[]
+  policies SitePolicy[]
+  periods BusinessPeriod[]
+  transfersFrom PersonnelTransfer[] @relation("TransferFrom")
+  transfersTo PersonnelTransfer[] @relation("TransferTo")
+  shiftDefinitions ShiftDefinition[]
+  shiftPlans ShiftPlan[]
+  @@map("org_unit")
+}
+
+model OrgUnitVersion {
+  id                String @id @default(uuid()) @db.Uuid
+  orgUnitId         String @map("org_unit_id") @db.Uuid
+  parentId          String? @map("parent_id") @db.Uuid
+  siteId            String? @map("site_id") @db.Uuid
+  name              String @db.VarChar(150)
+  type              OrgUnitType @map("unit_type")
+  level             Int
+  costCenterCode    String? @map("cost_center_code") @db.VarChar(40)
+  accountingAccount String? @map("accounting_account") @db.VarChar(10)
+  effectiveFrom     DateTime @map("effective_from") @db.Date
+  effectiveTo       DateTime? @map("effective_to") @db.Date
+  orgUnit           OrgUnit @relation("UnitVersions", fields: [orgUnitId], references: [id])
+  parent            OrgUnit? @relation("ParentUnit", fields: [parentId], references: [id])
+  site              Site? @relation(fields: [siteId], references: [id])
+  @@index([parentId, effectiveFrom, effectiveTo])
+  @@map("org_unit_version")
+}
+
+model JobGrade {
+  id     String @id @default(uuid()) @db.Uuid
+  code   String @unique @db.VarChar(10)
+  name   String @db.VarChar(100)
+  titles JobTitle[]
+  @@map("job_grade")
+}
+
+model JobTitle {
+  id         String @id @default(uuid()) @db.Uuid
+  code       String @unique @db.VarChar(32)
+  name       String @db.VarChar(100)
+  jobLevel   Int @map("job_level")
+  jobGradeId String @map("job_grade_id") @db.Uuid
+  jobGrade   JobGrade @relation(fields: [jobGradeId], references: [id])
+  employees  Employee[]
+  @@map("job_title")
+}
+
+model Employee {
+  id              String @id @default(uuid()) @db.Uuid
+  code            String @unique @db.VarChar(32)
+  fullName        String @map("full_name") @db.VarChar(120)
+  gender          Gender
+  dob             DateTime @db.Date
+  nationality     String @default("Việt Nam") @db.VarChar(80)
+  email           String? @db.VarChar(150)
+  phone           String? @db.VarChar(30)
+  hireDate        DateTime @map("hire_date") @db.Date
+  status          EmployeeStatus @default(ACTIVE)
+  terminationDate DateTime? @map("termination_date") @db.Date
+  jobTitleId      String? @map("job_title_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  jobTitle        JobTitle? @relation(fields: [jobTitleId], references: [id])
+  assignments     OrgAssignment[]
+  accounts        UserAccount[]
+  exclusions      EmployeeExclusion[]
+  contracts EmploymentContract[]
+  transfers PersonnelTransfer[]
+  shiftSchedules ShiftSchedule[]
+  @@index([fullName])
+  @@map("employee")
+}
+
+model OrgAssignment {
+  id              String @id @default(uuid()) @db.Uuid
+  employeeId      String @map("employee_id") @db.Uuid
+  orgUnitId       String @map("org_unit_id") @db.Uuid
+  isPrimary       Boolean @default(true) @map("is_primary")
+  allocationRatio Decimal @map("allocation_ratio") @db.Decimal(5,2)
+  effectiveFrom   DateTime @map("effective_from") @db.Date
+  effectiveTo     DateTime? @map("effective_to") @db.Date
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  orgUnit         OrgUnit @relation(fields: [orgUnitId], references: [id])
+  @@index([orgUnitId, effectiveFrom, effectiveTo])
+  @@map("org_assignment")
+}
+
+model Role {
+  code        RoleCode @id
+  name        String @db.VarChar(80)
+  permissions String[] @map("function_permissions")
+  assignments RoleAssignment[]
+  @@map("role")
+}
+
+model UserAccount {
+  id            String @id @default(uuid()) @db.Uuid
+  username      String @unique @db.VarChar(64)
+  displayName   String @map("display_name") @db.VarChar(120)
+  passwordHash  String @map("password_hash")
+  status        AccountStatus @default(ACTIVE)
+  employeeId    String? @map("employee_id") @db.Uuid
+  failedLogins  Int @default(0) @map("failed_logins")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+  assignments   RoleAssignment[]
+  sessions      WebSession[]
+  exclusions    EmployeeExclusion[]
+  auditLogs     AuditLog[]
+  shiftPlans ShiftPlan[]
+  shiftHistory ShiftPlanHistory[]
+  @@map("user_account")
+}
+
+model RoleAssignment {
+  id             String @id @default(uuid()) @db.Uuid
+  userAccountId  String @map("user_account_id") @db.Uuid
+  roleCode       RoleCode @map("role_code")
+  scopeOrgUnitId String @map("scope_org_unit_id") @db.Uuid
+  effectiveFrom  DateTime @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  userAccount    UserAccount @relation(fields: [userAccountId], references: [id])
+  role           Role @relation(fields: [roleCode], references: [code])
+  scopeOrgUnit   OrgUnit @relation(fields: [scopeOrgUnitId], references: [id])
+  @@index([userAccountId, effectiveFrom, effectiveTo])
+  @@map("role_assignment")
+}
+
+model EmployeeExclusion {
+  id            String @id @default(uuid()) @db.Uuid
+  userAccountId String @map("user_account_id") @db.Uuid
+  employeeId    String @map("employee_id") @db.Uuid
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  userAccount   UserAccount @relation(fields: [userAccountId], references: [id])
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  @@index([userAccountId, employeeId])
+  @@map("employee_exclusion")
+}
+
+model WebSession {
+  id                String @id @default(uuid()) @db.Uuid
+  tokenHash         String @unique @map("token_hash") @db.Char(64)
+  userAccountId     String @map("user_account_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt        DateTime @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt         DateTime @map("expires_at") @db.Timestamptz(3)
+  absoluteExpiresAt DateTime @map("absolute_expires_at") @db.Timestamptz(3)
+  userAccount       UserAccount @relation(fields: [userAccountId], references: [id])
+  @@index([userAccountId])
+  @@map("web_session")
+}
+
+model AuditLog {
+  id          BigInt @id @default(autoincrement())
+  actorId     String? @map("actor_id") @db.Uuid
+  entityType  String @map("entity_type") @db.VarChar(80)
+  entityId    String @map("entity_id")
+  action      String @db.VarChar(40)
+  result      String @db.VarChar(40)
+  occurredAt  DateTime @map("occurred_at") @db.Timestamptz(3)
+  oldValue    Json? @map("old_value")
+  newValue    Json? @map("new_value")
+  ipAddress   String? @map("ip_address") @db.VarChar(64)
+  prevHash    String @map("prev_hash") @db.Char(64)
+  recordHash  String @map("record_hash") @db.Char(64)
+  actor       UserAccount? @relation(fields: [actorId], references: [id])
+  @@map("audit_log")
+}
+
+enum ApplicationBasis {
+  WORK_DATE
+  TAX_YEAR
+  PAYMENT_DATE
+}
+
+enum SitePolicyKey {
+  CUTOFF_DAY
+}
+
+enum PolicyStatus {
+  SIMULATION
+  BUSINESS_CONFIRMED
+}
+
+enum BusinessPeriodType {
+  ATTENDANCE
+}
+
+enum BusinessPeriodStatus {
+  PLANNED
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+model LegalParameter {
+  id                    String           @id @default(uuid()) @db.Uuid
+  paramCode             String           @map("param_code") @db.VarChar(80)
+  scopeKey              String           @map("scope_key") @db.VarChar(64)
+  subjectType           String           @map("subject_type") @db.VarChar(64)
+  applicationBasis      ApplicationBasis @map("application_basis")
+  value                 Json
+  unit                  String           @db.VarChar(32)
+  effectiveFrom         DateTime         @map("effective_from") @db.Date
+  effectiveTo           DateTime?        @map("effective_to") @db.Date
+  documentEffectiveDate DateTime         @map("document_effective_date") @db.Date
+  legalBasis            String           @map("legal_basis")
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([paramCode, scopeKey, subjectType, applicationBasis, effectiveFrom, effectiveTo])
+  @@map("legal_parameter")
+}
+
+model SitePolicy {
+  id                String        @id @default(uuid()) @db.Uuid
+  orgUnitId         String        @map("org_unit_id") @db.Uuid
+  policyKey         SitePolicyKey @map("policy_key")
+  value             Int
+  status            PolicyStatus
+  decisionReference String        @map("decision_reference") @db.VarChar(200)
+  effectiveFrom     DateTime      @map("effective_from") @db.Date
+  effectiveTo       DateTime?     @map("effective_to") @db.Date
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  periods BusinessPeriod[]
+  @@index([orgUnitId, policyKey, effectiveFrom, effectiveTo])
+  @@map("site_policy")
+}
+
+model BusinessPeriod {
+  id              String               @id @default(uuid()) @db.Uuid
+  code            String               @db.VarChar(64)
+  periodType      BusinessPeriodType   @default(ATTENDANCE) @map("period_type")
+  scopeOrgUnitId  String               @map("scope_org_unit_id") @db.Uuid
+  dateFrom        DateTime             @map("date_from") @db.Date
+  dateTo          DateTime             @map("date_to") @db.Date
+  cutoffDay       Int                  @map("cutoff_day")
+  cutoffPolicyId  String               @map("cutoff_policy_id") @db.Uuid
+  status          BusinessPeriodStatus @default(PLANNED)
+  revision        Int                  @default(0)
+  openedAt        DateTime?            @map("opened_at") @db.Timestamptz(3)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  scopeOrgUnit OrgUnit @relation(fields: [scopeOrgUnitId], references: [id])
+  cutoffPolicy SitePolicy @relation(fields: [cutoffPolicyId], references: [id])
+  @@unique([code])
+  @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
+  @@map("business_period")
+}
+
+
+enum EmploymentContractType {
+  INDEFINITE
+  FIXED_TERM
+  PROBATION
+  UNDER_ONE_MONTH
+  PIECEWORK
+  COLLABORATOR
+}
+
+enum EmploymentContractStatus {
+  DRAFT
+  ACTIVE
+}
+
+enum SalaryBasis {
+  MONTHLY
+  HOURLY
+}
+
+enum ProbationClass {
+  TECHNICAL
+  WORKER
+}
+
+model EmploymentContract {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  employeeId           String                   @map("employee_id") @db.Uuid
+  number               String                   @db.VarChar(80)
+  type                 EmploymentContractType  @map("contract_type")
+  status               EmploymentContractStatus @default(DRAFT)
+  startDate            DateTime                 @map("start_date") @db.Date
+  endDate              DateTime?                @map("end_date") @db.Date
+  signedDate           DateTime                 @map("signed_date") @db.Date
+  salaryCipher         String                   @map("salary_cipher")
+  officialSalaryCipher String?                  @map("official_salary_cipher")
+  salaryBasis          SalaryBasis              @map("salary_basis")
+  probationClass       ProbationClass?          @map("probation_class")
+  insuranceEligible    Boolean                  @default(false) @map("insurance_eligible")
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee             Employee                 @relation(fields: [employeeId], references: [id])
+  annexes              ContractAnnex[]
+
+  @@unique([employeeId, number])
+  @@index([employeeId, status, startDate, endDate])
+  @@map("employment_contract")
+}
+
+model ContractAnnex {
+  id            String             @id @default(uuid()) @db.Uuid
+  contractId    String             @map("contract_id") @db.Uuid
+  number        String             @db.VarChar(80)
+  effectiveFrom DateTime           @map("effective_from") @db.Date
+  signedDate    DateTime           @map("signed_date") @db.Date
+  contentCipher String             @map("content_cipher")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  contract      EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, number])
+  @@index([contractId, effectiveFrom])
+  @@map("contract_annex")
+}
+
+model PersonnelTransfer {
+  id             String   @id @default(uuid()) @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  fromOrgUnitId  String   @map("from_org_unit_id") @db.Uuid
+  toOrgUnitId    String   @map("to_org_unit_id") @db.Uuid
+  effectiveFrom  DateTime @map("effective_from") @db.Date
+  decisionNumber String   @map("decision_number") @db.VarChar(80)
+  decisionDate   DateTime @map("decision_date") @db.Date
+  reason         String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  fromOrgUnit OrgUnit @relation("TransferFrom", fields: [fromOrgUnitId], references: [id])
+  toOrgUnit OrgUnit @relation("TransferTo", fields: [toOrgUnitId], references: [id])
+
+  @@unique([employeeId, effectiveFrom])
+  @@index([employeeId, effectiveFrom])
+  @@index([fromOrgUnitId, effectiveFrom])
+  @@index([toOrgUnitId, effectiveFrom])
+  @@map("personnel_transfer")
+}
+
+
+
+enum ShiftKind {
+  ADMINISTRATIVE
+  DAY
+  NIGHT
+}
+
+enum ShiftPlanStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  RETURNED
+  CANCELLED
+}
+
+model ShiftDefinition {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  code String @db.VarChar(32)
+  name String @db.VarChar(120)
+  kind ShiftKind
+  startTime String @map("start_time") @db.VarChar(5)
+  endTime String @map("end_time") @db.VarChar(5)
+  crossesMidnight Boolean @map("crosses_midnight")
+  breakStartOffset Int @map("break_start_offset")
+  breakMinutes Int @map("break_minutes")
+  paidBreak Boolean @map("paid_break")
+  workMinutes Int @map("work_minutes")
+  isNightShift Boolean @map("is_night_shift")
+  active Boolean @default(true)
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  schedules ShiftSchedule[]
+  @@unique([orgUnitId, code])
+  @@map("shift_definition")
+}
+
+model ShiftPlan {
+  id String @id @default(uuid()) @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  title String @db.VarChar(160)
+  status ShiftPlanStatus @default(DRAFT)
+  revision Int @default(0)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id])
+  schedules ShiftSchedule[]
+  history ShiftPlanHistory[]
+  @@index([teamOrgUnitId, status])
+  @@map("shift_plan")
+}
+
+model ShiftSchedule {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  shiftId String @map("shift_id") @db.Uuid
+  startAt DateTime @map("start_at") @db.Timestamptz(3)
+  endAt DateTime @map("end_at") @db.Timestamptz(3)
+  workMinutes Int @map("work_minutes")
+  plan ShiftPlan @relation(fields: [planId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  shift ShiftDefinition @relation(fields: [shiftId], references: [id])
+  @@unique([planId, employeeId, workDate])
+  @@index([employeeId, workDate])
+  @@map("shift_schedule")
+}
+
+model ShiftPlanHistory {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(24)
+  fromStatus ShiftPlanStatus? @map("from_status")
+  toStatus ShiftPlanStatus @map("to_status")
+  revision Int
+  reason String? @db.VarChar(2000)
+  snapshot Json
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  plan ShiftPlan @relation(fields: [planId], references: [id])
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  @@unique([planId, revision])
+  @@map("shift_plan_history")
+}
