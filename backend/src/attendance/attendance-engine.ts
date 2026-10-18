@@ -15,7 +15,10 @@ const VIETNAM_OFFSET_MS = 7 * 60 * MINUTE_MS;
 type Role = "IN" | "OUT";
 
 type IndexedPunch = EnginePunch & { index: number; at: number };
-type ScheduleContext = { schedule: EngineSchedule; rules: PairingRules; start: number; end: number };
+type ScheduleContext = {
+  schedule: EngineSchedule; rules: PairingRules; start: number; end: number;
+  pairingStart: number; pairingEnd: number;
+};
 type Candidate = { scheduleId: string; role: Role };
 type AssignedPunch = IndexedPunch & { scheduleId: string; role: Role };
 type RawSegment = Omit<AttendanceSegment, "minutes"> & { rawMinutes: number };
@@ -58,9 +61,7 @@ function nextVietnamBoundaryAfter(timestamp: number): number {
     vietnamBoundary(year, month, day + 1, 0),
   ];
   const next = candidates.find(candidate => candidate > timestamp);
-  if (next === undefined) {
-    throw new Error("Could not determine the next Vietnam time boundary");
-  }
+  if (next === undefined) throw new Error("Could not determine the next Vietnam time boundary");
   return next;
 }
 
@@ -70,15 +71,11 @@ function belongsToWindow(timestamp: number, center: number, beforeMinutes: numbe
 
 function candidatesForPunch(punch: IndexedPunch, schedules: ScheduleContext[]): Candidate[] {
   const candidates: Candidate[] = [];
-  for (const { schedule, rules, start, end } of schedules) {
-    const inWindow = belongsToWindow(punch.at, start, rules.inBeforeMinutes, rules.inAfterMinutes);
-    const outWindow = belongsToWindow(punch.at, end, rules.outBeforeMinutes, rules.outAfterMinutes);
-    if ((punch.direction === "IN" || punch.direction === "AUTO") && inWindow) {
-      candidates.push({ scheduleId: schedule.id, role: "IN" });
-    }
-    if ((punch.direction === "OUT" || punch.direction === "AUTO") && outWindow) {
-      candidates.push({ scheduleId: schedule.id, role: "OUT" });
-    }
+  for (const { schedule, rules, pairingStart, pairingEnd } of schedules) {
+    const inWindow = belongsToWindow(punch.at, pairingStart, rules.inBeforeMinutes, rules.inAfterMinutes);
+    const outWindow = belongsToWindow(punch.at, pairingEnd, rules.outBeforeMinutes, rules.outAfterMinutes);
+    if ((punch.direction === "IN" || punch.direction === "AUTO") && inWindow) candidates.push({ scheduleId: schedule.id, role: "IN" });
+    if ((punch.direction === "OUT" || punch.direction === "AUTO") && outWindow) candidates.push({ scheduleId: schedule.id, role: "OUT" });
   }
   return candidates;
 }
@@ -88,11 +85,8 @@ function addSegment(intervalStart: number, intervalEnd: number, segments: RawSeg
   while (cursor < intervalEnd) {
     const next = Math.min(intervalEnd, nextVietnamBoundaryAfter(cursor));
     segments.push({
-      startAt: isoAt(cursor),
-      endAt: isoAt(next),
-      calendarDate: vietnamCalendarDate(cursor),
-      kind: isDaytimeVietnam(cursor) ? "DAY" : "NIGHT",
-      rawMinutes: (next - cursor) / MINUTE_MS,
+      startAt: isoAt(cursor), endAt: isoAt(next), calendarDate: vietnamCalendarDate(cursor),
+      kind: isDaytimeVietnam(cursor) ? "DAY" : "NIGHT", rawMinutes: (next - cursor) / MINUTE_MS,
     });
     cursor = next;
   }
@@ -100,10 +94,7 @@ function addSegment(intervalStart: number, intervalEnd: number, segments: RawSeg
 
 function attendanceSegments(start: number, end: number, schedule: EngineSchedule): AttendanceSegment[] {
   const rawSegments: RawSegment[] = [];
-  if (end <= start) {
-    return [];
-  }
-
+  if (end <= start) return [];
   if (schedule.paidBreak || schedule.breakMinutes <= 0) {
     addSegment(start, end, rawSegments);
   } else {
@@ -112,20 +103,13 @@ function attendanceSegments(start: number, end: number, schedule: EngineSchedule
     addSegment(start, Math.min(end, breakStart), rawSegments);
     addSegment(Math.max(start, breakEnd), end, rawSegments);
   }
-
   const totals = new Map<AttendanceSegment["kind"], number>([["DAY", 0], ["NIGHT", 0]]);
-  for (const segment of rawSegments) {
-    totals.set(segment.kind, (totals.get(segment.kind) ?? 0) + segment.rawMinutes);
-  }
+  for (const segment of rawSegments) totals.set(segment.kind, (totals.get(segment.kind) ?? 0) + segment.rawMinutes);
   const roundedTotals = new Map<AttendanceSegment["kind"], number>();
-  for (const [kind, rawTotal] of totals) {
-    roundedTotals.set(kind, roundMinutes(rawTotal));
-  }
-
+  for (const [kind, rawTotal] of totals) roundedTotals.set(kind, roundMinutes(rawTotal));
   const lastByKind = new Map<AttendanceSegment["kind"], number>();
   rawSegments.forEach((segment, index) => lastByKind.set(segment.kind, index));
   const roundedSoFar = new Map<AttendanceSegment["kind"], number>([["DAY", 0], ["NIGHT", 0]]);
-
   return rawSegments.map((segment, index) => {
     const rounded = roundMinutes(segment.rawMinutes);
     const current = (roundedSoFar.get(segment.kind) ?? 0) + rounded;
@@ -133,43 +117,20 @@ function attendanceSegments(start: number, end: number, schedule: EngineSchedule
     const minutes = lastByKind.get(segment.kind) === index
       ? roundMinutes((roundedTotals.get(segment.kind) ?? 0) - ((roundedSoFar.get(segment.kind) ?? 0) - rounded))
       : rounded;
-    return {
-      startAt: segment.startAt,
-      endAt: segment.endAt,
-      calendarDate: segment.calendarDate,
-      kind: segment.kind,
-      minutes,
-    };
+    return { startAt: segment.startAt, endAt: segment.endAt, calendarDate: segment.calendarDate, kind: segment.kind, minutes };
   });
 }
 
 function workUnit(workedMinutes: number, scheduledMinutes: number): string {
-  if (workedMinutes <= 0 || scheduledMinutes <= 0) {
-    return "0";
-  }
+  if (workedMinutes <= 0 || scheduledMinutes <= 0) return "0";
   return Decimal.min(new Decimal(workedMinutes).dividedBy(scheduledMinutes), 1).toString();
 }
 
 function emptyDay(schedule: EngineSchedule): ComputedDay {
   return {
-    scheduleId: schedule.id,
-    employeeId: schedule.employeeId,
-    orgUnitId: schedule.orgUnitId,
-    workDate: schedule.workDate,
-    checkInId: null,
-    checkOutId: null,
-    checkInAt: null,
-    checkOutAt: null,
-    status: "ERR",
-    flags: ["ABSENT"],
-    workedMinutes: 0,
-    dayMinutes: 0,
-    nightMinutes: 0,
-    lateMinutes: 0,
-    earlyMinutes: 0,
-    absent: true,
-    workUnits: "0",
-    segments: [],
+    scheduleId: schedule.id, employeeId: schedule.employeeId, orgUnitId: schedule.orgUnitId, workDate: schedule.workDate,
+    checkInId: null, checkOutId: null, checkInAt: null, checkOutAt: null, status: "ERR", flags: ["ABSENT"],
+    workedMinutes: 0, dayMinutes: 0, nightMinutes: 0, lateMinutes: 0, earlyMinutes: 0, absent: true, workUnits: "0", segments: [],
   };
 }
 
@@ -180,7 +141,6 @@ function deduplicate(assigned: AssignedPunch[], rulesBySchedule: Record<string, 
     const group = byScheduleRole.get(key);
     if (group) group.push(punch); else byScheduleRole.set(key, [punch]);
   }
-
   const retained: AssignedPunch[] = [];
   for (const group of byScheduleRole.values()) {
     group.sort((left, right) => left.at - right.at || left.index - right.index);
@@ -190,19 +150,10 @@ function deduplicate(assigned: AssignedPunch[], rulesBySchedule: Record<string, 
       const selectedIndex = group[start].role === "IN" ? start : end - 1;
       for (let index = start; index < end; index += 1) {
         const punch = group[index];
-        if (index === selectedIndex) {
-          retained.push(punch);
-        } else {
-          resolutions[punch.index] = {
-            punchId: punch.id,
-            scheduleId: punch.scheduleId,
-            status: "SUPPRESSED",
-            reason: "DUPLICATE_PUNCH",
-          };
-        }
+        if (index === selectedIndex) retained.push(punch);
+        else resolutions[punch.index] = { punchId: punch.id, scheduleId: punch.scheduleId, status: "SUPPRESSED", reason: "DUPLICATE_PUNCH" };
       }
     };
-
     for (let index = 1; index <= group.length; index += 1) {
       if (index === group.length || group[index].at - group[index - 1].at > duplicateWindow) {
         retainCluster(clusterStart, index);
@@ -213,36 +164,29 @@ function deduplicate(assigned: AssignedPunch[], rulesBySchedule: Record<string, 
   return retained;
 }
 
-export function computeAttendance(
-  schedules: EngineSchedule[],
-  punches: EnginePunch[],
-  rulesBySchedule: Record<string, PairingRules>,
-): EngineResult {
+export function computeAttendance(schedules: EngineSchedule[], punches: EnginePunch[], rulesBySchedule: Record<string, PairingRules>): EngineResult {
   const schedulesByEmployee = new Map<string, ScheduleContext[]>();
   const scheduleById = new Map<string, ScheduleContext>();
   for (const schedule of schedules) {
     const context: ScheduleContext = {
-      schedule,
-      rules: rulesBySchedule[schedule.id],
-      start: new Date(schedule.startAt).getTime(),
-      end: new Date(schedule.endAt).getTime(),
+      schedule, rules: rulesBySchedule[schedule.id],
+      start: new Date(schedule.startAt).getTime(), end: new Date(schedule.endAt).getTime(),
+      pairingStart: new Date(schedule.pairingStartAt ?? schedule.startAt).getTime(),
+      pairingEnd: new Date(schedule.pairingEndAt ?? schedule.endAt).getTime(),
     };
     scheduleById.set(schedule.id, context);
     const employeeSchedules = schedulesByEmployee.get(schedule.employeeId);
     if (employeeSchedules) employeeSchedules.push(context); else schedulesByEmployee.set(schedule.employeeId, [context]);
   }
-
   const punchesByEmployee = new Map<string, IndexedPunch[]>();
   punches.forEach((punch, index) => {
     const indexed = { ...punch, index, at: new Date(punch.punchedAt).getTime() };
     const employeePunches = punchesByEmployee.get(punch.employeeId);
     if (employeePunches) employeePunches.push(indexed); else punchesByEmployee.set(punch.employeeId, [indexed]);
   });
-
   const resolutions: PunchResolution[] = new Array(punches.length);
   const assignments: AssignedPunch[] = [];
   const ambiguousSchedules = new Set<string>();
-
   for (const [employeeId, employeePunches] of punchesByEmployee) {
     const employeeSchedules = schedulesByEmployee.get(employeeId) ?? [];
     for (const punch of employeePunches) {
@@ -251,18 +195,13 @@ export function computeAttendance(
         continue;
       }
       const candidates = candidatesForPunch(punch, employeeSchedules);
-      if (candidates.length === 0) {
-        resolutions[punch.index] = { punchId: punch.id, scheduleId: null, status: "UNMATCHED", reason: "OUTSIDE_WINDOW" };
-      } else if (candidates.length > 1) {
+      if (candidates.length === 0) resolutions[punch.index] = { punchId: punch.id, scheduleId: null, status: "UNMATCHED", reason: "OUTSIDE_WINDOW" };
+      else if (candidates.length > 1) {
         for (const candidate of candidates) ambiguousSchedules.add(candidate.scheduleId);
         resolutions[punch.index] = { punchId: punch.id, scheduleId: null, status: "AMBIGUOUS", reason: "AMBIGUOUS" };
-      } else {
-        const candidate = candidates[0];
-        assignments.push({ ...punch, scheduleId: candidate.scheduleId, role: candidate.role });
-      }
+      } else assignments.push({ ...punch, scheduleId: candidates[0].scheduleId, role: candidates[0].role });
     }
   }
-
   const retained = deduplicate(assignments, rulesBySchedule, resolutions);
   const retainedBySchedule = new Map<string, { in: AssignedPunch[]; out: AssignedPunch[] }>();
   for (const punch of retained) {
@@ -270,56 +209,34 @@ export function computeAttendance(
     pair[punch.role === "IN" ? "in" : "out"].push(punch);
     retainedBySchedule.set(punch.scheduleId, pair);
   }
-
   const selectedPunches = new Set<number>();
   const days = schedules.map(schedule => {
     const context = scheduleById.get(schedule.id)!;
     const pair = retainedBySchedule.get(schedule.id) ?? { in: [], out: [] };
     pair.in.sort((left, right) => left.at - right.at || left.index - right.index);
     pair.out.sort((left, right) => left.at - right.at || left.index - right.index);
-    const checkIn = pair.in[0];
-    const checkOut = pair.out.at(-1);
+    const checkIn = pair.in[0]; const checkOut = pair.out.at(-1);
     if (checkIn) selectedPunches.add(checkIn.index);
     if (checkOut) selectedPunches.add(checkOut.index);
-
     if (!checkIn && !checkOut) {
       const day = emptyDay(schedule);
       if (ambiguousSchedules.has(schedule.id)) day.flags = ["AMBIGUOUS"];
       return day;
     }
-
     const flags: string[] = [];
     if (ambiguousSchedules.has(schedule.id)) flags.push("AMBIGUOUS");
     if (!checkIn) flags.push("MISSING_IN");
     if (!checkOut) flags.push("MISSING_OUT");
     const day: ComputedDay = {
-      scheduleId: schedule.id,
-      employeeId: schedule.employeeId,
-      orgUnitId: schedule.orgUnitId,
-      workDate: schedule.workDate,
-      checkInId: checkIn?.id ?? null,
-      checkOutId: checkOut?.id ?? null,
-      checkInAt: checkIn ? isoAt(checkIn.at) : null,
-      checkOutAt: checkOut ? isoAt(checkOut.at) : null,
-      status: "ERR",
-      flags,
-      workedMinutes: 0,
-      dayMinutes: 0,
-      nightMinutes: 0,
-      lateMinutes: 0,
-      earlyMinutes: 0,
-      absent: false,
-      workUnits: "0",
-      segments: [],
+      scheduleId: schedule.id, employeeId: schedule.employeeId, orgUnitId: schedule.orgUnitId, workDate: schedule.workDate,
+      checkInId: checkIn?.id ?? null, checkOutId: checkOut?.id ?? null,
+      checkInAt: checkIn ? isoAt(checkIn.at) : null, checkOutAt: checkOut ? isoAt(checkOut.at) : null,
+      status: "ERR", flags, workedMinutes: 0, dayMinutes: 0, nightMinutes: 0, lateMinutes: 0, earlyMinutes: 0,
+      absent: false, workUnits: "0", segments: [],
     };
-
     if (!checkIn || !checkOut) return day;
-    if (checkOut.at <= checkIn.at) {
-      day.flags.push("INVALID_PAIR");
-      return day;
-    }
+    if (checkOut.at <= checkIn.at) { day.flags.push("INVALID_PAIR"); return day; }
     if (ambiguousSchedules.has(schedule.id)) return day;
-
     const workedStart = Math.max(checkIn.at, context.start);
     const workedEnd = Math.min(checkOut.at, context.end);
     day.segments = attendanceSegments(workedStart, workedEnd, schedule);
@@ -335,16 +252,12 @@ export function computeAttendance(
     day.workUnits = workUnit(day.workedMinutes, schedule.workMinutes);
     return day;
   });
-
   for (const assigned of assignments) {
     if (resolutions[assigned.index]) continue;
     resolutions[assigned.index] = {
-      punchId: assigned.id,
-      scheduleId: assigned.scheduleId,
-      status: "MATCHED",
-      reason: selectedPunches.has(assigned.index) ? null : "EXTRA_PUNCH",
+      punchId: assigned.id, scheduleId: assigned.scheduleId,
+      status: "MATCHED", reason: selectedPunches.has(assigned.index) ? null : "EXTRA_PUNCH",
     };
   }
-
   return { days, punches: resolutions };
 }

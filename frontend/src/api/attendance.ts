@@ -91,6 +91,69 @@ export interface BoardResult extends Page<DailyRow> {
   period: AttendancePeriod;
 }
 
+export interface ActualRow {
+  id: string;
+  employee: { id: string; code: string; fullName: string };
+  orgUnitId: string;
+  orgUnitCode: string;
+  orgUnitName: string;
+  periodId: string;
+  workDate: string;
+  requestedMinutes: number;
+  approvedMinutes: number;
+  actualMinutes: number;
+  eligibleMinutes: number;
+  dayMinutes: number;
+  nightMinutes: number;
+  unapprovedMinutes: number;
+  unworkedApprovedMinutes: number;
+  flags: string[];
+  processedAt: string;
+}
+
+export interface OvertimeActualResult extends Page<ActualRow> {
+  summary: {
+    requestedMinutes: number;
+    approvedMinutes: number;
+    actualMinutes: number;
+    eligibleMinutes: number;
+    dayMinutes: number;
+    nightMinutes: number;
+    unapprovedMinutes: number;
+    exceptionDays: number;
+  };
+  period: AttendancePeriod;
+}
+
+export interface OvertimeActualDetail {
+  actual: ActualRow;
+  segments: (AttendanceSegment & { eligible: boolean; requestIds: string[] })[];
+  pairs: {
+    contextId: string;
+    scheduleIds: string[];
+    checkInId: string | null;
+    checkOutId: string | null;
+    checkInAt: string | null;
+    checkOutAt: string | null;
+    flags: string[];
+  }[];
+  requests: {
+    id: string;
+    title: string;
+    status: string;
+    revision: number;
+    startAt: string;
+    endAt: string;
+    requestedMinutes: number;
+    consentReference: string;
+    employeeId: string;
+    orgUnitId: string;
+    workDate: string;
+  }[];
+  punches: RawRow[];
+  rules: unknown;
+}
+
 function query(values: Record<string, string | number | boolean | undefined>): string {
   const params = new URLSearchParams();
   Object.entries(values).forEach(([key, value]) => {
@@ -117,6 +180,9 @@ export const attendanceApi = {
   importDetail: (id: string) => api<{ batch: Batch; punches: RawRow[] }>(`/api/attendance/imports/${id}`),
   board: (filters: { periodId: string; orgUnitId?: string; search?: string; exceptionsOnly?: boolean; page: number; pageSize: number }) =>
     api<BoardResult>(`/api/attendance/board${query(filters)}`),
+  overtimeActuals: (filters: { periodId: string; orgUnitId?: string; search?: string; exceptionsOnly?: boolean; page: number; pageSize: number }) =>
+    api<OvertimeActualResult>(`/api/attendance/overtime-actuals${query(filters)}`),
+  overtimeActual: (id: string) => api<OvertimeActualDetail>(`/api/attendance/overtime-actuals/${id}`),
   day: (id: string) => api<{ day: DailyRow; punches: RawRow[]; segments: AttendanceSegment[] }>(`/api/attendance/days/${id}`),
   punches: (filters: { siteId: string; state?: RawPunchState; page: number; pageSize: number }) =>
     api<Page<RawRow>>(`/api/attendance/punches${query(filters)}`),

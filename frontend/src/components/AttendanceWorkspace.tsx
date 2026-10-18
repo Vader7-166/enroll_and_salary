@@ -9,6 +9,7 @@ import { DownloadOutlined, FileAddOutlined, PlayCircleOutlined, SettingOutlined,
 import type { AuthUser } from "../api/hrtp";
 import { errorMessage } from "../api/client";
 import { attendanceApi } from "../api/attendance";
+import { OvertimeActualPanel } from "./OvertimeActualPanel";
 import type { AttendancePeriod, AttendanceProfile, Batch, DailyRow, ImportMapping, RawPunchState, RawRow } from "../api/attendance";
 
 const { Title, Text } = Typography;
@@ -153,11 +154,24 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
   const batchDetail = useQuery({ queryKey: ["attendance-batch", selectedBatch?.id], queryFn: () => attendanceApi.importDetail(selectedBatch!.id), enabled: Boolean(selectedBatch) });
   const upload = useMutation({
     mutationFn: () => attendanceApi.importFile(file!, siteId!, periodId!, profileId),
-    onSuccess: ({ batch }) => { setLastBatch(batch); setFile(undefined); void client.invalidateQueries({ queryKey: ["attendance-imports"] }); void client.invalidateQueries({ queryKey: ["attendance-board"] }); void client.invalidateQueries({ queryKey: ["attendance-punches"] }); },
+    onSuccess: ({ batch }) => {
+      setLastBatch(batch);
+      setFile(undefined);
+      void client.invalidateQueries({ queryKey: ["attendance-imports"] });
+      void client.invalidateQueries({ queryKey: ["attendance-board"] });
+      void client.invalidateQueries({ queryKey: ["attendance-punches"] });
+      void client.invalidateQueries({ queryKey: ["attendance-overtime-actuals"] });
+      void client.invalidateQueries({ queryKey: ["attendance-overtime-actual"] });
+    },
   });
   const process = useMutation({
     mutationFn: () => attendanceApi.process({ siteId: siteId!, referencePeriodId: periodId! }),
-    onSuccess: () => { void client.invalidateQueries({ queryKey: ["attendance-board"] }); void client.invalidateQueries({ queryKey: ["attendance-punches"] }); },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["attendance-board"] });
+      void client.invalidateQueries({ queryKey: ["attendance-punches"] });
+      void client.invalidateQueries({ queryKey: ["attendance-overtime-actuals"] });
+      void client.invalidateQueries({ queryKey: ["attendance-overtime-actual"] });
+    },
   });
   const chooseSite = (value: string) => { setSiteId(value); setPeriodId(undefined); setProfileId(undefined); setOrgUnitId(undefined); setFile(undefined); setLastBatch(undefined); setBoardPage(1); setHistoryPage(1); setPunchPage(1); };
   const choosePeriod = (value: string) => { setPeriodId(value); setBoardPage(1); };
@@ -192,7 +206,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
     </div>
     {!siteId || !periodId ? <Alert type="info" showIcon message="Chọn địa điểm và kỳ tham chiếu để xem bảng công." /> : <>
       <Tabs activeKey={tab} onChange={setTab} items={[
-        { key: "board", label: "Bảng công" }, { key: "exceptions", label: "Ngoại lệ" },
+        { key: "board", label: "Bảng công" }, { key: "exceptions", label: "Ngoại lệ" }, { key: "overtime-actual", label: "OT thực tế" },
         ...(canImport ? [{ key: "import", label: "Nhập tệp" }, { key: "history", label: "Lịch sử nhập" }, { key: "punches", label: "Lượt quẹt gốc" }] : []),
       ]} />
       {(tab === "board" || tab === "exceptions") && <>
@@ -202,6 +216,11 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
         {board.data && <div className="attendance-summary" aria-label="Tổng hợp bảng công"><span><strong>{board.data.summary.days}</strong> ngày công</span><span><strong>{board.data.summary.exceptionDays}</strong> ngoại lệ</span><span><strong>{minutes(board.data.summary.workedMinutes)}</strong> làm việc</span><span><strong>{minutes(board.data.summary.nightMinutes)}</strong> ban đêm</span></div>}
         <div className="table-panel attendance-table"><Table<DailyRow> rowKey="id" loading={board.isLoading} columns={columns} dataSource={board.data?.items} scroll={{ x: 1400 }} pagination={false} components={{ body: { wrapper: TableBody } }} onRow={(row) => ({ className: "clickable-row", onClick: () => setSelectedDay(row) })} /></div>
         {board.data && <Pagination className="attendance-pagination" current={board.data.page} pageSize={board.data.pageSize} total={board.data.total} showSizeChanger={false} onChange={setBoardPage} />}
+      </>}
+      {tab === "overtime-actual" && <>
+        {canImport && <div className="attendance-actions"><Button icon={<PlayCircleOutlined />} loading={process.isPending} onClick={() => process.mutate()}>Xử lý lượt quẹt chờ</Button></div>}
+        {process.isError && <Alert className="attendance-alert" type="error" showIcon message="Không xử lý được lượt quẹt" description={errorMessage(process.error)} />}
+        <OvertimeActualPanel periodId={periodId} orgUnitId={orgUnitId} search={search} canImport={canImport} />
       </>}
       {tab === "import" && canImport && <div className="attendance-import">
         <Space wrap>

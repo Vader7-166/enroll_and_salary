@@ -36,7 +36,7 @@
 ---
 
 > [!IMPORTANT]
-> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt và đăng ký/duyệt OT; **chưa có đối chiếu OT thực tế, engine tính lương, chốt công hoặc AI**. Tên dự án và đặc tả R1 thể hiện phạm vi mục tiêu, không phải tuyên bố đã hoàn thành toàn bộ sản phẩm hoặc sẵn sàng vận hành thực tế.
+> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt, đăng ký/duyệt và đối chiếu OT thực tế; **chưa có tiền OT, engine tính lương, chốt công hoặc AI**. Tên dự án và đặc tả R1 thể hiện phạm vi mục tiêu, không phải tuyên bố đã hoàn thành toàn bộ sản phẩm hoặc sẵn sàng vận hành thực tế.
 
 <a id="tong-quan"></a>
 ## Tổng quan
@@ -65,18 +65,19 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Xử lý chấm công | Ghép vào–ra theo lịch đã duyệt, ca qua ngày, nghỉ giữa ca, thiếu quẹt, đi muộn/về sớm |
 | Bảng công & truy vết | Lọc theo kỳ, đơn vị, nhân viên; xem ngoại lệ, phân đoạn giờ làm và nguồn lượt quẹt |
 | Đăng ký & duyệt OT | Tổ trưởng lập/sửa/gửi; Quản đốc duyệt/trả lại/từ chối; chứng từ đồng ý từng người, trần ngày/tháng/năm và lịch sử bất biến |
+| Đối chiếu OT thực tế | Đề nghị/đã duyệt/thực tế/đủ điều kiện; ca đêm nối OT, tách ngày lịch/giờ ngày–đêm, ngoại lệ và nguồn quẹt; bảo vệ kỳ đóng/khóa |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
-**Chưa triển khai:** đối chiếu OT thực tế với lượt quẹt, tiền OT, nghỉ phép và giải trình, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Các nội dung này nằm trong thiết kế hoặc kế hoạch, không được xem là chức năng đang hoạt động.
+**Chưa triển khai:** tiền OT, nghỉ phép và giải trình, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Các nội dung này nằm trong thiết kế hoặc kế hoạch, không được xem là chức năng đang hoạt động.
 
 ### Nguyên tắc xử lý chấm công
 
-- Chỉ ghép lượt quẹt với **lịch APPROVED**; không tự suy ra giờ ra khi thiếu lượt.
+- Ghép công thường với **lịch APPROVED**; ghép OT theo khoảng **APPROVED**. Cặp IN–OUT chưa duyệt chỉ ghi nhận hiện diện ngoài duyệt, không cấp giờ đủ điều kiện. Không tự suy ra giờ ra khi thiếu lượt.
 - Ca `22:00–06:00` thuộc ngày bắt đầu, dù dữ liệu ra nằm ở ngày kế tiếp.
 - Lượt quẹt gốc bất biến; log trùng/bị loại vẫn có thể truy vết, không bị xóa để làm sạch kết quả.
 - Tệp sai một dòng bị **từ chối toàn lô**; không âm thầm lưu phần hợp lệ.
 - Chỉ kỳ **OPEN** được ghi kết quả công. Log chờ hoặc đến sau chốt được giữ kèm trạng thái/lý do; không sửa kết quả của kỳ CLOSED/LOCKED.
-- Giờ làm ngoài ca không tự chuyển thành OT; cờ muộn/sớm không tự phát sinh khấu trừ lương.
+- Giờ đủ điều kiện OT là giao giữa thực tế ngoài ca và khoảng đã duyệt, không phải tiền OT; giờ ngoài ca/chưa duyệt không tự được trả. Cờ muộn/sớm không tự phát sinh khấu trừ lương.
 
 <a id="kien-truc"></a>
 ## Kiến trúc & công nghệ
@@ -234,7 +235,13 @@ Ví dụ trên cần kỳ **OPEN** bao phủ ngày `2026-10-18` và lịch ca `2
 3. Đăng nhập `qd.bn` → mở chi tiết → kiểm tra hạn mức → duyệt; hoặc trả lại/từ chối có lý do. Đề nghị trả lại cho phép TT sửa rồi gửi lại.
 4. Xem **Lịch sử** và **Xem bản ghi** để đối chiếu snapshot từng lần; reload vẫn giữ dữ liệu. KT chỉ xem trong phạm vi, AD không có quyền OT.
 
-Mẫu đã chạy trên UI: BN00004, ngày `2026-10-25`, `17:00–20:00`, Tổ SMT-1; trạng thái **Đã duyệt**. Khi thử đề nghị mới, chọn khoảng tương lai không trùng lịch/OT hiện có. Đây là giờ **đăng ký**, chưa phải OT thực tế hoặc tiền OT. Chi tiết [20 §7.12](docs/20-tech-stack-va-moi-truong-phat-trien.md#712-đăng-ký-và-duyệt-ot).
+Mẫu đã chạy trên UI: BN00004, ngày `2026-10-25`, `17:00–20:00`, Tổ SMT-1; trạng thái **Đã duyệt**. Khi thử đề nghị mới, chọn khoảng tương lai không trùng lịch/OT hiện có. Đây là giờ **đăng ký**; phần đối chiếu thực tế nằm ở Chấm công, không tính tiền OT. Chi tiết [20 §7.12](docs/20-tech-stack-va-moi-truong-phat-trien.md#712-đăng-ký-và-duyệt-ot).
+
+### Thử đối chiếu OT thực tế
+
+AD nhập quẹt hoặc xử lý lại log → **Chấm công → OT thực tế**. Chọn kỳ/đơn vị, tìm nhân viên hoặc chỉ ngoại lệ; **Chi tiết** hiển thị đăng ký, phân đoạn ngày lịch/ngày–đêm, cặp ghép, lô/dòng gốc và quy tắc. TT/QĐ/KT chỉ đọc trong phạm vi. Kết quả lưu PostgreSQL; đổi lịch/đăng ký cần AD xử lý lại, không tính lại khi GET.
+
+Ví dụ UI đã nhập cho BN00004: `25/10/2026 17:00–19:50`, so với duyệt `17:00–20:00` → **180 phút đề nghị/duyệt, 170 phút thực tế/đủ điều kiện, thiếu 10 phút**. Thiếu quẹt không tự bù giờ ra; chưa duyệt thì đủ điều kiện bằng 0. Ca qua ngày giữ ngày công nhưng tách ngày lịch; kỳ đóng/khóa không bị ghi đè. Đây vẫn là dữ liệu mô phỏng, **không phải tiền OT**. Xem [20 §7.13](docs/20-tech-stack-va-moi-truong-phat-trien.md#713-đối-chiếu-ot-thực-tế).
 
 <a id="api"></a>
 ## API
@@ -253,6 +260,7 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `POST` | `/api/attendance/process` | Xử lý lại log chờ theo cơ sở/kỳ tham chiếu |
 | `GET` | `/api/attendance/board` | Bảng công, bộ lọc và tổng hợp trong phạm vi |
 | `GET` | `/api/attendance/days/:id` | Chi tiết ngày công và các lượt ghép |
+| `GET` | `/api/attendance/overtime-actuals`, `/api/attendance/overtime-actuals/:id` | Danh sách/tổng OT theo bộ lọc và chi tiết nguồn đối chiếu |
 | `GET` | `/api/attendance/imports` | Lịch sử nhập theo cơ sở |
 | `GET` | `/api/attendance/imports/:id` | Chi tiết lô nhập |
 | `GET` | `/api/attendance/punches` | Lượt quẹt gốc và trạng thái xử lý |
@@ -281,6 +289,7 @@ npm run verify:hr
 npm run verify:shifts
 npm run verify:attendance
 npm run verify:overtime
+npm run verify:overtime-actual
 ```
 
 Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi chạy HTTP server thật và dọn database đã tạo. Tài khoản kết nối cần quyền tạo/xóa database; không trỏ bộ kiểm chứng vào môi trường vận hành. Chạy lần lượt, không chạy đồng thời với compiler dev/watch.
@@ -292,8 +301,9 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | `verify:shifts` | Danh mục ca, lập/gửi/duyệt lịch và ràng buộc liên phân hệ | 14/14 |
 | `verify:attendance` | Parser, engine, nhập trùng, log bất biến, ca đêm và phân quyền | 21/21 |
 | `verify:overtime` | Chứng từ, quyền, vòng đời, cạnh tranh duyệt, trùng giờ, trần 200/300 giờ, qua năm và khóa kỳ | 7/7 |
+| `verify:overtime-actual` | Giao giờ duyệt/thực tế, ca đêm, thiếu/chưa duyệt, không dùng trùng quẹt, qua năm, phạm vi và khóa kỳ nguồn | 20/20 |
 
-Hồi quy liên phân hệ sau tích hợp OT đạt **71/71**. Đây là kết quả local, **không phải badge CI hoặc chứng nhận UAT toàn bộ R1**. Trình duyệt đã chạy TT lập/gửi → QĐ trả lại → TT sửa/gửi lại → QĐ duyệt, reload, snapshot và KT chỉ đọc. Màn OT 390px không tràn ngang toàn trang; axe không phát hiện lỗi tự động ở modal đã kiểm tra, còn mục cần kiểm tra thủ công. Xem [hướng dẫn vận hành](docs/20-tech-stack-va-moi-truong-phat-trien.md).
+Hồi quy liên phân hệ sau tích hợp đối chiếu OT đạt **91/91**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Đây là kết quả local, **không phải badge CI hoặc chứng nhận UAT toàn bộ R1**. Browser đã chạy luồng duyệt OT, nhập quẹt, bảng/chi tiết đối chiếu và kiểm tra 390px; bảng cuộn riêng, axe không phát hiện lỗi tự động ở các bề mặt đã kiểm tra, còn mục cần đánh giá thủ công. Xem [hướng dẫn vận hành](docs/20-tech-stack-va-moi-truong-phat-trien.md).
 
 Kiểm tra tính nhất quán của **đặc tả** độc lập với kiểm thử ứng dụng; cần Python 3:
 

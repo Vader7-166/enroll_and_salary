@@ -75,6 +75,7 @@ model OrgUnit {
   shiftPlans ShiftPlan[]
   attendanceDays DailyAttendance[]
   overtimeRequests OvertimeRequest[]
+  overtimeActuals OvertimeActual[]
   @@map("org_unit")
 }
 
@@ -140,6 +141,7 @@ model Employee {
   rawPunches RawPunch[]
   attendanceDays DailyAttendance[]
   overtimeMembers OvertimeMember[]
+  overtimeActuals OvertimeActual[]
   @@index([fullName])
   @@map("employee")
 }
@@ -322,6 +324,7 @@ model BusinessPeriod {
   attendanceImports AttendanceImport[]
   attendanceDays DailyAttendance[]
   punchProcessing PunchProcessing[]
+  overtimeActuals OvertimeActual[]
   @@unique([code])
   @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
   @@map("business_period")
@@ -668,5 +671,31 @@ model OvertimeHistory {
   actor UserAccount @relation(fields: [actorId], references: [id])
   @@unique([requestId, revision])
   @@map("overtime_history")
+}
+
+model OvertimeActual {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  sourceDates DateTime[] @map("source_dates") @db.Date
+  requestedMinutes Decimal @map("requested_minutes") @db.Decimal(12,6)
+  approvedMinutes Decimal @map("approved_minutes") @db.Decimal(12,6)
+  actualMinutes Decimal @map("actual_minutes") @db.Decimal(12,6)
+  eligibleMinutes Decimal @map("eligible_minutes") @db.Decimal(12,6)
+  dayMinutes Decimal @map("day_minutes") @db.Decimal(12,6)
+  nightMinutes Decimal @map("night_minutes") @db.Decimal(12,6)
+  unapprovedMinutes Decimal @map("unapproved_minutes") @db.Decimal(12,6)
+  unworkedApprovedMinutes Decimal @map("unworked_approved_minutes") @db.Decimal(12,6)
+  flags String[]
+  evidence Json
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+  employee Employee @relation(fields: [employeeId], references: [id])
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  @@unique([employeeId, orgUnitId, workDate])
+  @@index([periodId, orgUnitId, workDate])
+  @@map("overtime_actual")
 }
 

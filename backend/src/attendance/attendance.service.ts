@@ -8,7 +8,8 @@ import { PrismaService } from "../database/prisma.service";
 import { effectiveAt, ScopeService } from "../organization/scope.service";
 import { SettingsService } from "../settings/settings.service";
 import { AttendanceBoardQuery, AttendanceImportDto, AttendancePageQuery, AttendanceProcessDto, AttendanceProfileDto, AttendancePunchQuery } from "./attendance.dto";
-import { computeAttendance } from "./attendance-engine";
+import { computeOvertimeAttendance } from "./overtime-actual-engine";
+import type { ActualAssignment, ActualRequestInput, ComputedActual } from "./overtime-actual.types";
 import { parseAttendanceFile, validateMapping } from "./import-parser";
 import { STANDARD_MAPPING } from "./attendance.types";
 import type { EngineSchedule, ImportRowError, ImportSummary, PairingRules, ParsedImport, PunchDirection } from "./attendance.types";
@@ -24,6 +25,13 @@ const dayInclude = { employee: { select: employeeSelect }, orgUnit: true, schedu
 type Batch = Prisma.AttendanceImportGetPayload<{ include: typeof batchInclude }>;
 type Raw = Prisma.RawPunchGetPayload<{ include: typeof rawInclude }>;
 type Daily = Prisma.DailyAttendanceGetPayload<{ include: typeof dayInclude }>;
+const actualInclude = { employee: { select: employeeSelect }, orgUnit: true } satisfies Prisma.OvertimeActualInclude;
+type Actual = Prisma.OvertimeActualGetPayload<{ include: typeof actualInclude }>;
+function actualView(row: Actual, name: string) {
+  return { id: row.id, employee: row.employee, orgUnitId: row.orgUnitId, orgUnitCode: row.orgUnit.code, orgUnitName: name, periodId: row.periodId, workDate: key(row.workDate),
+    requestedMinutes: row.requestedMinutes.toNumber(), approvedMinutes: row.approvedMinutes.toNumber(), actualMinutes: row.actualMinutes.toNumber(), eligibleMinutes: row.eligibleMinutes.toNumber(),
+    dayMinutes: row.dayMinutes.toNumber(), nightMinutes: row.nightMinutes.toNumber(), unapprovedMinutes: row.unapprovedMinutes.toNumber(), unworkedApprovedMinutes: row.unworkedApprovedMinutes.toNumber(), flags: row.flags, processedAt: row.processedAt.toISOString() };
+}
 const ruleCodes: Record<keyof PairingRules, string> = { inBeforeMinutes: "PUNCH_IN_BEFORE_MINUTES", inAfterMinutes: "PUNCH_IN_AFTER_MINUTES", outBeforeMinutes: "PUNCH_OUT_BEFORE_MINUTES", outAfterMinutes: "PUNCH_OUT_AFTER_MINUTES", duplicateWindowMinutes: "PUNCH_DUPLICATE_WINDOW_MINUTES" };
 function key(d: Date): string { return d.toISOString().slice(0, 10); }
 function localDate(d: Date): Date { return new Date(new Date(d.getTime() + 7 * 3600000).toISOString().slice(0, 10) + "T00:00:00Z"); }
@@ -182,14 +190,16 @@ export class AttendanceService {
     const index = periods.findIndex(p => p.id === reference.id);
     const adjacent = periods.slice(Math.max(0, index - 1), index + 2);
     const from = adjacent[0]?.dateFrom ?? reference.dateFrom, to = adjacent.at(-1)?.dateTo ?? reference.dateTo;
-    const rangeFrom = new Date(key(shifted(from, -1)) + "T00:00:00+07:00"), rangeTo = new Date(key(shifted(to, 2)) + "T06:00:00+07:00");
-    const [raw, candidates] = await Promise.all([
+    const rangeFrom = new Date(key(shifted(from, -1)) + "T00:00:00+07:00"), rangeTo = new Date(key(shifted(to, 3)) + "T00:00:00+07:00");
+    const [raw, candidates, overtime, previousActuals] = await Promise.all([
       db.rawPunch.findMany({ where: { siteId, OR: [{ punchedAt: { gte: rangeFrom, lte: rangeTo } }, ...(onlyIds ? [{ id: { in: [...onlyIds] } }] : [])] }, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] }),
       db.shiftSchedule.findMany({ where: { plan: { status: "APPROVED" }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { plan: true, shift: true } }),
+      db.overtimeRequest.findMany({ where: { workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { members: true } }),
+      db.overtimeActual.findMany({ where: { workDate: { gte: from, lte: to } }, select: { employeeId: true, orgUnitId: true, workDate: true } }),
     ]);
     const scopes = new Map<string, Scope>();
     const getScope = async (day: Date) => { let scoped = scopes.get(key(day)); if (!scoped) { scoped = await this.scope.load(user, "attendance.import", db, day); scopes.set(key(day), scoped); } return scoped; };
-    const employees = await db.employee.findMany({ where: { id: { in: [...new Set([...raw.map(r => r.employeeId), ...candidates.map(s => s.employeeId)])] } }, select: { id: true, assignments: { where: { isPrimary: true } }, exclusions: { where: { userAccountId: user.id } } } });
+    const employees = await db.employee.findMany({ where: { id: { in: [...new Set([...raw.map(r => r.employeeId), ...candidates.map(s => s.employeeId), ...overtime.flatMap(r => r.members.map(m => m.employeeId)), ...previousActuals.map(r => r.employeeId)])] } }, select: { id: true, assignments: { where: { isPrimary: true } }, exclusions: { where: { userAccountId: user.id } } } });
     const byEmployee = new Map(employees.map(e => [e.id, e]));
     const canRead = (employeeId: string, date: Date, scoped: Scope, orgUnitId?: string) => {
       const e = byEmployee.get(employeeId);
@@ -198,13 +208,23 @@ export class AttendanceService {
     const schedules: EngineSchedule[] = [], schedulePeriods = new Map<string, BusinessPeriod | null>();
     const byRules = new Map<string, { values: PairingRules; parameterIds: Record<string, string> }>();
     const rulesBySchedule: Record<string, PairingRules> = {}, snapshots = new Map<string, object>();
-    const allTargetPeriods = await db.businessPeriod.findMany({ where: { periodType: "ATTENDANCE", dateFrom: { lte: shifted(to, 1) }, dateTo: { gte: shifted(from, -1) } } });
+    const ensureRules = async (unit: string, day: Date) => { const cacheKey = unit + ":" + key(day); let rules = byRules.get(cacheKey); if (!rules) { rules = await this.rules(db, unit, day); byRules.set(cacheKey, rules); } return rules; };
+    const allTargetPeriods = await db.businessPeriod.findMany({ where: { periodType: "ATTENDANCE", dateFrom: { lte: shifted(to, 3) }, dateTo: { gte: shifted(from, -1) } } });
+    const targetPeriod = async (unit: string, day: Date) => {
+      const scoped = await getScope(day);
+      const parents = ancestors(unit, scoped.versions);
+      return allTargetPeriods.filter(p => p.dateFrom <= day && p.dateTo >= day && parents.includes(p.scopeOrgUnitId)).sort((a, b) => parents.indexOf(a.scopeOrgUnitId) - parents.indexOf(b.scopeOrgUnitId))[0] ?? null;
+    };
+    const blocked = async (unit: string, dates: Date[]) => {
+      for (const day of dates) { const scoped = await getScope(day); const parents = ancestors(unit, scoped.versions);
+        if (allTargetPeriods.some(p => p.dateFrom <= day && p.dateTo >= day && parents.includes(p.scopeOrgUnitId) && ["CLOSED", "LOCKED"].includes(p.status))) return true;
+      }
+      return false;
+    };
     for (const s of candidates) {
       const scoped = await getScope(s.workDate);
       if (!scoped.versions.some(v => v.orgUnitId === s.plan.teamOrgUnitId && v.siteId === siteId) || !canRead(s.employeeId, s.workDate, scoped, s.plan.teamOrgUnitId)) continue;
-      const cacheKey = s.plan.teamOrgUnitId + ":" + key(s.workDate);
-      let rules = byRules.get(cacheKey);
-      if (!rules) { rules = await this.rules(db, s.plan.teamOrgUnitId, s.workDate); byRules.set(cacheKey, rules); }
+      const rules = await ensureRules(s.plan.teamOrgUnitId, s.workDate);
       schedules.push({ id: s.id, employeeId: s.employeeId, orgUnitId: s.plan.teamOrgUnitId, workDate: key(s.workDate), startAt: s.startAt.toISOString(), endAt: s.endAt.toISOString(), workMinutes: s.workMinutes, breakStartOffset: s.shift.breakStartOffset, breakMinutes: s.shift.breakMinutes, paidBreak: s.shift.paidBreak });
       rulesBySchedule[s.id] = rules.values; snapshots.set(s.id, rules);
       const parents = ancestors(s.plan.teamOrgUnitId, scoped.versions);
@@ -214,16 +234,71 @@ export class AttendanceService {
     }
     const selectedRaw = [] as typeof raw;
     for (const r of raw) {
-      const date = localDate(r.punchedAt), scoped = await getScope(date);
-      const previous = shifted(date, -1), priorScope = await getScope(previous);
-      if (canRead(r.employeeId, date, scoped) || canRead(r.employeeId, previous, priorScope)) selectedRaw.push(r);
+      const day = localDate(r.punchedAt);
+      for (const offset of [0, -1, -2]) { const candidateDay = shifted(day, offset), scoped = await getScope(candidateDay);
+        if (canRead(r.employeeId, candidateDay, scoped)) { selectedRaw.push(r); break; }
+      }
     }
-    const result = computeAttendance(schedules, selectedRaw.map(r => ({ id: r.id, employeeId: r.employeeId, punchedAt: r.punchedAt.toISOString(), direction: r.direction as PunchDirection })), rulesBySchedule);
+    const requests: ActualRequestInput[] = [];
+    for (const request of overtime) {
+      const scoped = await getScope(request.workDate);
+      if (!scoped.versions.some(v => v.orgUnitId === request.teamOrgUnitId && v.siteId === siteId)) continue;
+      const dates = [...new Map([request.workDate, localDate(request.startAt), localDate(new Date(request.endAt.getTime() - 1))].map(d => [key(d), d])).values()];
+      for (const member of request.members) {
+        let visible = true;
+        for (const day of dates) if (!canRead(member.employeeId, day, await getScope(day), request.teamOrgUnitId)) visible = false;
+        if (!visible) continue;
+        await ensureRules(request.teamOrgUnitId, request.workDate);
+        requests.push({ id: request.id, employeeId: member.employeeId, orgUnitId: request.teamOrgUnitId, workDate: key(request.workDate), title: request.title, status: request.status, revision: request.revision, startAt: request.startAt.toISOString(), endAt: request.endAt.toISOString(), requestedMinutes: request.requestedMinutes, consentReference: member.consentReference });
+      }
+    }
+    const assignments: ActualAssignment[] = [];
+    const assignmentKeys = new Set<string>();
+    const addAssignment = async (employeeId: string, unit: string, day: Date) => {
+      const assignmentKey = employeeId + ":" + unit + ":" + key(day);
+      if (assignmentKeys.has(assignmentKey)) return;
+      assignmentKeys.add(assignmentKey);
+      const scoped = await getScope(day);
+      if (scoped.versions.some(v => v.orgUnitId === unit && v.siteId === siteId) && canRead(employeeId, day, scoped, unit)) {
+        assignments.push({ employeeId, orgUnitId: unit, workDate: key(day) }); await ensureRules(unit, day);
+      }
+    };
+    for (const row of previousActuals) await addAssignment(row.employeeId, row.orgUnitId, row.workDate);
+    for (const row of selectedRaw) { const day = localDate(row.punchedAt), employee = byEmployee.get(row.employeeId);
+      for (const assignment of employee?.assignments ?? []) if (atDate([assignment], day).length) await addAssignment(row.employeeId, assignment.orgUnitId, day);
+    }
+    const computed = computeOvertimeAttendance({ schedules, requests, punches: selectedRaw.map(r => ({ id: r.id, employeeId: r.employeeId, punchedAt: r.punchedAt.toISOString(), direction: r.direction as PunchDirection })), assignments, rules: Object.fromEntries([...byRules].map(([k, r]) => [k, r.values])) });
+    const result = computed.attendance;
+    const actualRoutes = new Map<string, { workDate: string; period: BusinessPeriod | null; frozen: boolean }>();
+    const actualExceptionKeys = new Set<string>();
+    const previousActualKeys = new Set(previousActuals.map(row => row.employeeId + ":" + row.orgUnitId + ":" + key(row.workDate)));
+    for (const actual of computed.actuals) {
+      const workDate = new Date(actual.workDate + "T00:00:00Z");
+      if (workDate < from || workDate > to) continue;
+      if (!actual.punchIds.length && !actual.requests.length && !previousActualKeys.has(actual.employeeId + ":" + actual.orgUnitId + ":" + actual.workDate)) continue;
+      const sourceDates = [...new Map([workDate, ...actual.segments.map(s => new Date(s.calendarDate + "T00:00:00Z")), ...actual.pairs.flatMap(p => [p.checkInAt, p.checkOutAt].flatMap(t => t ? [localDate(new Date(t))] : [])), ...actual.requests.flatMap(r => [localDate(new Date(r.startAt)), localDate(new Date(Date.parse(r.endAt) - 1))])].map(d => [key(d), d])).values()].sort((a,b) => a.getTime()-b.getTime());
+      const period = await targetPeriod(actual.orgUnitId, workDate);
+      const frozen = await blocked(actual.orgUnitId, sourceDates);
+      for (const id of actual.punchIds) if (!actualRoutes.has(id)) actualRoutes.set(id, { workDate: actual.workDate, period, frozen });
+      if (!period || period.status !== "OPEN" || frozen) continue;
+      let visible = true;
+      for (const day of sourceDates) if (!canRead(actual.employeeId, day, await getScope(day), actual.orgUnitId)) visible = false;
+      if (!visible) continue;
+      if (actual.flags.some(flag => flag !== "AWAITING_PUNCHES")) actualExceptionKeys.add(actual.employeeId + ":" + actual.workDate);
+      const { employeeId, orgUnitId, ...evidence } = actual;
+      const values = { periodId: period.id, sourceDates, requestedMinutes: actual.requestedMinutes, approvedMinutes: actual.approvedMinutes, actualMinutes: actual.actualMinutes, eligibleMinutes: actual.eligibleMinutes, dayMinutes: actual.dayMinutes, nightMinutes: actual.nightMinutes, unapprovedMinutes: actual.unapprovedMinutes, unworkedApprovedMinutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: json({ ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }), processedAt: new Date() };
+      await db.overtimeActual.upsert({ where: { employeeId_orgUnitId_workDate: { employeeId, orgUnitId, workDate } }, create: { employeeId, orgUnitId, workDate, ...values }, update: values });
+    }
     const scheduleById = new Map(schedules.map(s => [s.id, s]));
     const now = new Date(), eligibleDays = result.days.filter(d => { const s = scheduleById.get(d.scheduleId)!; return d.checkInId || d.checkOutId || Date.parse(s.endAt) + rulesBySchedule[s.id].outAfterMinutes * MINUTE < now.getTime(); });
+    const frozenSchedules = new Set<string>();
+    for (const day of result.days) {
+      const dates = [new Date(day.workDate + "T00:00:00Z"), ...[day.checkInAt, day.checkOutAt].flatMap(t => t ? [localDate(new Date(t))] : [])];
+      if (await blocked(day.orgUnitId, dates)) frozenSchedules.add(day.scheduleId);
+    }
     const dayRecords = eligibleDays.flatMap(d => {
       const period = schedulePeriods.get(d.scheduleId);
-      if (!period || period.status !== "OPEN") return [];
+      if (!period || period.status !== "OPEN" || frozenSchedules.has(d.scheduleId)) return [];
       return [{ id: randomUUID(), schedule_id: d.scheduleId, employee_id: d.employeeId, org_unit_id: d.orgUnitId, period_id: period.id, work_date: d.workDate, check_in_id: d.checkInId, check_out_id: d.checkOutId, status: d.status, flags: d.flags, worked_minutes: d.workedMinutes, day_minutes: d.dayMinutes, night_minutes: d.nightMinutes, late_minutes: d.lateMinutes, early_minutes: d.earlyMinutes, absent: d.absent, work_units: d.workUnits, segments: d.segments, rules: snapshots.get(d.scheduleId), processed_at: now.toISOString() }];
     });
     for (let offset = 0; offset < dayRecords.length; offset += 500) {
@@ -234,10 +309,12 @@ export class AttendanceService {
     }
     const states = result.punches.map(p => {
       const s = p.scheduleId ? scheduleById.get(p.scheduleId) : null;
-      const period = p.scheduleId ? schedulePeriods.get(p.scheduleId) : null;
-      const state = !s ? p.status === "AMBIGUOUS" ? "AMBIGUOUS" : "UNMATCHED" : !period ? "WAITING" : period.status === "LOCKED" ? "LATE" : period.status !== "OPEN" ? "WAITING" : p.status === "MATCHED" ? "PROCESSED" : p.status;
-      const reason = s && !period ? "MISSING_OR_OUTSIDE_REFERENCE_PERIOD" : period?.status === "LOCKED" ? "PERIOD_LOCKED" : period && period.status !== "OPEN" ? "PERIOD_" + period.status : p.reason;
-      return { punch_id: p.punchId, schedule_id: s?.id ?? null, period_id: period?.id ?? null, work_date: s?.workDate ?? null, state, reason, processed_at: now.toISOString() };
+      const route = actualRoutes.get(p.punchId);
+      const period = (p.scheduleId ? schedulePeriods.get(p.scheduleId) : route?.period) ?? null;
+      const frozen = p.scheduleId ? frozenSchedules.has(p.scheduleId) : route?.frozen;
+      const state = !s && !route ? p.status === "AMBIGUOUS" ? "AMBIGUOUS" : "UNMATCHED" : !period ? "WAITING" : period.status === "LOCKED" || frozen ? "LATE" : period.status !== "OPEN" ? "WAITING" : p.status === "MATCHED" ? "PROCESSED" : p.status;
+      const reason = (s || route) && !period ? "MISSING_OR_OUTSIDE_REFERENCE_PERIOD" : period?.status === "LOCKED" ? "PERIOD_LOCKED" : period && period.status !== "OPEN" ? "PERIOD_" + period.status : frozen ? "ANCESTOR_PERIOD_CLOSED_OR_LOCKED" : p.reason;
+      return { punch_id: p.punchId, schedule_id: s?.id ?? null, period_id: period?.id ?? null, work_date: s?.workDate ?? route?.workDate ?? null, state, reason, processed_at: now.toISOString() };
     });
     for (let offset = 0; offset < states.length; offset += 500) {
       const rows = JSON.stringify(states.slice(offset, offset + 500));
@@ -245,7 +322,7 @@ export class AttendanceService {
       ON CONFLICT (punch_id) DO UPDATE SET schedule_id=EXCLUDED.schedule_id,period_id=EXCLUDED.period_id,work_date=EXCLUDED.work_date,state=EXCLUDED.state,reason=EXCLUDED.reason,processed_at=EXCLUDED.processed_at`;
     }
     const summary = emptySummary();
-    summary.exceptionDays = dayRecords.filter(d => d.flags.length).length;
+    summary.exceptionDays = new Set([...actualExceptionKeys, ...dayRecords.filter(d => d.flags.length).map(d => d.employee_id + ":" + d.work_date)]).size;
     const groups = new Map<string, ImportSummary["periods"][number]>();
     for (const state of states) {
       if (onlyIds && !onlyIds.has(state.punch_id)) continue;
@@ -308,7 +385,7 @@ export class AttendanceService {
     return { periodId, OR: alternatives };
   }
 
-  private async dayNames(rows: Daily[]) {
+  private async dayNames(rows: Array<{ id: string; orgUnitId: string; workDate: Date; orgUnit: { code: string } }>) {
     if (!rows.length) return new Map<string, string>();
     const versions = await this.prisma.orgUnitVersion.findMany({ where: { orgUnitId: { in: [...new Set(rows.map(d => d.orgUnitId))] } }, select: { orgUnitId: true, name: true, effectiveFrom: true, effectiveTo: true } });
     return new Map(rows.map(d => [d.id, atDate(versions, d.workDate).find(v => v.orgUnitId === d.orgUnitId)?.name ?? d.orgUnit.code]));
@@ -343,5 +420,60 @@ export class AttendanceService {
     const names = await this.dayNames([row]);
     await this.audit.record({ actorId: user.id, entityType: "daily_attendance", entityId: id, action: "READ", result: "ALLOWED", ipAddress });
     return { day: dayView(row, names.get(id)!), punches: punches.map(rawView), segments: row.segments };
+  }
+
+  private async actualVisibility(user: AuthUser, periodId: string, orgUnitId?: string): Promise<Prisma.OvertimeActualWhereInput> {
+    const current = await this.scope.load(user, "attendance.read");
+    if (orgUnitId && !current.allowed.has(orgUnitId)) throw new ForbiddenException("Đơn vị ngoài phạm vi.");
+    const groups = await this.prisma.overtimeActual.findMany({ where: { periodId }, distinct: ["orgUnitId", "workDate", "sourceDates"], select: { orgUnitId: true, workDate: true, sourceDates: true } });
+    const dated = new Map<string, Scope>();
+    const alternatives: Prisma.OvertimeActualWhereInput[] = [];
+    for (const group of groups) {
+      let allowed = current.allowed.has(group.orgUnitId) ? [group.orgUnitId] : [];
+      const employeeConditions: Prisma.EmployeeWhereInput[] = [
+        { assignments: { some: { orgUnitId: { in: [...current.allowed] }, isPrimary: true, ...effectiveAt(businessDate()) } } },
+        { exclusions: { none: { userAccountId: user.id, ...effectiveAt(businessDate()) } } },
+      ];
+      for (const day of [group.workDate, ...group.sourceDates]) {
+        let scoped = dated.get(key(day));
+        if (!scoped) { scoped = await this.scope.load(user, "attendance.read", this.prisma, day); dated.set(key(day), scoped); }
+        const scopeAtDay = scoped;
+        allowed = allowed.filter(id => scopeAtDay.allowed.has(id) && (!orgUnitId || ancestors(id, scopeAtDay.versions).includes(orgUnitId)));
+        employeeConditions.push({ assignments: { some: { orgUnitId: { in: allowed }, isPrimary: true, ...effectiveAt(day) } } }, { exclusions: { none: { userAccountId: user.id, ...effectiveAt(day) } } });
+      }
+      alternatives.push({ workDate: group.workDate, sourceDates: { equals: group.sourceDates }, orgUnitId: { in: allowed }, employee: { AND: employeeConditions } });
+    }
+    return { periodId, OR: alternatives };
+  }
+
+  async overtimeActuals(user: AuthUser, q: AttendanceBoardQuery) {
+    const period = (await this.settings.listPeriods(user)).items.find(p => p.id === q.periodId);
+    if (!period) throw new NotFoundException("Không tìm thấy kỳ công trong phạm vi.");
+    const conditions: Prisma.OvertimeActualWhereInput[] = [await this.actualVisibility(user, period.id, q.orgUnitId)];
+    if (q.search?.trim()) conditions.push({ employee: { OR: [{ code: { contains: q.search.trim(), mode: "insensitive" } }, { fullName: { contains: q.search.trim(), mode: "insensitive" } }] } });
+    if (q.exceptionsOnly === "true") conditions.push({ NOT: { flags: { isEmpty: true } } });
+    const where = { AND: conditions };
+    const [rows, total, sums, exceptionDays] = await Promise.all([
+      this.prisma.overtimeActual.findMany({ where, include: actualInclude, orderBy: [{ workDate: "asc" }, { employee: { code: "asc" } }, { id: "asc" }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+      this.prisma.overtimeActual.count({ where }),
+      this.prisma.overtimeActual.aggregate({ where, _sum: { requestedMinutes: true, approvedMinutes: true, actualMinutes: true, eligibleMinutes: true, dayMinutes: true, nightMinutes: true, unapprovedMinutes: true } }),
+      this.prisma.overtimeActual.count({ where: { AND: [where, { NOT: { flags: { isEmpty: true } } }] } }),
+    ]);
+    const names = await this.dayNames(rows);
+    return { items: rows.map(row => actualView(row, names.get(row.id)!)), total, page: q.page, pageSize: q.pageSize, period, summary: { requestedMinutes: sums._sum.requestedMinutes?.toNumber() ?? 0, approvedMinutes: sums._sum.approvedMinutes?.toNumber() ?? 0, actualMinutes: sums._sum.actualMinutes?.toNumber() ?? 0, eligibleMinutes: sums._sum.eligibleMinutes?.toNumber() ?? 0, dayMinutes: sums._sum.dayMinutes?.toNumber() ?? 0, nightMinutes: sums._sum.nightMinutes?.toNumber() ?? 0, unapprovedMinutes: sums._sum.unapprovedMinutes?.toNumber() ?? 0, exceptionDays } };
+  }
+
+  async overtimeActual(user: AuthUser, id: string, ipAddress?: string) {
+    await this.scope.load(user, "attendance.read");
+    const candidate = await this.prisma.overtimeActual.findUnique({ where: { id }, select: { periodId: true } });
+    if (!candidate) throw new NotFoundException("Không tìm thấy kết quả OT thực tế.");
+    const visibility = await this.actualVisibility(user, candidate.periodId);
+    const row = await this.prisma.overtimeActual.findFirst({ where: { AND: [{ id }, visibility] }, include: actualInclude });
+    if (!row) throw new NotFoundException("Không tìm thấy kết quả OT thực tế trong phạm vi.");
+    const evidence = row.evidence as unknown as Omit<ComputedActual, "employeeId" | "orgUnitId"> & { rules: unknown };
+    const punches = await this.prisma.rawPunch.findMany({ where: { id: { in: evidence.punchIds }, employeeId: row.employeeId }, include: rawInclude, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] });
+    const names = await this.dayNames([row]);
+    await this.audit.record({ actorId: user.id, entityType: "overtime_actual", entityId: id, action: "READ", result: "ALLOWED", ipAddress });
+    return { actual: actualView(row, names.get(id)!), segments: evidence.segments, pairs: evidence.pairs, requests: evidence.requests, punches: punches.map(rawView), rules: evidence.rules };
   }
 }

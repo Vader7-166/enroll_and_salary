@@ -142,8 +142,8 @@ năng trong đặc tả; kiểm tra đồng bộ tài liệu không thay thế k
 - Đã có migration và seed nền; đăng nhập/đăng xuất, phiên, phân quyền theo vai trò +
   cây đơn vị + hiệu lực + exclusion; danh sách/chi tiết/tạo nhân sự, cơ cấu tổ chức,
   quản trị thu hồi phiên và health. Đã bổ sung hợp đồng/phụ lục và điều chuyển theo ngày.
-- Phạm vi demo hiện tại: nền tảng, tổ chức/nhân sự/hợp đồng/điều chuyển, tham số/chính sách, tạo/mở kỳ công, phân ca/duyệt lịch, nhập/ghép quẹt và đăng ký/duyệt OT; **không phải toàn bộ R1**.
-- Chưa có đối chiếu OT thực tế, tiền OT, nghỉ/giải trình, xác nhận/chốt công, engine tính lương hoặc AI; trạng thái nghiệm thu FR/UAT/NFR của baseline lõi không tự đổi theo smoke này.
+- Phạm vi demo hiện tại: nền tảng, tổ chức/nhân sự/hợp đồng/điều chuyển, tham số/chính sách, tạo/mở kỳ công, phân ca/duyệt lịch, nhập/ghép quẹt, đăng ký/duyệt và đối chiếu OT thực tế; **không phải toàn bộ R1**.
+- Chưa có tiền OT, nghỉ/giải trình, xác nhận/chốt công, engine tính lương hoặc AI; trạng thái nghiệm thu FR/UAT/NFR của baseline lõi không tự đổi theo smoke này.
 - Làm trực tiếp trên checkout demo hiện tại theo yêu cầu chủ dự án, không commit hoặc
   tự đổi nhánh. Không cho nhiều agent sửa cùng tệp.
 
@@ -593,12 +593,12 @@ log; tệp có mã lạ/ngày sai bị từ chối cả lô; lưu/dùng cấu h�
 xem lịch sử và nguồn. Ở 390px bảng cuộn riêng, không tràn ngang toàn trang; axe không
 phát hiện lỗi tự động ở bảng công/lịch sử đã kiểm tra (vẫn có mục cần kiểm tra thủ công).
 
-Chưa triển khai đối chiếu OT thực tế, nghỉ phép/giải trình, xác nhận/chốt công, tính lương
-hoặc AI. Đăng ký/duyệt OT xem §7.12; kết quả ghép quẹt ở đây chưa phải bảng công chốt.
+Chưa triển khai nghỉ phép/giải trình, xác nhận/chốt công, tính lương hoặc AI. Đăng ký/duyệt
+OT xem §7.12, đối chiếu OT thực tế xem §7.13; kết quả ở đây chưa phải bảng công chốt.
 
 Hồi quy liên phân hệ sau tích hợp: nền **13/13**, nhân sự **16/16**, phân ca **14/14**.
-Đã đăng nhập TT trên browser, chỉ có hai tab đọc công/ngoại lệ và bộ lọc đơn vị
-NM-BN-D1-T1; xem được ca đêm trong tổ, không có chức năng nhập tệp của AD.
+Đã đăng nhập TT trên browser để xem công/ngoại lệ, sau tích hợp có thêm tab OT thực tế;
+bộ lọc giới hạn NM-BN-D1-T1, không có chức năng nhập tệp của AD.
 Reload vẫn đọc được kết quả đã lưu; nguồn lượt ghép không mang lý do chờ giả.
 
 ### 7.12. Đăng ký và duyệt OT
@@ -667,4 +667,61 @@ mở được snapshot cũ; `kt.bn` chỉ có quyền đọc. Desktop và 390px 
 riêng, modal cuộn đến được phần lịch sử, không tràn ngang toàn trang. Axe không
 phát hiện lỗi tự động ở modal sau sửa, còn ba mục cần đánh giá thủ công.
 Không thay trạng thái nghiệm thu R1 và không commit/đổi nhánh.
+
+
+### 7.13. Đối chiếu OT thực tế
+
+Nâng cấp bằng `npm run db:deploy`: migration `20261018220000_overtime_actual` thêm
+bảng `overtime_actual`, ràng buộc phút và guard ghi/xóa khi kỳ không OPEN hoặc tổ tiên
+đã CLOSED/LOCKED. Không reset nhân sự, lượt quẹt, lịch hoặc đăng ký OT.
+
+**Luồng:** AD nhập tệp hoặc bấm **Xử lý lượt quẹt chờ** trong Chấm công; cùng transaction
+cập nhật công thường và kết quả OT. TT/QĐ/KT/AD có `attendance.read` mở tab **OT thực tế**
+để lọc kỳ/đơn vị/nhân viên/ngoại lệ, xem tổng và **Chi tiết**. AD vẫn không được lập/duyệt
+OT; TT/QĐ/KT không có chức năng nhập/xử lý của AD. Sau đổi lịch/đăng ký, AD xử lý lại
+log; GET chỉ đọc kết quả đã lưu, không âm thầm tính lại.
+
+| Chỉ số | Căn cứ |
+|---|---|
+| Đề nghị | Tổng phút DRAFT/PENDING/RETURNED/APPROVED; không cộng REJECTED/CANCELLED |
+| Đã duyệt | Hợp các khoảng APPROVED, không cộng lặp phần chồng nhau |
+| Thực tế | Khoảng có cặp quẹt hợp lệ, bỏ toàn bộ khoảng ca thường; nghỉ không tính giờ trong ca không biến thành OT |
+| Đủ điều kiện | Giao chính xác giữa khoảng thực tế ngoài ca và khoảng APPROVED; không chỉ lấy min hai tổng |
+| Đủ ĐK ngày/đêm | Phần đủ điều kiện tách tại 00:00, 06:00, 22:00 giờ Việt Nam |
+| Ngoài duyệt / đã duyệt chưa làm | Phần thực tế không được duyệt / phần duyệt không có đủ bằng chứng thực tế |
+
+OT nối tiếp ca đêm mở rộng tâm cửa sổ Ra đến cuối khoảng duyệt, không kéo dài phút
+công thường. Ngày công/kỳ vẫn theo ngày bắt đầu ca hoặc ngày công đăng ký; phân đoạn
+có **ngày lịch riêng**, kể cả qua tháng/năm. Quẹt không rõ/missing vẫn là ngoại lệ,
+không tự bù checkout. Không có đăng ký được duyệt chỉ có thể ghi nhận hiện diện từ
+cặp IN–OUT tường minh, liền kề, không tranh nguồn, tối đa 24 giờ; **đủ điều kiện = 0**.
+Chưa có quẹt cho khoảng tương lai hiển thị chờ, không kết luận vắng trước thời hạn.
+
+Chi tiết giữ snapshot đăng ký/trạng thái/revision/chứng từ đồng ý, cặp ghép, ID lịch,
+phân đoạn đủ/không đủ điều kiện, lượt gốc/thiết bị/lô/dòng và tham số ghép kèm ID phiên
+bản. Danh sách, tổng và chi tiết đều kiểm tra phạm vi/exclusion hiện tại, ngày công
+và các ngày lịch nguồn. Log muộn vẫn được lưu nhưng không ghi đè kết quả kỳ đóng/khóa,
+kể cả khóa tổ tiên ở ngày ra qua đêm. Đây là **giờ đối soát, chưa tính tiền OT**.
+
+API: `GET /api/attendance/overtime-actuals?periodId=UUID&orgUnitId=UUID&search=...&exceptionsOnly=true&page=1&pageSize=20`;
+`GET /api/attendance/overtime-actuals/:id`. Các bộ lọc tùy chọn, phân trang tối đa 100.
+Xử lý dùng endpoint nhập/process hiện có, không thêm API chỉnh tay kết quả.
+
+**Kiểm chứng:** `npm run verify:overtime-actual` đạt **20/20**; engine và HTTP/PostgreSQL
+cách ly bao phủ ca đêm nối OT, giao khoảng, duyệt chồng, thiếu quẹt, chưa duyệt, nghỉ
+không tính giờ, nguồn mơ hồ, nhiều phiên không nối qua khoảng nghỉ, qua năm, phạm vi
+và guard kỳ ở cả ngày nguồn. Toàn backend chạy tuần tự đạt **91/91**:
+`node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Chạy tuần tự tránh
+tranh tài nguyên khi nhiều test cùng tạo/xóa database; lần chạy đồng thời đã gặp
+timeout dọn database dù các tình huống nghiệp vụ đều đạt.
+
+Browser thật đã nhập CSV mẫu BN00004 ngày 25/10/2026, 17:00–19:50, đối chiếu đề nghị
+17:00–20:00 đã duyệt: đề nghị/duyệt **180 phút**, thực tế/đủ điều kiện **170 phút**,
+thiếu **10 phút**. BN00009 chưa đăng ký làm 10:00–12:00: thực tế **120**, đủ điều kiện
+**0**, cờ ngoài duyệt. Đây là dữ liệu mô phỏng, không phải công thực tế doanh nghiệp.
+Desktop và 390px xem được bảng/drawer; cuộn ngang nằm trong bảng, vùng cuộn có điểm
+focus bàn phím. Axe không phát hiện lỗi tự động trên bảng/drawer đã kiểm tra, vẫn còn
+mục cần đánh giá thủ công. Không thay nghiệm thu R1, không commit/đổi nhánh.
+TT đã đăng nhập lại, chỉ có ba tab đọc công/ngoại lệ/OT thực tế, không có nút xử lý;
+reload trang rồi chọn lại kỳ vẫn đọc đúng 170 phút và chứng từ gốc đã lưu.
 

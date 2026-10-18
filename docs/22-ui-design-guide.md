@@ -5,7 +5,7 @@ grid ở dashboard**. Các token cụ thể bên dưới là chuẩn đề xuấ
 có thể điều chỉnh tập trung khi review giao diện. Đã có đăng nhập, nhân sự, hợp đồng/
 phụ lục và lịch sử điều chuyển; tham số/chính sách hiệu lực, tạo/mở kỳ công; danh mục ca,
 phân ca theo tổ/người/ngày, TT gửi và QĐ duyệt/trả lại, lịch chính thức và snapshot; tổ chức,
-tài khoản/thu hồi phiên và health nối API thật; nhập tệp/ghép quẹt, bảng công/ngoại lệ và truy vết nguồn; đăng ký/gửi/duyệt/trả lại/từ chối OT, hạn mức và snapshot. Chưa đối chiếu OT thực tế hoặc nghiệm thu toàn bộ UI/R1.
+tài khoản/thu hồi phiên và health nối API thật; nhập tệp/ghép quẹt, bảng công/ngoại lệ và truy vết nguồn; đăng ký/gửi/duyệt/trả lại/từ chối OT, hạn mức và snapshot; đối chiếu OT thực tế/đủ điều kiện và bằng chứng quẹt. Chưa tính tiền OT hoặc nghiệm thu toàn bộ UI/R1.
 Ngày mặc định của màn hình nghiệp vụ mới dùng múi giờ Asia/Ho_Chi_Minh. Tab hợp đồng
 chỉ dành cho KT; AD chỉ quản lý cấu hình/kỳ và không được đọc lương nhân sự.
 
@@ -92,6 +92,7 @@ theo nghiệp vụ trong R1, chỉ hiện mục có quyền truy cập; URL/API 
 | Hồ sơ chi tiết | Danh tính/trạng thái → thông tin chính → tab lịch sử/HĐ/phân công theo quyền |
 | Tạo/sửa đơn | Ngữ cảnh + người liên quan → thông tin bắt buộc → kiểm tra lỗi → gửi/xác nhận |
 | Bảng công | Kỳ/cơ sở/đơn vị/trạng thái → ngoại lệ cần xử lý → ma trận công → drawer chi tiết ca/log |
+| OT thực tế | Trong Chấm công: kỳ/đơn vị/nhân viên/ngoại lệ → đề nghị/đã duyệt/thực tế/đủ điều kiện → drawer snapshot, ngày lịch/ngày–đêm, cặp ghép và nguồn lô/dòng; ghi rõ không phải giờ chi trả |
 | Bảng lương | Kỳ công nguồn/kỳ lương/ngày trả → tiến độ/cổng chặn → bảng lương → drawer giải thích |
 | Duyệt | Tóm tắt người/phạm vi/khoảng thời gian → dữ liệu và thay đổi → duyệt hoặc từ chối kèm lý do theo quy trình |
 | Tham số/công thức | Giá trị + khoảng hiệu lực + nguồn kế thừa → lịch sử phiên bản → chạy thử trước áp dụng |
@@ -102,8 +103,9 @@ Modal chỉ dùng xác nhận ngắn hoặc tác vụ tập trung; tránh modal 
 
 ## 6. Bảng, filter và thao tác hàng loạt
 
-- Header rõ, sticky khi cần; cột mã/tên nhân viên cố định bên trái. Bảng mặc định dòng
-  48px, có chế độ gọn 40px ở desktop; tablet giữ vùng chạm 44px cho hành động.
+- Header rõ, sticky khi cần; cột mã/tên nhân viên cố định bên trái trên màn hình đủ rộng,
+  bỏ cố định ở 390px để không che các cột giữa. Bảng mặc định dòng 48px, chế độ gọn
+  40px ở desktop; tablet giữ vùng chạm 44px cho hành động. Vùng cuộn có focus bàn phím.
 - Tên/ngày/trạng thái căn trái; số tiền/số giờ/số công căn phải. Cột có đơn vị trong
   tiêu đề. Tiền VND hiển thị theo quy tắc làm tròn nghiệp vụ, không tự làm tròn lại ở UI.
 - Dùng định dạng tiếng Việt: `1.250.000 ₫`, `7,5 giờ`, `25/10/2026`; thời điểm có múi

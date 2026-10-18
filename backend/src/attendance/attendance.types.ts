@@ -19,6 +19,9 @@ export interface EngineSchedule {
   id: string; employeeId: string; orgUnitId: string; workDate: string;
   startAt: string; endAt: string; workMinutes: number;
   breakStartOffset: number; breakMinutes: number; paidBreak: boolean;
+  /** Pairing-only centers. Regular attendance always uses startAt/endAt. */
+  pairingStartAt?: string;
+  pairingEndAt?: string;
 }
 export interface EnginePunch { id: string; employeeId: string; punchedAt: string; direction: PunchDirection }
 export interface AttendanceSegment { startAt: string; endAt: string; calendarDate: string; kind: "DAY" | "NIGHT"; minutes: number }

@@ -18,5 +18,7 @@ export class AttendanceController {
   @Post("process") process(@Req() r: AuthRequest, @Body() d: AttendanceProcessDto) { return this.attendance.process(r.user, d, r.ip); }
   @Get("board") board(@Req() r: AuthRequest, @Query() q: AttendanceBoardQuery) { return this.attendance.board(r.user, q); }
   @Get("days/:id") day(@Req() r: AuthRequest, @Param("id", new ParseUUIDPipe()) id: string) { return this.attendance.day(r.user, id, r.ip); }
+  @Get("overtime-actuals") overtimeActuals(@Req() r: AuthRequest, @Query() q: AttendanceBoardQuery) { return this.attendance.overtimeActuals(r.user, q); }
+  @Get("overtime-actuals/:id") overtimeActual(@Req() r: AuthRequest, @Param("id", new ParseUUIDPipe()) id: string) { return this.attendance.overtimeActual(r.user, id, r.ip); }
   @Get("punches") punches(@Req() r: AuthRequest, @Query() q: AttendancePunchQuery) { return this.attendance.punches(r.user, q); }
 }
