@@ -5,7 +5,7 @@ grid ở dashboard**. Các token cụ thể bên dưới là chuẩn đề xuấ
 có thể điều chỉnh tập trung khi review giao diện. Đã có đăng nhập, nhân sự, hợp đồng/
 phụ lục và lịch sử điều chuyển; tham số/chính sách hiệu lực, tạo/mở kỳ công; danh mục ca,
 phân ca theo tổ/người/ngày, TT gửi và QĐ duyệt/trả lại, lịch chính thức và snapshot; tổ chức,
-tài khoản/thu hồi phiên và health nối API thật. Chưa nghiệm thu toàn bộ UI/R1.
+tài khoản/thu hồi phiên và health nối API thật; nhập tệp/ghép quẹt, bảng công/ngoại lệ và truy vết nguồn. Chưa nghiệm thu toàn bộ UI/R1.
 Ngày mặc định của màn hình nghiệp vụ mới dùng múi giờ Asia/Ho_Chi_Minh. Tab hợp đồng
 chỉ dành cho KT; AD chỉ quản lý cấu hình/kỳ và không được đọc lương nhân sự.
 

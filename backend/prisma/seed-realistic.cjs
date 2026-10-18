@@ -1,6 +1,6 @@
 const Decimal = require('decimal.js');
 const { createHash } = require('node:crypto');
-const { cipherText } = require('../dist/personnel/contract-crypto.js');
+const { cipherText, plainText } = require('../dist/personnel/contract-crypto.js');
 
 // Fictional snapshot, not personal data or a source of statutory/business policy.
 const SNAPSHOT = '2026-10-18';
@@ -141,7 +141,7 @@ async function seedRealistic(tx, id, from) {
       id: id('version:' + code), orgUnitId: id('org:' + code), name, type, level, parentId: id('org:' + parent), siteId: id('site:' + site), effectiveFrom: from, ...extra,
     } });
   }
-  await label('COMPANY', 'Công ty mô phỏng HRTP', 'Công ty TNHH Điện tử HRTP (giả lập)');
+  await label('COMPANY', { in: ['Công ty mô phỏng HRTP', 'Công ty TNHH Điện tử HRTP (giả lập)'] }, 'Công ty TNHH Điện tử HRTP');
   for (const [code, name] of [['A', 'Quản lý cấp cao'], ['B', 'Quản lý cấp trung'], ['C', 'Giám sát'], ['D', 'Chuyên môn nghiệp vụ'], ['E', 'Kỹ thuật'], ['F', 'Công nhân sản xuất']]) {
     await tx.jobGrade.upsert({ where: { code }, update: {}, create: { id: id('grade:' + code), code, name } });
     if (['A', 'C', 'F'].includes(code)) await tx.jobGrade.updateMany({ where: { id: id('grade:' + code), name: { in: ['Chuyên viên', 'Quản lý sản xuất', 'Công nhân'] } }, data: { name } });
@@ -152,7 +152,8 @@ async function seedRealistic(tx, id, from) {
   }
   await tx.jobTitle.updateMany({ where: { id: id('job:A'), name: 'Chuyên viên', jobLevel: 4, jobGradeId: id('grade:A') }, data: { jobLevel: 6, jobGradeId: id('grade:D') } });
   for (const site of sites) {
-    await tx.site.updateMany({ where: { id: id('site:' + site.code), address: 'Địa chỉ mô phỏng — ' + site.name }, data: { address: 'Khu vực ' + site.name.replace('Nhà máy ', '').replace('Trụ sở ', '') + ' — địa điểm giả lập phục vụ đồ án, không phải địa chỉ doanh nghiệp' } });
+    const oldAddress = 'Khu vực ' + site.name.replace('Nhà máy ', '').replace('Trụ sở ', '') + ' — địa điểm giả lập phục vụ đồ án, không phải địa chỉ doanh nghiệp';
+    await tx.site.updateMany({ where: { id: id('site:' + site.code), address: { in: ['Địa chỉ mô phỏng — ' + site.name, oldAddress] } }, data: { address: oldAddress.replace('địa điểm giả lập', 'địa điểm') } });
     await label(site.code + '-BLOCK', 'Khối vận hành — ' + site.name, site.code === 'HQ-HN' ? 'Khối Điều hành – Nghiệp vụ' : 'Khối Sản xuất trực tiếp');
     if (site.code !== 'HQ-HN') await unit(site.code + '-GT', 'Khối Hỗ trợ – Gián tiếp', 'BLOCK', 3, site.code, site.code);
     for (const [code, name, , teams, kind] of site.departments) {
@@ -184,7 +185,8 @@ async function seedRealistic(tx, id, from) {
       nationality: 'Việt Nam', email: null, phone: null, status: 'ACTIVE', terminationDate: null, jobTitleId: id('job:' + p.oldGrade) }, data });
     if (changed.count) eligible.add(p.code);
   }
-  for (const [username, fullName, oldName] of operators) await tx.userAccount.updateMany({ where: { id: id('account:' + username), displayName: oldName }, data: { displayName: fullName + ' (giả lập)' } });
+  for (const [username, fullName, oldName] of operators) await tx.userAccount.updateMany({ where: { id: id('account:' + username), displayName: { in: [oldName, fullName + ' (giả lập)'] } }, data: { displayName: fullName } });
+  const transferReason = 'Điều phối nhân lực giữa các tổ cùng phân xưởng theo kế hoạch sản xuất quý III.';
   const assignments = [], transfers = [];
   for (const p of fresh) {
     const effectiveFrom = p.hireDate > from ? p.hireDate : from;
@@ -195,11 +197,12 @@ async function seedRealistic(tx, id, from) {
     if (moved) {
       assignments.push({ id: id('assignment:transfer:' + p.code), employeeId: id('employee:' + p.code), orgUnitId: id('org:' + p.unit), allocationRatio: '100', isPrimary: true, effectiveFrom: date('2026-07-01') });
       transfers.push({ id: id('transfer:' + p.code), employeeId: id('employee:' + p.code), fromOrgUnitId: id('org:' + priorUnit), toOrgUnitId: id('org:' + p.unit), effectiveFrom: date('2026-07-01'), decisionNumber: 'GL-QD-2026-' + p.code,
-        decisionDate: date('2026-06-25'), reason: 'Giả lập: điều phối nhân lực giữa các tổ cùng phân xưởng theo kế hoạch sản xuất quý III.' });
+        decisionDate: date('2026-06-25'), reason: transferReason });
     }
   }
   if (assignments.length) await tx.orgAssignment.createMany({ data: assignments });
   if (transfers.length) await tx.personnelTransfer.createMany({ data: transfers });
+  await tx.personnelTransfer.updateMany({ where: { decisionNumber: { startsWith: 'GL-QD-2026-' }, reason: 'Giả lập: điều phối nhân lực giữa các tổ cùng phân xưởng theo kế hoạch sản xuất quý III.' }, data: { reason: transferReason } });
   const hasContracts = new Set((await tx.employmentContract.findMany({ where: { employeeId: { in: people.filter(p => eligible.has(p.code)).map(p => id('employee:' + p.code)) } }, select: { employeeId: true } })).map(c => c.employeeId));
   const parameters = await tx.legalParameter.findMany({ where: { subjectType: 'ALL', applicationBasis: 'WORK_DATE' }, orderBy: { effectiveFrom: 'desc' } });
   function parameter(code, p, asOf) {
@@ -209,6 +212,7 @@ async function seedRealistic(tx, id, from) {
     }
     throw Error('Missing legal parameter for realistic seed: ' + code + ' / ' + p.site.code);
   }
+  const annexContent = 'Xác nhận địa điểm làm việc và nhiệm vụ theo phân công hiện hành. Giữ nguyên mức lương của hợp đồng; không phải quyết định nhân sự thật.';
   const contracts = [], annexes = [];
   for (const p of people) {
     if (!eligible.has(p.code) || hasContracts.has(id('employee:' + p.code))) continue;
@@ -236,7 +240,7 @@ async function seedRealistic(tx, id, from) {
       insuranceEligible: type === 'INDEFINITE' || (type === 'FIXED_TERM' && endDate >= new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth() + parameter('INSURANCE_MIN_CONTRACT_MONTHS', p, startDate).toNumber(), startDate.getUTCDate()) - day)) };
     contracts.push(contract);
     if (!p.probation && p.index % 67 === 0 && startDate <= date('2026-08-01')) annexes.push({ id: id('annex:realistic:' + p.code), contractId: contract.id, number: 'GL-PL-2026-' + p.code,
-      effectiveFrom: date('2026-08-01'), signedDate: date('2026-07-28'), contentCipher: cipherText(key, 'Dữ liệu giả lập: xác nhận địa điểm làm việc và nhiệm vụ theo phân công hiện hành. Giữ nguyên mức lương của hợp đồng; không phải quyết định nhân sự thật.') });
+      effectiveFrom: date('2026-08-01'), signedDate: date('2026-07-28'), contentCipher: cipherText(key, annexContent) });
     if (!p.probation && type === 'FIXED_TERM' && p.index % 41 === 0) {
       const nextStart = new Date(endDate.getTime() + day);
       contracts.push({ ...contract, id: id('contract:renewal:' + p.code), number: 'GL-HD-GIAHAN-' + p.code, status: 'DRAFT', startDate: nextStart,
@@ -245,6 +249,11 @@ async function seedRealistic(tx, id, from) {
   }
   if (contracts.length) await tx.employmentContract.createMany({ data: contracts });
   if (annexes.length) await tx.contractAnnex.createMany({ data: annexes });
+  const existingAnnexes = await tx.contractAnnex.findMany({ where: { number: { startsWith: 'GL-PL-2026-' } }, select: { id: true, contentCipher: true } });
+  for (const annex of existingAnnexes) {
+    if (plainText(key, annex.contentCipher) === 'Dữ liệu giả lập: xác nhận địa điểm làm việc và nhiệm vụ theo phân công hiện hành. Giữ nguyên mức lương của hợp đồng; không phải quyết định nhân sự thật.')
+      await tx.contractAnnex.updateMany({ where: { id: annex.id, contentCipher: annex.contentCipher }, data: { contentCipher: cipherText(key, annexContent) } });
+  }
   for (const site of sites) for (const month of [10, 11]) {
     const asOf = date(`2026-${month}-01`);
     const policy = await tx.sitePolicy.findFirst({ where: { orgUnitId: id('org:' + site.code), policyKey: 'CUTOFF_DAY', effectiveFrom: { lte: asOf }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: asOf } }] } });

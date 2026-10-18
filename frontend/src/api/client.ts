@@ -37,7 +37,7 @@ function messageFrom(
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type"))
+  if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
 
   let response: Response;

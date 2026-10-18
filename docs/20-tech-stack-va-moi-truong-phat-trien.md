@@ -252,13 +252,17 @@ và bộ 2.200 hồ sơ doanh nghiệp giả lập khi database mới (chi tiế
 Chạy lại không reset mật khẩu, phân quyền hoặc dữ liệu người dùng. Các hồ sơ seed nền
 cũ chỉ được làm giàu nếu còn nguyên bộ thuộc tính ban đầu; hồ sơ đã sửa được giữ nguyên.
 
-| Tài khoản | Quyền demo |
-|---|---|
-| `tt.bn` | Đọc nhân sự/lịch sử Tổ 1 / Phân xưởng 1 Bắc Ninh; xem kỳ công bao phủ tổ |
-| `qd.bn` | Đọc nhân sự/lịch sử Phân xưởng 1 Bắc Ninh; xem kỳ công bao phủ phân xưởng |
-| `kt.bn` | Xem/tạo nhân sự, quản lý hợp đồng/phụ lục và điều chuyển trong Bắc Ninh |
-| `kt.all` | Quyền KT toàn công ty, trừ hồ sơ VIP-DEMO bị exclusion |
-| `ad.demo` | Tổ chức/tài khoản/thu hồi phiên, tham số/chính sách và tạo/mở kỳ; **không đọc nhân sự/lương** |
+| Tài khoản | Tên hiển thị | Quyền demo |
+|---|---|---|
+| `tt.bn` | Nguyễn Văn Hùng | Đọc nhân sự/lịch sử Tổ 1 / Phân xưởng 1 Bắc Ninh; xem kỳ công bao phủ tổ |
+| `qd.bn` | Trần Quang Minh | Đọc nhân sự/lịch sử Phân xưởng 1 Bắc Ninh; xem kỳ công bao phủ phân xưởng |
+| `kt.bn` | Phạm Thu Hà | Xem/tạo nhân sự, quản lý hợp đồng/phụ lục và điều chuyển trong Bắc Ninh |
+| `kt.all` | Lê Thị Mai Anh | Quyền KT toàn công ty, trừ hồ sơ VIP-DEMO bị exclusion |
+| `ad.demo` | Đỗ Minh Tuấn | Tổ chức/tài khoản/thu hồi phiên, tham số/chính sách và tạo/mở kỳ; **không đọc nhân sự/lương** |
+
+Năm tên đại diện không hiển thị hậu tố “(giả lập)”; đây vẫn là dữ liệu trình diễn.
+Tên đăng nhập, mật khẩu, role và phạm vi không đổi. Seed chuyển các tên mẫu cũ sang
+tên trên, không ghi đè tên tùy chỉnh; hai tài khoản KT khác phạm vi, không phải role thứ năm.
 
 Mật khẩu ngẫu nhiên nằm ở `.local/demo-accounts.json`, chỉ đọc trên máy local;
 không nhúng vào frontend, tài liệu hoặc commit. Công nhân không được cấp tài khoản.
@@ -388,7 +392,9 @@ Build thành công nhưng Vite vẫn cảnh báo chunk UI lớn hơn 500 kB.
 
 Theo yêu cầu chủ dự án khi chưa có dữ liệu doanh nghiệp thật, seed mặc định dùng
 `backend/prisma/seed-realistic.cjs`, ảnh chụp nghiệp vụ **18/10/2026**. Doanh nghiệp
-**Công ty TNHH Điện tử HRTP (giả lập)** không đại diện doanh nghiệp hay cá nhân thật.
+**Công ty TNHH Điện tử HRTP** là doanh nghiệp mô phỏng, không đại diện doanh nghiệp
+hay cá nhân thật. Tên công ty trên giao diện và đường dẫn đơn vị không gắn hậu tố
+“(giả lập)”; seed nâng cấp tên mẫu cũ nhưng giữ nguyên tên do người dùng tùy chỉnh.
 
 | Cơ sở | Tổng nhân sự mẫu | Trực tiếp | Gián tiếp |
 |---|---:|---:|---:|
@@ -413,6 +419,18 @@ Theo yêu cầu chủ dự án khi chưa có dữ liệu doanh nghiệp thật, 
   Không tạo kỳ chốt/khóa hoặc kết quả công/lương khi các engine đó chưa triển khai.
 - Ngày tuyển dụng có thể từ 2020; dữ liệu quản lý phân công/hợp đồng bắt đầu từ
   01/01/2026 hoặc ngày tuyển dụng nếu muộn hơn. Không bịa lịch sử trước mốc quản lý.
+
+**Dọn nhãn hiển thị:** theo yêu cầu chủ dự án, bỏ chữ “giả lập” khỏi nội dung giao diện
+và dữ liệu đang trình bày, gồm tên đại diện/công ty, 4 địa chỉ cơ sở, 17 lý do điều
+chuyển và 32 nội dung phụ lục. Seed chỉ nâng cấp đúng nội dung mẫu cũ; không ghi đè
+nội dung đã tùy chỉnh. Phụ lục tiếp tục mã hóa bằng khóa hiện có; không đổi mã, ngày,
+phân công hoặc mức lương. Snapshot lịch và audit append-only được giữ nguyên; giao
+diện lịch sử dùng tên tài khoản hiện tại, không in lại hậu tố cũ. Đây vẫn là dữ liệu
+trình diễn, không phải dữ liệu doanh nghiệp thật. Sao lưu trước khi dọn tại
+`.local/backups/hrtp-visible-labels-before-1792310598150.json` (không chứa khóa ứng dụng).
+Đã đối chiếu nội dung trước/sau, seed lặp lại không thay dữ liệu, hồi quy nền 13/13
+và build frontend đạt; đã mở phụ lục, lịch sử điều chuyển, lịch ca cũ và trang Hệ thống
+trên trình duyệt để kiểm tra nội dung hiển thị.
 
 **Bảo toàn dữ liệu:** mã/ID seed ổn định; giữ hai hồ sơ nhập qua UI, hợp đồng/phụ lục,
 lịch sử điều chuyển, kỳ công, mật khẩu, phạm vi tài khoản và tham số/chính sách đã có.
@@ -501,6 +519,85 @@ reload lịch chính thức và chặn ca sáng nối ca đêm. Ở 390px không
 bảng cuộn riêng, axe không phát hiện vi phạm tự động trên màn hình chính thức
 (vẫn có mục cần kiểm tra thủ công; không tuyên bố chứng nhận WCAG/UAT toàn bộ).
 
-Module này chưa sinh chu kỳ xoay ca tự động hoặc yêu cầu đổi ca đã duyệt; không thay
-thế engine ghép quẹt/tính công, OT, nghỉ hoặc tính lương. Các phần đó vẫn là đặc tả R1.
+Module phân ca chưa sinh chu kỳ xoay ca tự động hoặc yêu cầu đổi ca đã duyệt.
+Lịch APPROVED là đầu vào cho engine ghép quẹt tại mục 7.11 dưới đây.
 
+### 7.11. Nhập tệp, ghép lượt quẹt và bảng công
+
+Mở **Chấm công** trên menu hoặc `#/attendance`. AD chọn **Nhà máy Bắc Ninh**,
+kỳ **GL-CC-2026-10-BN**, tab **Nhập tệp**. TT/QĐ/KT/AD đọc bảng công trong phạm vi;
+chỉ AD có `attendance.import` được nhập, xử lý lại, xem lịch sử/log gốc và lưu cấu hình.
+Không có tài khoản công nhân hoặc dữ liệu lương ở đây.
+
+**Định dạng:** CSV/TXT/XLSX, tối đa 10 MiB và 20.000 dòng. Mẫu chuẩn không tiêu đề:
+mã nhân viên, ngày YYYY-MM-DD, giờ HH:mm:ss, mã thiết bị, IN/OUT/AUTO. Giờ tệp là giờ
+Việt Nam. CSV/TXT mặc định UTF-8, dấu phẩy. Cấu hình lưu thêm được vị trí cột (UI đếm
+từ 1), dấu phân cách, UTF-16LE/Windows-1258, dòng bỏ qua, DD/MM/YYYY và HH:mm.
+XLSX đọc sheet đầu, hỗ trợ ô ngày/giờ Excel, không tính công thức.
+
+- Sai một dòng thì từ chối toàn lô, trả số dòng/mã lỗi/nội dung, không lưu riêng các
+  lượt hợp lệ. Lỗi định dạng toàn tệp trả 400. Kiểm tra hiệu lực phân công và phạm vi.
+- Lô nhập lưu người nhập, thời điểm, SHA-256, cấu hình tại lần nhập, tổng dòng và kết
+  quả. Log gốc lưu nguồn cột/dòng/lô; PostgreSQL chặn UPDATE/DELETE. Trùng chính xác
+  cơ sở/nhân viên/thời điểm/thiết bị/chiều không chèn lại. Lô trùng vẫn có lịch sử riêng,
+  không tính lại ngày công. Trạng thái lô là tại lần nhập; log phản ánh lần xử lý gần nhất.
+- Chỉ ghép lịch APPROVED. Ngày công là ngày bắt đầu ca, không phải ngày quẹt ra.
+  Khử lượt liên tiếp trong cửa sổ 5 phút: giữ IN đầu/OUT cuối; giữ log bị loại để truy
+  vết. Không tự suy ra giờ ra khi thiếu lượt hoặc nhiều lịch cùng khớp.
+- Cắt giờ làm trong ca; bỏ phần chồng nghỉ không lương, giữ nghỉ có tính giờ. Tách
+  đoạn ở 00:00/06:00/22:00 Việt Nam. Công = thời lượng thực tế/thời lượng ca, tối đa 1.
+  Ca 22:00–06:00 nghỉ có lương là 480 phút đêm, hai đoạn ngày lịch nhưng cùng ngày
+  công. Không tự ghi OT; đi muộn/về sớm ghi số phút/cờ, không trừ lương.
+- Năm tham số PUNCH_* phân giải theo ngày/phạm vi bằng bộ tham số hiện có. Biên vào
+  trước/sau mặc định 30/15 phút, ra trước/sau 15/30 phút; biên ghép không phải miễn muộn.
+- Kỳ tham chiếu chọn vùng xử lý và các kỳ kề; từng ca tìm kỳ đích theo ngày bắt đầu.
+  Một tệp có thể vào nhiều kỳ. Kỳ PLANNED/chưa có kỳ hoặc lịch chưa duyệt giữ log chờ.
+  Sau mở kỳ/duyệt lịch, AD bấm **Xử lý lượt quẹt chờ**.
+- Chỉ OPEN được ghi công. CLOSED/LOCKED giữ log muộn kèm lý do, không sửa công cũ;
+  trigger database và khóa giao dịch dùng chung với mở kỳ/lập lịch/điều chuyển.
+  Chưa có API chốt/khóa kỳ; hồi quy dùng trạng thái fixture cách ly.
+- Bảng công/ngoại lệ lọc kỳ, đơn vị, mã/tên. Phân trang/tổng hợp dùng cùng điều kiện
+  quyền: hiện tại lẫn ngày công, phân công chính và exclusion. Nhân sự chuyển ngoài
+  phạm vi không bị lộ qua chi tiết hoặc tổng số. Bấm ngày công xem đoạn giờ/lượt ghép;
+  bấm lượt gốc xem lô, dòng và dữ liệu nguồn.
+
+**API:**
+
+| Hành động | Endpoint |
+|---|---|
+| Cơ sở/đơn vị/kỳ/cấu hình được phép | GET /api/attendance/context |
+| Lưu cấu hình cột mới | POST /api/attendance/profiles |
+| Nhập tệp | POST /api/attendance/imports, multipart file/siteId/referencePeriodId/profileId? |
+| Lịch sử/chi tiết lô | GET /api/attendance/imports?siteId=UUID, GET /api/attendance/imports/:id |
+| Xử lý lại | POST /api/attendance/process, JSON siteId/referencePeriodId |
+| Bảng công/ngoại lệ | GET /api/attendance/board?periodId=UUID&orgUnitId=UUID&search=...&exceptionsOnly=true |
+| Chi tiết ngày | GET /api/attendance/days/:id |
+| Log gốc | GET /api/attendance/punches?siteId=UUID&state=... |
+
+Danh sách nhận page/pageSize (tối đa 100). Cấu hình lưu bất biến; đổi thì tạo mới.
+
+**Nâng cấp:** `npm run db:deploy` áp migration `20261018160000_attendance_import`
+và thêm tham số ghép, không reset. Backup demo trước nâng cấp:
+`.local/backups/hrtp-demo-before-attendance-1792312626825.dump`. Giữ nguyên nhân sự,
+hợp đồng, lịch đã duyệt, mật khẩu và khóa mã hóa.
+
+**Kiểm chứng:** `npm run verify:attendance` đạt **21/21**: 5 parser, 8 engine,
+7 tình huống HTTP/PostgreSQL + parent. Database riêng, migrate/seed rồi xóa đúng
+database do lệnh tạo. Bao phủ lỗi dòng/ngoài cơ sở, nhập trùng, log bất biến, ca đêm,
+nghỉ có/không lương, thiếu quẹt, muộn/sớm, lịch chưa duyệt, qua ngày chốt, kỳ chưa mở/
+đã khóa, exclusion và điều chuyển. Typecheck/build đạt; Vite vẫn cảnh báo chunk thư
+viện UI >500 kB. Không phải nghiệm thu toàn bộ R1.
+
+Đã nhập trên browser thật 4 log BN00004 cho lịch đêm 18/10: ghép 21:58–06:04, giới hạn
+công trong ca 22:00–06:00, 8 giờ đêm/1 công, giữ hai lượt bị loại. Nhập lại không thêm
+log; tệp có mã lạ/ngày sai bị từ chối cả lô; lưu/dùng cấu hình MAY01 - 5 cột chuẩn,
+xem lịch sử và nguồn. Ở 390px bảng cuộn riêng, không tràn ngang toàn trang; axe không
+phát hiện lỗi tự động ở bảng công/lịch sử đã kiểm tra (vẫn có mục cần kiểm tra thủ công).
+
+Chưa triển khai đăng ký/duyệt OT, nghỉ phép/giải trình, xác nhận/chốt công, tính lương
+hoặc AI. Kết quả ghép quẹt ở đây chưa phải bảng công chốt.
+
+Hồi quy liên phân hệ sau tích hợp: nền **13/13**, nhân sự **16/16**, phân ca **14/14**.
+Đã đăng nhập TT trên browser, chỉ có hai tab đọc công/ngoại lệ và bộ lọc đơn vị
+NM-BN-D1-T1; xem được ca đêm trong tổ, không có chức năng nhập tệp của AD.
+Reload vẫn đọc được kết quả đã lưu; nguồn lượt ghép không mang lý do chờ giả.

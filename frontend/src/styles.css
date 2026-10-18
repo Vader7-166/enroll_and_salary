@@ -102,3 +102,32 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
 .shift-feedback { margin-top: 16px; }
 .shift-modal .ant-modal-body { max-height: 72vh; overflow: auto; }
 @media (max-width: 767px) { .shift-filters { grid-template-columns: 1fr; } .shift-slot { padding: 12px; } }
+
+.attendance-workspace { min-width: 0; }
+.attendance-workspace .page-heading { margin-bottom: 20px; }
+.attendance-filters { grid-template-columns: repeat(4, minmax(160px, 1fr)); align-items: end; }
+.attendance-filters > div { display: grid; min-width: 0; gap: 6px; }
+.attendance-filters .ant-select, .attendance-filters .ant-input { width: 100%; }
+.attendance-actions { display: flex; justify-content: flex-end; margin: -4px 0 12px; }
+.attendance-alert { margin-top: 16px; }
+.attendance-summary { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 0 0 12px; color: var(--secondary); }
+.attendance-summary strong { margin-right: 4px; color: var(--text); font-variant-numeric: tabular-nums; }
+.attendance-pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+.attendance-import { padding: 16px; border: 1px solid var(--divider); border-radius: 8px; background: var(--surface); }
+.attendance-mapping-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
+.attendance-mapping-grid .ant-input-number { width: 100%; }
+.attendance-errors { margin: 8px 0; padding-left: 20px; }
+.attendance-provenance { padding: 8px 0; border-bottom: 1px solid var(--divider); font-variant-numeric: tabular-nums; }
+.attendance-raw-filter { display: flex; justify-content: flex-end; margin: 0 0 12px; }
+.attendance-raw-filter .ant-select { min-width: 190px; }
+.attendance-table .ant-table-cell { font-variant-numeric: tabular-nums; }
+.attendance-state.ant-tag-green { color: #237804; }
+.attendance-state.ant-tag-gold, .attendance-state.ant-tag-orange { color: #874d00; }
+.attendance-state.ant-tag-red, .attendance-state.ant-tag-volcano { color: #a61d24; }
+.attendance-workspace > .ant-tabs .ant-tabs-nav-wrap { overflow: visible; }
+.attendance-workspace > .ant-tabs .ant-tabs-nav-list { width: 100%; flex-wrap: wrap; gap: 0 20px; transform: none !important; }
+.attendance-workspace > .ant-tabs .ant-tabs-tab { margin: 0; }
+.attendance-workspace > .ant-tabs .ant-tabs-nav-operations, .attendance-workspace > .ant-tabs .ant-tabs-ink-bar { display: none; }
+@media (max-width: 1199px) { .attendance-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .attendance-filters > :first-child { grid-column: auto; } }
+@media (max-width: 767px) { .attendance-filters, .attendance-mapping-grid { grid-template-columns: 1fr; } .attendance-actions { justify-content: stretch; } .attendance-actions .ant-btn { width: 100%; } }
+@media (max-width: 390px) { .attendance-workspace .table-panel > .ant-table-wrapper { overflow-x: auto; overflow-y: hidden; } .attendance-pagination { justify-content: flex-start; } }

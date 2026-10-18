@@ -9,9 +9,9 @@ import { HealthController } from './health/health.controller';
 import { PersonnelModule } from "./personnel/personnel.module";
 import { SettingsModule } from "./settings/settings.module";
 import { ShiftsModule } from "./shifts/shifts.module";
-
+import { AttendanceModule } from "./attendance/attendance.module";
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule],
   controllers: [HealthController],
 })
 export class AppModule {}

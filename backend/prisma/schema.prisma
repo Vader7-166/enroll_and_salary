@@ -53,6 +53,9 @@ model Site {
   wageRegionCode String @map("wage_region_code") @db.VarChar(3)
   wageRegion     WageRegion @relation(fields: [wageRegionCode], references: [code])
   unitVersions   OrgUnitVersion[]
+  attendanceProfiles AttendanceImportProfile[]
+  attendanceImports AttendanceImport[]
+  rawPunches RawPunch[]
   @@map("site")
 }
 
@@ -70,6 +73,7 @@ model OrgUnit {
   transfersTo PersonnelTransfer[] @relation("TransferTo")
   shiftDefinitions ShiftDefinition[]
   shiftPlans ShiftPlan[]
+  attendanceDays DailyAttendance[]
   @@map("org_unit")
 }
 
@@ -132,6 +136,8 @@ model Employee {
   contracts EmploymentContract[]
   transfers PersonnelTransfer[]
   shiftSchedules ShiftSchedule[]
+  rawPunches RawPunch[]
+  attendanceDays DailyAttendance[]
   @@index([fullName])
   @@map("employee")
 }
@@ -175,6 +181,7 @@ model UserAccount {
   auditLogs     AuditLog[]
   shiftPlans ShiftPlan[]
   shiftHistory ShiftPlanHistory[]
+  attendanceImports AttendanceImport[]
   @@map("user_account")
 }
 
@@ -308,6 +315,9 @@ model BusinessPeriod {
   createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
   scopeOrgUnit OrgUnit @relation(fields: [scopeOrgUnitId], references: [id])
   cutoffPolicy SitePolicy @relation(fields: [cutoffPolicyId], references: [id])
+  attendanceImports AttendanceImport[]
+  attendanceDays DailyAttendance[]
+  punchProcessing PunchProcessing[]
   @@unique([code])
   @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
   @@map("business_period")
@@ -465,6 +475,8 @@ model ShiftSchedule {
   plan ShiftPlan @relation(fields: [planId], references: [id])
   employee Employee @relation(fields: [employeeId], references: [id])
   shift ShiftDefinition @relation(fields: [shiftId], references: [id])
+  attendanceDay DailyAttendance?
+  punchProcessing PunchProcessing[]
   @@unique([planId, employeeId, workDate])
   @@index([employeeId, workDate])
   @@map("shift_schedule")
@@ -485,4 +497,110 @@ model ShiftPlanHistory {
   actor UserAccount @relation(fields: [actorId], references: [id])
   @@unique([planId, revision])
   @@map("shift_plan_history")
+}
+
+model AttendanceImportProfile {
+  id String @id @default(uuid()) @db.Uuid
+  siteId String @map("site_id") @db.Uuid
+  name String @db.VarChar(120)
+  mapping Json
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  site Site @relation(fields: [siteId], references: [id])
+  imports AttendanceImport[]
+  @@unique([siteId, name])
+  @@map("attendance_import_profile")
+}
+
+model AttendanceImport {
+  id String @id @default(uuid()) @db.Uuid
+  siteId String @map("site_id") @db.Uuid
+  referencePeriodId String @map("reference_period_id") @db.Uuid
+  profileId String? @map("profile_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(255)
+  fileHash String @map("file_hash") @db.Char(64)
+  mapping Json
+  status String @db.VarChar(32)
+  totalRows Int @map("total_rows")
+  summary Json
+  errors Json
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  site Site @relation(fields: [siteId], references: [id])
+  referencePeriod BusinessPeriod @relation(fields: [referencePeriodId], references: [id])
+  profile AttendanceImportProfile? @relation(fields: [profileId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id])
+  punches RawPunch[]
+  @@index([siteId, createdAt])
+  @@map("attendance_import")
+}
+
+model RawPunch {
+  id String @id @default(uuid()) @db.Uuid
+  siteId String @map("site_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  punchedAt DateTime @map("punched_at") @db.Timestamptz(3)
+  deviceCode String @map("device_code") @db.VarChar(80)
+  direction String @db.VarChar(4)
+  batchId String @map("batch_id") @db.Uuid
+  rowNumber Int @map("row_number")
+  source Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  site Site @relation(fields: [siteId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  batch AttendanceImport @relation(fields: [batchId], references: [id])
+  processing PunchProcessing?
+  checkInDays DailyAttendance[] @relation("AttendanceCheckIn")
+  checkOutDays DailyAttendance[] @relation("AttendanceCheckOut")
+  @@unique([siteId, deviceCode, employeeId, punchedAt])
+  @@index([siteId, punchedAt])
+  @@index([employeeId, punchedAt])
+  @@map("raw_punch")
+}
+
+model PunchProcessing {
+  punchId String @id @map("punch_id") @db.Uuid
+  scheduleId String? @map("schedule_id") @db.Uuid
+  periodId String? @map("period_id") @db.Uuid
+  workDate DateTime? @map("work_date") @db.Date
+  state String @db.VarChar(16)
+  reason String? @db.VarChar(80)
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+  punch RawPunch @relation(fields: [punchId], references: [id])
+  schedule ShiftSchedule? @relation(fields: [scheduleId], references: [id])
+  period BusinessPeriod? @relation(fields: [periodId], references: [id])
+  @@index([periodId, state])
+  @@map("punch_processing")
+}
+
+model DailyAttendance {
+  id String @id @default(uuid()) @db.Uuid
+  scheduleId String @unique @map("schedule_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  checkInId String? @map("check_in_id") @db.Uuid
+  checkOutId String? @map("check_out_id") @db.Uuid
+  status String @db.VarChar(3)
+  flags String[]
+  workedMinutes Decimal @map("worked_minutes") @db.Decimal(12,6)
+  dayMinutes Decimal @map("day_minutes") @db.Decimal(12,6)
+  nightMinutes Decimal @map("night_minutes") @db.Decimal(12,6)
+  lateMinutes Int @map("late_minutes")
+  earlyMinutes Int @map("early_minutes")
+  absent Boolean
+  workUnits Decimal @map("work_units") @db.Decimal(10,6)
+  segments Json
+  rules Json
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+  schedule ShiftSchedule @relation(fields: [scheduleId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  checkIn RawPunch? @relation("AttendanceCheckIn", fields: [checkInId], references: [id])
+  checkOut RawPunch? @relation("AttendanceCheckOut", fields: [checkOutId], references: [id])
+  @@index([periodId, orgUnitId, workDate])
+  @@index([employeeId, workDate])
+  @@map("daily_attendance")
 }
