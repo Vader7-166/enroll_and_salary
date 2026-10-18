@@ -26,7 +26,8 @@
     "verify:foundation": "npm run build --workspace backend && node --test backend/test/foundation.test.cjs",
     "verify:hr": "npm run build --workspace backend && node --test backend/test/hr-foundation.test.cjs",
     "verify:shifts": "npm run build --workspace backend && node --test backend/test/shifts.test.cjs",
-    "verify:attendance": "npm run build --workspace backend && node --test backend/test/attendance-parser.test.cjs backend/test/attendance-engine.test.cjs backend/test/attendance.test.cjs"
+    "verify:attendance": "npm run build --workspace backend && node --test backend/test/attendance-parser.test.cjs backend/test/attendance-engine.test.cjs backend/test/attendance.test.cjs",
+    "verify:overtime": "npm run build --workspace backend && node --test backend/test/overtime.test.cjs"
   },
   "devDependencies": {
     "concurrently": "10.0.6"

@@ -213,6 +213,10 @@ export class ShiftsService {
     const ids = [...new Set(lines.map(l => l.employeeId))].sort();
     // Transfers lock the same rows; stable order avoids multi-person deadlocks.
     await db.$queryRaw(Prisma.sql`SELECT id FROM employee WHERE id IN (${Prisma.join(ids.map(id => Prisma.sql`${id}::uuid`))}) ORDER BY id FOR UPDATE`);
+    for (const line of lines) {
+      if (await db.overtimeRequest.findFirst({ where: { status: { in: ["PENDING", "APPROVED"] }, startAt: { lt: line.endAt }, endAt: { gt: line.startAt }, members: { some: { employeeId: line.employeeId } } }, select: { id: true } }))
+        throw new ConflictException("Giờ ca bình thường trùng đề xuất OT đã gửi/đã duyệt; xử lý OT trước khi thay đổi lịch.");
+    }
     const from = new Date(Math.min(...lines.map(l => l.workDate.getTime())) - 7 * DAY);
     const to = new Date(Math.max(...lines.map(l => l.workDate.getTime())) + 7 * DAY);
     const others = await db.shiftSchedule.findMany({ where: { employeeId: { in: ids }, workDate: { gte: from, lte: to }, plan: { status: { in: ["DRAFT", "PENDING", "APPROVED"] }, ...(ignorePlanId ? { id: { not: ignorePlanId } } : {}) } }, include: { plan: { select: { teamOrgUnitId: true } } } });

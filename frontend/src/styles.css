@@ -131,3 +131,22 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
 @media (max-width: 1199px) { .attendance-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .attendance-filters > :first-child { grid-column: auto; } }
 @media (max-width: 767px) { .attendance-filters, .attendance-mapping-grid { grid-template-columns: 1fr; } .attendance-actions { justify-content: stretch; } .attendance-actions .ant-btn { width: 100%; } }
 @media (max-width: 390px) { .attendance-workspace .table-panel > .ant-table-wrapper { overflow-x: auto; overflow-y: hidden; } .attendance-pagination { justify-content: flex-start; } }
+/* Overtime workspace */
+.overtime-workspace { display: grid; gap: 16px; }
+.workspace-filters { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; padding: 16px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--surface); }
+.workspace-filters label { display: grid; gap: 4px; color: var(--secondary); font-size: 12px; font-weight: 500; }
+.workspace-filters .ant-select { width: 100%; }
+.workspace-table { overflow: hidden; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--surface); }
+.workspace-table .ant-table-cell { vertical-align: middle; }
+.workspace-loading { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 160px; color: var(--secondary); }
+.overtime-modal .ant-modal-body, .overtime-detail-modal .ant-modal-body { display: grid; gap: 16px; max-height: min(72vh, 760px); overflow: auto; }
+.overtime-consents { padding: 16px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--canvas); }
+.overtime-consents .ant-typography { margin-bottom: 8px; }
+.overtime-consents .ant-form-item:last-child { margin-bottom: 0; }
+.overtime-feedback { margin-top: 12px; }
+.overtime-actions { margin-bottom: 16px; }
+.overtime-detail-section { margin-top: 20px; }
+ .overtime-detail-section h3.ant-typography { margin-bottom: 8px; font-size: 16px; }
+.overtime-capacity { margin-top: 12px; }
+@media (max-width: 1024px) { .workspace-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .workspace-filters, .overtime-form-grid { grid-template-columns: 1fr; } .overtime-workspace .page-heading { flex-direction: column; gap: 12px; } .overtime-workspace .page-heading > .ant-btn { width: 100%; } }

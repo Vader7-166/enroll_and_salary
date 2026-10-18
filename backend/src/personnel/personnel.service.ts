@@ -522,6 +522,8 @@ export class PersonnelService {
         throw new ConflictException("Không thể chèn điều chuyển trước quyết định tương lai đã ghi nhận.");
       if (await tx.shiftSchedule.findFirst({ where: { employeeId, workDate: { gte: effectiveFrom, ...(source.effectiveTo ? { lte: source.effectiveTo } : {}) }, plan: { status: { in: ["PENDING", "APPROVED"] } } }, select: { id: true } }))
         throw new ConflictException("Khoảng điều chuyển có lịch ca đã gửi duyệt/đã duyệt; xử lý lịch trước khi điều chuyển.");
+      if (await tx.overtimeMember.findFirst({ where: { employeeId, request: { workDate: { gte: effectiveFrom, ...(source.effectiveTo ? { lte: source.effectiveTo } : {}) }, status: { in: ["PENDING", "APPROVED"] } } }, select: { id: true } }))
+        throw new ConflictException("Khoảng điều chuyển có OT đã gửi/đã duyệt; xử lý đề xuất trước khi điều chuyển.");
 
       const frozenPeriods = await tx.businessPeriod.findMany({
         where: {

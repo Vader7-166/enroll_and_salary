@@ -10,8 +10,9 @@ import { PersonnelModule } from "./personnel/personnel.module";
 import { SettingsModule } from "./settings/settings.module";
 import { ShiftsModule } from "./shifts/shifts.module";
 import { AttendanceModule } from "./attendance/attendance.module";
+import { OvertimeModule } from "./overtime/overtime.module";
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule, OvertimeModule],
   controllers: [HealthController],
 })
 export class AppModule {}

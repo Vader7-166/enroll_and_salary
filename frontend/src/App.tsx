@@ -46,10 +46,11 @@ import { SystemHealth } from "./components/SystemHealth";
 import { EmployeeProfileDrawer, PeriodsPage, SettingsPage } from "./components/HRWorkspace";
 import { ShiftWorkspace } from "./components/ShiftWorkspace";
 import { AttendanceWorkspace } from "./components/AttendanceWorkspace";
+import { OvertimeWorkspace } from "./components/OvertimeWorkspace";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
-type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "health";
+type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "health";
 const routeTitles: Record<Route, string> = {
   employees: "Nhân sự",
   accounts: "Tài khoản",
@@ -59,6 +60,7 @@ const routeTitles: Record<Route, string> = {
   health: "Hệ thống",
   shifts: "Ca & phân ca",
   attendance: "Chấm công",
+  overtime: "Tăng ca (OT)",
 };
 
 function currentRoute(user: AuthUser): Route {
@@ -67,6 +69,7 @@ function currentRoute(user: AuthUser): Route {
     route === "employees" ? user.permissions.includes("employee.read")
       : route === "shifts" ? user.permissions.includes("shift.read")
         : route === "attendance" ? user.permissions.includes("attendance.read")
+        : route === "overtime" ? user.permissions.includes("overtime.read")
           : route === "accounts" ? user.permissions.includes("accounts.manage")
             : route === "settings" ? user.permissions.includes("settings.manage")
               : route === "periods" ? user.permissions.includes("period.read")
@@ -74,6 +77,7 @@ function currentRoute(user: AuthUser): Route {
   return allowed ? route
     : user.permissions.includes("employee.read") ? "employees"
       : user.permissions.includes("attendance.read") ? "attendance"
+        : user.permissions.includes("overtime.read") ? "overtime"
         : user.permissions.includes("accounts.manage") ? "accounts"
           : user.permissions.includes("period.read") ? "periods"
             : user.permissions.includes("settings.manage") ? "settings"
@@ -174,6 +178,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const periodRead = user.permissions.includes("period.read");
   const settingsManage = user.permissions.includes("settings.manage");
   const attendanceRead = user.permissions.includes("attendance.read");
+  const overtimeRead = user.permissions.includes("overtime.read");
   const items = [
     employeeRead
       ? { key: "employees", icon: <TeamOutlined />, label: "Nhân sự" }
@@ -189,6 +194,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       : null,
     user.permissions.includes("shift.read") ? { key: "shifts", icon: <CalendarOutlined />, label: "Ca & phân ca" } : null,
     attendanceRead ? { key: "attendance", icon: <CalendarOutlined />, label: "Chấm công" } : null,
+    overtimeRead ? { key: "overtime", icon: <CalendarOutlined />, label: "Tăng ca (OT)" } : null,
     { key: "organization", icon: <ApartmentOutlined />, label: "Tổ chức" },
     { key: "health", icon: <AuditOutlined />, label: "Hệ thống" },
   ].filter(Boolean) as { key: Route; icon: React.ReactNode; label: string }[];
@@ -226,6 +232,8 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       <ShiftWorkspace user={user} />
     ) : route === "attendance" ? (
       <AttendanceWorkspace user={user} />
+    ) : route === "overtime" ? (
+      <OvertimeWorkspace user={user} />
     ) : route === "organization" ? (
       <OrganizationPage />
     ) : (

@@ -141,10 +141,9 @@ năng trong đặc tả; kiểm tra đồng bộ tài liệu không thay thế k
   chưa có engine tính lương. Font Be Vietnam Pro đóng gói local qua Fontsource.
 - Đã có migration và seed nền; đăng nhập/đăng xuất, phiên, phân quyền theo vai trò +
   cây đơn vị + hiệu lực + exclusion; danh sách/chi tiết/tạo nhân sự, cơ cấu tổ chức,
-  quản trị thu hồi phiên và health. Đã bổ sung hợp đồng/phụ lục, điều chuyển theo ngày,
-  phiên bản tham số/chính sách chốt, tạo/mở kỳ công và ca/phân ca/duyệt lịch; **không phải toàn bộ R1**.
-- Chưa có engine chấm công, tính lương, chấm dứt hợp đồng hoặc AI; trạng thái nghiệm thu
-  FR/UAT/NFR của baseline lõi không tự đổi theo smoke này.
+  quản trị thu hồi phiên và health. Đã bổ sung hợp đồng/phụ lục và điều chuyển theo ngày.
+- Phạm vi demo hiện tại: nền tảng, tổ chức/nhân sự/hợp đồng/điều chuyển, tham số/chính sách, tạo/mở kỳ công, phân ca/duyệt lịch, nhập/ghép quẹt và đăng ký/duyệt OT; **không phải toàn bộ R1**.
+- Chưa có đối chiếu OT thực tế, tiền OT, nghỉ/giải trình, xác nhận/chốt công, engine tính lương hoặc AI; trạng thái nghiệm thu FR/UAT/NFR của baseline lõi không tự đổi theo smoke này.
 - Làm trực tiếp trên checkout demo hiện tại theo yêu cầu chủ dự án, không commit hoặc
   tự đổi nhánh. Không cho nhiều agent sửa cùng tệp.
 
@@ -594,10 +593,78 @@ log; tệp có mã lạ/ngày sai bị từ chối cả lô; lưu/dùng cấu h�
 xem lịch sử và nguồn. Ở 390px bảng cuộn riêng, không tràn ngang toàn trang; axe không
 phát hiện lỗi tự động ở bảng công/lịch sử đã kiểm tra (vẫn có mục cần kiểm tra thủ công).
 
-Chưa triển khai đăng ký/duyệt OT, nghỉ phép/giải trình, xác nhận/chốt công, tính lương
-hoặc AI. Kết quả ghép quẹt ở đây chưa phải bảng công chốt.
+Chưa triển khai đối chiếu OT thực tế, nghỉ phép/giải trình, xác nhận/chốt công, tính lương
+hoặc AI. Đăng ký/duyệt OT xem §7.12; kết quả ghép quẹt ở đây chưa phải bảng công chốt.
 
 Hồi quy liên phân hệ sau tích hợp: nền **13/13**, nhân sự **16/16**, phân ca **14/14**.
 Đã đăng nhập TT trên browser, chỉ có hai tab đọc công/ngoại lệ và bộ lọc đơn vị
 NM-BN-D1-T1; xem được ca đêm trong tổ, không có chức năng nhập tệp của AD.
 Reload vẫn đọc được kết quả đã lưu; nguồn lượt ghép không mang lý do chờ giả.
+
+### 7.12. Đăng ký và duyệt OT
+
+Subtask này chỉ triển khai **giờ đăng ký và quy trình phê duyệt**, không ghi đè bảng công,
+không suy ra OT thực tế từ lượt quẹt và không tính tiền OT. Migration
+`20261018200000_overtime_registration` bổ sung đề nghị, thành viên và lịch sử append-only.
+
+**Luồng trên website:** mở **Tăng ca (OT)** hoặc `/#/overtime`.
+
+1. TT có `overtime.plan` chọn đơn vị/ngày, nhập tiêu đề, lý do và khoảng giờ tương lai;
+   chọn nhân sự theo tổ/ngày. Mỗi người phải có mã tham chiếu chứng từ đồng ý làm thêm.
+2. Lưu nháp rồi **Gửi duyệt**. Đề nghị trả lại được sửa thành nháp và gửi lại; revision cũ
+   bị từ chối. TT hủy đề nghị với lý do khi trạng thái cho phép, không xóa lịch sử.
+3. QĐ có `overtime.approve` xem hạn mức từng người, duyệt hoặc trả lại/từ chối có lý do.
+   Gửi/duyệt kiểm tra lại quyền, phạm vi, thời gian, lịch và hạn mức trong transaction.
+4. Tab **Lịch sử** → **Xem bản ghi** mở snapshot tại lần thao tác; **Về bản hiện tại**
+   quay lại trạng thái mới nhất. Reload giữ dữ liệu. KT có `overtime.read` chỉ xem đúng
+   phạm vi; AD không có quyền OT.
+
+Ngày công và input giờ dùng **Asia/Ho_Chi_Minh / UTC+07:00**. API nhận ISO có offset
+`+07:00`, chính xác phút; sửa đề nghị không làm lệch 7 giờ. Ca qua nửa đêm giữ ngày
+đăng ký; tổng tháng/năm được tách tại nửa đêm Việt Nam.
+
+**Ràng buộc:** chứng từ từng người; thuộc tổ tại ngày OT và còn quyền hiện tại; không
+trùng lịch chính thức hoặc đề nghị đang giữ chỗ; hai khoảng chạm đầu mút không trùng.
+Gửi/duyệt không hồi tố. Đề nghị PENDING/APPROVED chặn phân ca/điều chuyển xung đột.
+Kỳ CLOSED/LOCKED của đơn vị hoặc tổ tiên chặn ghi; lịch sử không sửa/xóa được ở database.
+Khóa nhân viên theo thứ tự ổn định bảo vệ duyệt đồng thời và kiểm tra hạn mức.
+
+Hạn mức theo tham số hiệu lực `WORK_DATE`, ưu tiên cơ sở → vùng → toàn cục:
+
+| Tham số | Giá trị mặc định / giới hạn |
+|---|---|
+| `OT_DAILY_MAX_RATIO` | 0,5 × giờ ca đã duyệt; thiếu lịch dùng `SHIFT_MAX_DAILY_MINUTES` (480 phút) |
+| `OT_MONTH_MAX_MINUTES` | 2.400 phút (40 giờ); từ 90% hiển thị cảnh báo số giờ còn lại |
+| `OT_YEAR_MAX_MINUTES` | 12.000 phút (200 giờ); tối đa 18.000 phút khi có căn cứ 300 giờ hợp lệ |
+
+Trần trên 200 giờ cần cả `OT_300_NOTICE_REFERENCE` (chuỗi căn cứ) và
+`OT_300_NOTICE_DATE` (`YYYY-MM-DD`) ở scope `SITE:<siteId>`, `subjectType=ALL`,
+`applicationBasis=WORK_DATE`, có hiệu lực tại ngày OT; ngày thông báo không sau ngày OT.
+Cấu hình tại API quản trị tham số, không mặc định bật 300 giờ. Tổng sử dụng lấy các
+đề nghị **APPROVED**, không cộng lặp đề nghị đang xem; lúc duyệt luôn tính lại.
+
+| Hành động | Endpoint |
+|---|---|
+| Phạm vi và quyền | `GET /api/overtime/context` |
+| Nhân sự theo tổ/ngày | `GET /api/overtime/members?teamOrgUnitId=UUID&workDate=YYYY-MM-DD` |
+| Danh sách/chi tiết | `GET /api/overtime/requests`, `GET /api/overtime/requests/:id` |
+| Tạo/sửa | `POST /api/overtime/requests`, `POST /api/overtime/requests/:id/update` |
+| Gửi/duyệt/trả lại/từ chối/hủy | `POST /api/overtime/requests/:id/{submit,approve,return,reject,cancel}` |
+
+Tạo/sửa gửi `teamOrgUnitId`, `title`, `workDate`, `startAt`, `endAt`, `reason`,
+`members: [{ employeeId, consentReference }]`; sửa/chuyển trạng thái có `revision`.
+Trả lại/từ chối/hủy bắt buộc `reason`. Lỗi nghiệp vụ không ghi dở một phần nhóm.
+
+**Kiểm chứng đã chạy:** `npm run verify:overtime` đạt **7/7** với PostgreSQL cách ly
+và HTTP thật; hồi quy toàn bộ backend sau tích hợp **71/71**, typecheck và build đạt.
+Bao phủ chứng từ/phạm vi, trả lại/sửa, revision, duyệt đồng thời, snapshot bất biến,
+trùng/tiếp giáp giờ, trần ngày/tháng/năm, căn cứ 300 giờ, ca qua tháng/năm, khóa kỳ
+và chặn điều chuyển/phân ca khi có OT chờ duyệt.
+
+Trên browser thật: `tt.bn` lập BN00004 ngày `2026-10-25`, `17:00–20:00`, gửi;
+`qd.bn` trả lại; TT sửa/gửi lại; QĐ duyệt. Reload giữ trạng thái **Đã duyệt**, lịch sử
+mở được snapshot cũ; `kt.bn` chỉ có quyền đọc. Desktop và 390px đã xem; bảng cuộn
+riêng, modal cuộn đến được phần lịch sử, không tràn ngang toàn trang. Axe không
+phát hiện lỗi tự động ở modal sau sửa, còn ba mục cần đánh giá thủ công.
+Không thay trạng thái nghiệm thu R1 và không commit/đổi nhánh.
+

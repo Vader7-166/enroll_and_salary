@@ -12,7 +12,7 @@ pháp lý gốc trong thư mục [`KhaoSat/`](KhaoSat).
 | Tác nhân hệ thống | **4**: Tổ trưởng (TT) · Quản đốc (QĐ) · Kế toán (KT) · Admin (AD). Công nhân là đối tượng dữ liệu, không đăng nhập |
 | Chuẩn pháp lý áp dụng | BLLĐ 2019; NĐ 145/2020/NĐ-CP; NĐ 293/2025/NĐ-CP; NĐ 283/2026/NĐ-CP; NĐ 13/2023/NĐ-CP; Luật Thuế TNCN 109/2025/QH15; NQ 110/2025/UBTVQH15; NĐ 253/2026/NĐ-CP; TT 111/2013 và NQ 954/2020 cho bộ thuế lịch sử 2025 |
 | Kỳ áp dụng | Từ kỳ lương 2026 |
-| Phiên bản tài liệu | 2.18 |
+| Phiên bản tài liệu | 2.19 |
 
 **Tech stack đã chốt (TECH-01):** React + TypeScript + Vite, Ant Design, TanStack Query;
 NestJS + TypeScript; PostgreSQL + Prisma; Decimal.js. Kiến trúc modular monolith,
@@ -21,9 +21,10 @@ phát triển trên VS Code. Xem [20 — Tech stack và môi trường phát tri
 **Luồng local đã chạy:** migration/seed, đăng nhập/phiên và phạm vi đơn vị; nhân sự,
 hợp đồng/phụ lục mã hóa, điều chuyển theo ngày hiệu lực; tham số/chính sách phiên bản,
 tạo/mở kỳ công, danh mục ca/phân ca/gửi duyệt/QĐ duyệt và lịch sử; quản trị phiên và
-nhập tệp/ghép lượt quẹt, bảng công/ngoại lệ và nguồn gốc lượt quẹt; health PostgreSQL thật. Hướng dẫn cài/chạy, bảo vệ
-khóa mã hóa và tài khoản demo tại [20 §7](20-tech-stack-va-moi-truong-phat-trien.md#7-chạy-môi-trường-demo-local).
-Chưa có OT/nghỉ/giải trình, xác nhận/chốt công, tính lương, chốt/khóa kỳ hoặc AI; không đổi nghiệm thu lõi,
+nhập tệp/ghép lượt quẹt, bảng công/ngoại lệ và nguồn gốc lượt quẹt; đăng ký/gửi/duyệt OT,
+trả lại/từ chối/hủy, hạn mức và snapshot lịch sử; health PostgreSQL thật. Hướng dẫn
+cài/chạy, bảo vệ khóa mã hóa và tài khoản demo tại [20 §7](20-tech-stack-va-moi-truong-phat-trien.md#7-chạy-môi-trường-demo-local).
+Chưa có đối chiếu/tiền OT, nghỉ/giải trình, xác nhận/chốt công, tính lương, chốt/khóa kỳ hoặc AI; không đổi nghiệm thu lõi,
 không commit/đổi nhánh.
 **Dữ liệu local:** bộ doanh nghiệp giả lập 2.200 nhân sự theo cơ cấu bốn cơ sở;
 có chức danh, hợp đồng/lương mã hóa, phụ lục và điều chuyển. Giữ hồ sơ đã nhập,
@@ -194,6 +195,7 @@ bộ tài liệu này:
 
 | Phiên bản | Nội dung |
 |---|---|
+| 2.19 | Hoàn thành subtask đăng ký/duyệt OT: migration/API/UI, TT lập/sửa/gửi/hủy, QĐ duyệt/trả lại/từ chối; chứng từ từng người, phạm vi hiện tại/theo ngày, chống trùng, trần 200/300 giờ, khóa kỳ, cạnh tranh duyệt và snapshot bất biến. Sửa lệch UTC khi mở sửa; UI desktop/390px và HTTP/PostgreSQL thật. OT 7/7, hồi quy 71/71; chưa đối chiếu OT thực tế hoặc tiền OT. Xem 20 §7.12 |
 | 2.18 | Triển khai nhập CSV/TXT/XLSX, cấu hình cột, nguồn lượt quẹt bất biến, chống nhập trùng, ghép ca đã duyệt và ca đêm/nghỉ giữa ca; bảng công/ngoại lệ theo phạm vi hiện tại và ngày công. Log chờ/kỳ kề/log muộn không sửa công kỳ đóng/khóa. Kiểm chứng 21/21 và UI thật; xem 20 §7.11 |
 | 2.17 | Triển khai danh mục ca hành chính/ngày/đêm, phân ca theo tổ hoặc người/ngày, TT gửi và QĐ duyệt/trả lại; lịch chính thức chỉ APPROVED và snapshot lịch sử append-only. Bảo vệ phạm vi hiện tại/theo ngày, nghỉ chuyển ca 12 giờ, trần 8/48 giờ, khóa kỳ và cạnh tranh ghi. Kiểm chứng API PostgreSQL cách ly 14/14 và UI thật; xem 20 §7.10 |
 | 2.16 | Nâng seed local thành bộ doanh nghiệp giả lập 2.200 nhân sự, 29 phòng ban/phân xưởng, hợp đồng/lương mã hóa, phụ lục, điều chuyển và kỳ công tháng 10–11. Giữ dữ liệu nhập qua UI, mật khẩu, phân quyền, khóa và phiên bản chính sách; sao lưu trước nhập, kiểm chứng seed lặp lại và API/UI thật. Không dựng kết quả công/lương chưa triển khai; xem 20 §7.9 |

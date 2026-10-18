@@ -132,9 +132,9 @@ async function seed() {
           create: { code, name },
         });
       const permissions = {
-        TT: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.plan", "attendance.read"],
-        QD: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.approve", "attendance.read"],
-        KT: ["employee.read", "employee.create", "employee.history", "employee.transfer", "contract.read", "contract.manage", "organization.read", "period.read", "shift.read", "attendance.read"],
+        TT: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.plan", "attendance.read", "overtime.read", "overtime.plan"],
+        QD: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.approve", "attendance.read", "overtime.read", "overtime.approve"],
+        KT: ["employee.read", "employee.create", "employee.history", "employee.transfer", "contract.read", "contract.manage", "organization.read", "period.read", "shift.read", "attendance.read", "overtime.read"],
         AD: ["accounts.manage", "organization.read", "settings.manage", "period.manage", "period.read", "shift.read", "shift.manage", "attendance.read", "attendance.import"],
       };
       for (const [code, name] of [
