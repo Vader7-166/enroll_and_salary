@@ -5,5 +5,7 @@ import { SettingsModule } from "../settings/settings.module";
 import { ScopeService } from "../organization/scope.service";
 import { AttendanceController } from "./attendance.controller";
 import { AttendanceService } from "./attendance.service";
-@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController], providers: [AttendanceService, ScopeService] })
+import { CorrectionsController } from "./corrections.controller";
+import { CorrectionsService } from "./corrections.service";
+@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController, CorrectionsController], providers: [AttendanceService, CorrectionsService, ScopeService] })
 export class AttendanceModule {}

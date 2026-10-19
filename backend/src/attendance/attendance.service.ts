@@ -13,6 +13,8 @@ import type { ActualAssignment, ActualRequestInput, ComputedActual } from "./ove
 import { parseAttendanceFile, validateMapping } from "./import-parser";
 import { STANDARD_MAPPING } from "./attendance.types";
 import type { EngineSchedule, ImportRowError, ImportSummary, PairingRules, ParsedImport, PunchDirection } from "./attendance.types";
+import type { ApprovedAttendanceAdjustment } from "./attendance.types";
+import { visibleCorrectionViews } from "./correction-view";
 
 type Db = Prisma.TransactionClient;
 type Scope = { allowed: Set<string>; versions: Array<Prisma.OrgUnitVersionGetPayload<{ include: { orgUnit: true; site: true } }>> };
@@ -21,14 +23,15 @@ const MINUTE = 60000;
 const employeeSelect = { id: true, code: true, fullName: true } as const;
 const rawInclude = { employee: { select: employeeSelect }, processing: true } satisfies Prisma.RawPunchInclude;
 const batchInclude = { site: { select: { name: true } }, createdBy: { select: { id: true, displayName: true } } } satisfies Prisma.AttendanceImportInclude;
-const dayInclude = { employee: { select: employeeSelect }, orgUnit: true, schedule: { include: { shift: true } }, checkIn: { select: { punchedAt: true } }, checkOut: { select: { punchedAt: true } } } satisfies Prisma.DailyAttendanceInclude;
+const dayInclude = { employee: { select: employeeSelect }, orgUnit: true, schedule: { include: { shift: true } }, checkIn: { select: { punchedAt: true } }, checkOut: { select: { punchedAt: true } }, adjustment: { select: { correctionId: true } } } satisfies Prisma.DailyAttendanceInclude;
 type Batch = Prisma.AttendanceImportGetPayload<{ include: typeof batchInclude }>;
 type Raw = Prisma.RawPunchGetPayload<{ include: typeof rawInclude }>;
 type Daily = Prisma.DailyAttendanceGetPayload<{ include: typeof dayInclude }>;
-const actualInclude = { employee: { select: employeeSelect }, orgUnit: true } satisfies Prisma.OvertimeActualInclude;
+const actualInclude = { employee: { select: employeeSelect }, orgUnit: true, adjustment: { select: { correctionId: true } } } satisfies Prisma.OvertimeActualInclude;
 type Actual = Prisma.OvertimeActualGetPayload<{ include: typeof actualInclude }>;
 function actualView(row: Actual, name: string) {
   return { id: row.id, employee: row.employee, orgUnitId: row.orgUnitId, orgUnitCode: row.orgUnit.code, orgUnitName: name, periodId: row.periodId, workDate: key(row.workDate),
+    adjustmentId: row.adjustmentId, correctionId: row.adjustment?.correctionId ?? null,
     requestedMinutes: row.requestedMinutes.toNumber(), approvedMinutes: row.approvedMinutes.toNumber(), actualMinutes: row.actualMinutes.toNumber(), eligibleMinutes: row.eligibleMinutes.toNumber(),
     dayMinutes: row.dayMinutes.toNumber(), nightMinutes: row.nightMinutes.toNumber(), unapprovedMinutes: row.unapprovedMinutes.toNumber(), unworkedApprovedMinutes: row.unworkedApprovedMinutes.toNumber(), flags: row.flags, processedAt: row.processedAt.toISOString() };
 }
@@ -50,7 +53,7 @@ function batchView(b: Batch) { return { id: b.id, siteId: b.siteId, siteName: b.
 function rawView(r: Raw) { return { id: r.id, employee: r.employee, punchedAt: r.punchedAt.toISOString(), direction: r.direction, deviceCode: r.deviceCode, batchId: r.batchId, rowNumber: r.rowNumber, source: r.source, state: r.processing?.state ?? "WAITING", reason: r.processing ? r.processing.reason : "NOT_PROCESSED", workDate: r.processing?.workDate ? key(r.processing.workDate) : null, periodId: r.processing?.periodId ?? null, scheduleId: r.processing?.scheduleId ?? null }; }
 function dayView(d: Daily, name: string) { return { id: d.id, employee: d.employee, orgUnitId: d.orgUnitId, orgUnitCode: d.orgUnit.code, orgUnitName: name, workDate: key(d.workDate), periodId: d.periodId,
   shift: { code: d.schedule.shift.code, name: d.schedule.shift.name, startAt: d.schedule.startAt.toISOString(), endAt: d.schedule.endAt.toISOString(), workMinutes: d.schedule.workMinutes, paidBreak: d.schedule.shift.paidBreak, breakMinutes: d.schedule.shift.breakMinutes },
-  checkInAt: d.checkIn?.punchedAt.toISOString() ?? null, checkOutAt: d.checkOut?.punchedAt.toISOString() ?? null, status: d.status, flags: d.flags, workedMinutes: d.workedMinutes.toNumber(), dayMinutes: d.dayMinutes.toNumber(), nightMinutes: d.nightMinutes.toNumber(), lateMinutes: d.lateMinutes, earlyMinutes: d.earlyMinutes, absent: d.absent, workUnits: d.workUnits.toString(), processedAt: d.processedAt.toISOString() }; }
+  adjustmentId: d.adjustmentId, correctionId: d.adjustment?.correctionId ?? null, checkInAt: d.effectiveCheckInAt?.toISOString() ?? d.checkIn?.punchedAt.toISOString() ?? null, checkOutAt: d.effectiveCheckOutAt?.toISOString() ?? d.checkOut?.punchedAt.toISOString() ?? null, status: d.status, flags: d.flags, workedMinutes: d.workedMinutes.toNumber(), dayMinutes: d.dayMinutes.toNumber(), nightMinutes: d.nightMinutes.toNumber(), lateMinutes: d.lateMinutes, earlyMinutes: d.earlyMinutes, absent: d.absent, workUnits: d.workUnits.toString(), processedAt: d.processedAt.toISOString() }; }
 
 @Injectable()
 export class AttendanceService {
@@ -184,21 +187,47 @@ export class AttendanceService {
     return { values, parameterIds };
   }
 
-  private async processRows(user: AuthUser, siteId: string, reference: BusinessPeriod, db: Db, onlyIds?: Set<string>): Promise<ImportSummary> {
-    const current = await this.scope.load(user, "attendance.import", db);
+  async reconcileCorrections(user: AuthUser, periodId: string, db: Db, pending: ApprovedAttendanceAdjustment[]) {
+    const reference = await db.businessPeriod.findUniqueOrThrow({ where: { id: periodId } });
+    const sites = new Set<string>();
+    for (const item of pending) {
+      const unit = await db.orgUnitVersion.findFirst({ where: { orgUnitId: item.orgUnitId, ...effectiveAt(new Date(item.workDate + "T00:00:00Z")) }, select: { siteId: true } });
+      if (!unit?.siteId) throw new BadRequestException("Không xác định được cơ sở ngày công.");
+      sites.add(unit.siteId);
+    }
+    for (const siteId of sites) await this.processRows(user, siteId, reference, db, undefined, "attendance.review", pending);
+  }
+
+  private async approvedAdjustments(db: Db, from: Date, to: Date, pending: ApprovedAttendanceAdjustment[]) {
+    const rows = await db.attendanceCorrectionItem.findMany({ where: { workDate: { gte: shifted(from, -1), lte: shifted(to, 1) }, correction: { status: "APPROVED" } }, orderBy: [{ correction: { appliedOrder: "asc" } }, { id: "asc" }] });
+    const effective = new Map<string, ApprovedAttendanceAdjustment>();
+    const fold = (item: ApprovedAttendanceAdjustment) => {
+      const k = item.employeeId + ":" + item.orgUnitId + ":" + item.workDate, previous = effective.get(k);
+      effective.set(k, { ...item, intervals: item.intervals === null ? previous?.intervals ?? null : item.intervals, excuseLateEarly: item.intervals === null ? Boolean(previous?.excuseLateEarly || item.excuseLateEarly) : item.excuseLateEarly });
+    };
+    for (const row of rows) fold({ id: row.id, employeeId: row.employeeId, orgUnitId: row.orgUnitId, workDate: key(row.workDate), intervals: row.intervals as Array<{ startAt: string; endAt: string }> | null, excuseLateEarly: row.excuseLateEarly });
+    for (const row of pending) fold(row);
+    return [...effective.values()];
+  }
+
+  private async processRows(user: AuthUser, siteId: string, reference: BusinessPeriod, db: Db, onlyIds?: Set<string>, permission = "attendance.import", pending: ApprovedAttendanceAdjustment[] = []): Promise<ImportSummary> {
+    const current = await this.scope.load(user, permission, db);
     const periods = await db.businessPeriod.findMany({ where: { scopeOrgUnitId: reference.scopeOrgUnitId, periodType: "ATTENDANCE" }, orderBy: { dateFrom: "asc" } });
     const index = periods.findIndex(p => p.id === reference.id);
     const adjacent = periods.slice(Math.max(0, index - 1), index + 2);
-    const from = adjacent[0]?.dateFrom ?? reference.dateFrom, to = adjacent.at(-1)?.dateTo ?? reference.dateTo;
+    const affectedDates = pending.map(i => i.workDate).sort();
+    const from = pending.length ? new Date(affectedDates[0] + "T00:00:00Z") : adjacent[0]?.dateFrom ?? reference.dateFrom;
+    const to = pending.length ? new Date(affectedDates.at(-1)! + "T00:00:00Z") : adjacent.at(-1)?.dateTo ?? reference.dateTo;
+    const employeeFilter = pending.length ? { employeeId: { in: [...new Set(pending.map(i => i.employeeId))] } } : {};
     const rangeFrom = new Date(key(shifted(from, -1)) + "T00:00:00+07:00"), rangeTo = new Date(key(shifted(to, 3)) + "T00:00:00+07:00");
     const [raw, candidates, overtime, previousActuals] = await Promise.all([
-      db.rawPunch.findMany({ where: { siteId, OR: [{ punchedAt: { gte: rangeFrom, lte: rangeTo } }, ...(onlyIds ? [{ id: { in: [...onlyIds] } }] : [])] }, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] }),
-      db.shiftSchedule.findMany({ where: { plan: { status: "APPROVED" }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { plan: true, shift: true } }),
-      db.overtimeRequest.findMany({ where: { workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { members: true } }),
-      db.overtimeActual.findMany({ where: { workDate: { gte: from, lte: to } }, select: { employeeId: true, orgUnitId: true, workDate: true } }),
+      db.rawPunch.findMany({ where: { siteId, ...employeeFilter, OR: [{ punchedAt: { gte: rangeFrom, lte: rangeTo } }, ...(onlyIds ? [{ id: { in: [...onlyIds] } }] : [])] }, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] }),
+      db.shiftSchedule.findMany({ where: { ...employeeFilter, plan: { status: "APPROVED" }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { plan: true, shift: true } }),
+      db.overtimeRequest.findMany({ where: { ...(pending.length ? { members: { some: employeeFilter } } : {}), workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { members: pending.length ? { where: employeeFilter } : true } }),
+      db.overtimeActual.findMany({ where: { ...employeeFilter, workDate: { gte: from, lte: to } }, select: { employeeId: true, orgUnitId: true, workDate: true } }),
     ]);
     const scopes = new Map<string, Scope>();
-    const getScope = async (day: Date) => { let scoped = scopes.get(key(day)); if (!scoped) { scoped = await this.scope.load(user, "attendance.import", db, day); scopes.set(key(day), scoped); } return scoped; };
+    const getScope = async (day: Date) => { let scoped = scopes.get(key(day)); if (!scoped) { scoped = await this.scope.load(user, permission, db, day); scopes.set(key(day), scoped); } return scoped; };
     const employees = await db.employee.findMany({ where: { id: { in: [...new Set([...raw.map(r => r.employeeId), ...candidates.map(s => s.employeeId), ...overtime.flatMap(r => r.members.map(m => m.employeeId)), ...previousActuals.map(r => r.employeeId)])] } }, select: { id: true, assignments: { where: { isPrimary: true } }, exclusions: { where: { userAccountId: user.id } } } });
     const byEmployee = new Map(employees.map(e => [e.id, e]));
     const canRead = (employeeId: string, date: Date, scoped: Scope, orgUnitId?: string) => {
@@ -210,13 +239,15 @@ export class AttendanceService {
     const rulesBySchedule: Record<string, PairingRules> = {}, snapshots = new Map<string, object>();
     const ensureRules = async (unit: string, day: Date) => { const cacheKey = unit + ":" + key(day); let rules = byRules.get(cacheKey); if (!rules) { rules = await this.rules(db, unit, day); byRules.set(cacheKey, rules); } return rules; };
     const allTargetPeriods = await db.businessPeriod.findMany({ where: { periodType: "ATTENDANCE", dateFrom: { lte: shifted(to, 3) }, dateTo: { gte: shifted(from, -1) } } });
+    // Period ancestry must include parents outside the actor's writable scope.
+    const hierarchy = await db.orgUnitVersion.findMany({ where: { effectiveFrom: { lte: shifted(to, 3) }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: shifted(from, -1) } }] }, select: { orgUnitId: true, parentId: true, effectiveFrom: true, effectiveTo: true } });
+    const periodParents = (unit: string, day: Date) => ancestors(unit, atDate(hierarchy, day));
     const targetPeriod = async (unit: string, day: Date) => {
-      const scoped = await getScope(day);
-      const parents = ancestors(unit, scoped.versions);
+      const parents = periodParents(unit, day);
       return allTargetPeriods.filter(p => p.dateFrom <= day && p.dateTo >= day && parents.includes(p.scopeOrgUnitId)).sort((a, b) => parents.indexOf(a.scopeOrgUnitId) - parents.indexOf(b.scopeOrgUnitId))[0] ?? null;
     };
     const blocked = async (unit: string, dates: Date[]) => {
-      for (const day of dates) { const scoped = await getScope(day); const parents = ancestors(unit, scoped.versions);
+      for (const day of dates) { const parents = periodParents(unit, day);
         if (allTargetPeriods.some(p => p.dateFrom <= day && p.dateTo >= day && parents.includes(p.scopeOrgUnitId) && ["CLOSED", "LOCKED"].includes(p.status))) return true;
       }
       return false;
@@ -227,7 +258,7 @@ export class AttendanceService {
       const rules = await ensureRules(s.plan.teamOrgUnitId, s.workDate);
       schedules.push({ id: s.id, employeeId: s.employeeId, orgUnitId: s.plan.teamOrgUnitId, workDate: key(s.workDate), startAt: s.startAt.toISOString(), endAt: s.endAt.toISOString(), workMinutes: s.workMinutes, breakStartOffset: s.shift.breakStartOffset, breakMinutes: s.shift.breakMinutes, paidBreak: s.shift.paidBreak });
       rulesBySchedule[s.id] = rules.values; snapshots.set(s.id, rules);
-      const parents = ancestors(s.plan.teamOrgUnitId, scoped.versions);
+      const parents = periodParents(s.plan.teamOrgUnitId, s.workDate);
       const targets = allTargetPeriods.filter(p => p.dateFrom <= s.workDate && p.dateTo >= s.workDate && parents.includes(p.scopeOrgUnitId)).sort((a, b) => parents.indexOf(a.scopeOrgUnitId) - parents.indexOf(b.scopeOrgUnitId));
       const target = targets[0] ?? null;
       schedulePeriods.set(s.id, target && s.workDate >= from && s.workDate <= to ? target : null);
@@ -267,16 +298,25 @@ export class AttendanceService {
     for (const row of selectedRaw) { const day = localDate(row.punchedAt), employee = byEmployee.get(row.employeeId);
       for (const assignment of employee?.assignments ?? []) if (atDate([assignment], day).length) await addAssignment(row.employeeId, assignment.orgUnitId, day);
     }
-    const computed = computeOvertimeAttendance({ schedules, requests, punches: selectedRaw.map(r => ({ id: r.id, employeeId: r.employeeId, punchedAt: r.punchedAt.toISOString(), direction: r.direction as PunchDirection })), assignments, rules: Object.fromEntries([...byRules].map(([k, r]) => [k, r.values])) });
+    const allAdjustments = await this.approvedAdjustments(db, from, to, pending);
+    const adjustmentSources = new Map((await db.attendanceCorrectionItem.findMany({ where: { id: { in: allAdjustments.map(a => a.id) } }, select: { id: true, sourceDates: true } })).map(i => [i.id, i.sourceDates]));
+    const adjustments: ApprovedAttendanceAdjustment[] = [], hiddenAdjustments = new Set<string>();
+    for (const item of allAdjustments) {
+      let visible = true;
+      for (const day of [new Date(item.workDate + "T00:00:00Z"), ...(adjustmentSources.get(item.id) ?? [])]) if (!canRead(item.employeeId, day, await getScope(day), item.orgUnitId)) visible = false;
+      if (visible) adjustments.push(item); else hiddenAdjustments.add(item.employeeId + ":" + item.orgUnitId + ":" + item.workDate);
+    }
+    const computed = computeOvertimeAttendance({ schedules, requests, punches: selectedRaw.map(r => ({ id: r.id, employeeId: r.employeeId, punchedAt: r.punchedAt.toISOString(), direction: r.direction as PunchDirection })), assignments, rules: Object.fromEntries([...byRules].map(([k, r]) => [k, r.values])), adjustments });
     const result = computed.attendance;
     const actualRoutes = new Map<string, { workDate: string; period: BusinessPeriod | null; frozen: boolean }>();
     const actualExceptionKeys = new Set<string>();
     const previousActualKeys = new Set(previousActuals.map(row => row.employeeId + ":" + row.orgUnitId + ":" + key(row.workDate)));
     for (const actual of computed.actuals) {
+      if (hiddenAdjustments.has(actual.employeeId + ":" + actual.orgUnitId + ":" + actual.workDate)) continue;
       const workDate = new Date(actual.workDate + "T00:00:00Z");
       if (workDate < from || workDate > to) continue;
       if (!actual.punchIds.length && !actual.requests.length && !previousActualKeys.has(actual.employeeId + ":" + actual.orgUnitId + ":" + actual.workDate)) continue;
-      const sourceDates = [...new Map([workDate, ...actual.segments.map(s => new Date(s.calendarDate + "T00:00:00Z")), ...actual.pairs.flatMap(p => [p.checkInAt, p.checkOutAt].flatMap(t => t ? [localDate(new Date(t))] : [])), ...actual.requests.flatMap(r => [localDate(new Date(r.startAt)), localDate(new Date(Date.parse(r.endAt) - 1))])].map(d => [key(d), d])).values()].sort((a,b) => a.getTime()-b.getTime());
+      const sourceDates = [...new Map([workDate, ...(actual.adjustmentId ? adjustmentSources.get(actual.adjustmentId) ?? [] : []), ...actual.segments.map(s => new Date(s.calendarDate + "T00:00:00Z")), ...actual.pairs.flatMap(p => [p.checkInAt, p.checkOutAt].flatMap(t => t ? [localDate(new Date(t))] : [])), ...actual.requests.flatMap(r => [localDate(new Date(r.startAt)), localDate(new Date(Date.parse(r.endAt) - 1))])].map(d => [key(d), d])).values()].sort((a,b) => a.getTime()-b.getTime());
       const period = await targetPeriod(actual.orgUnitId, workDate);
       const frozen = await blocked(actual.orgUnitId, sourceDates);
       for (const id of actual.punchIds) if (!actualRoutes.has(id)) actualRoutes.set(id, { workDate: actual.workDate, period, frozen });
@@ -286,26 +326,27 @@ export class AttendanceService {
       if (!visible) continue;
       if (actual.flags.some(flag => flag !== "AWAITING_PUNCHES")) actualExceptionKeys.add(actual.employeeId + ":" + actual.workDate);
       const { employeeId, orgUnitId, ...evidence } = actual;
-      const values = { periodId: period.id, sourceDates, requestedMinutes: actual.requestedMinutes, approvedMinutes: actual.approvedMinutes, actualMinutes: actual.actualMinutes, eligibleMinutes: actual.eligibleMinutes, dayMinutes: actual.dayMinutes, nightMinutes: actual.nightMinutes, unapprovedMinutes: actual.unapprovedMinutes, unworkedApprovedMinutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: json({ ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }), processedAt: new Date() };
+      const values = { periodId: period.id, sourceDates, adjustmentId: actual.adjustmentId ?? null, requestedMinutes: actual.requestedMinutes, approvedMinutes: actual.approvedMinutes, actualMinutes: actual.actualMinutes, eligibleMinutes: actual.eligibleMinutes, dayMinutes: actual.dayMinutes, nightMinutes: actual.nightMinutes, unapprovedMinutes: actual.unapprovedMinutes, unworkedApprovedMinutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: json({ ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }), processedAt: new Date() };
       await db.overtimeActual.upsert({ where: { employeeId_orgUnitId_workDate: { employeeId, orgUnitId, workDate } }, create: { employeeId, orgUnitId, workDate, ...values }, update: values });
     }
     const scheduleById = new Map(schedules.map(s => [s.id, s]));
     const now = new Date(), eligibleDays = result.days.filter(d => { const s = scheduleById.get(d.scheduleId)!; return d.checkInId || d.checkOutId || Date.parse(s.endAt) + rulesBySchedule[s.id].outAfterMinutes * MINUTE < now.getTime(); });
     const frozenSchedules = new Set<string>();
     for (const day of result.days) {
-      const dates = [new Date(day.workDate + "T00:00:00Z"), ...[day.checkInAt, day.checkOutAt].flatMap(t => t ? [localDate(new Date(t))] : [])];
+      const dates = [new Date(day.workDate + "T00:00:00Z"), ...(day.adjustmentId ? adjustmentSources.get(day.adjustmentId) ?? [] : []), ...[day.checkInAt, day.checkOutAt].flatMap(t => t ? [localDate(new Date(t))] : [])];
       if (await blocked(day.orgUnitId, dates)) frozenSchedules.add(day.scheduleId);
     }
     const dayRecords = eligibleDays.flatMap(d => {
+      if (hiddenAdjustments.has(d.employeeId + ":" + d.orgUnitId + ":" + d.workDate)) return [];
       const period = schedulePeriods.get(d.scheduleId);
       if (!period || period.status !== "OPEN" || frozenSchedules.has(d.scheduleId)) return [];
-      return [{ id: randomUUID(), schedule_id: d.scheduleId, employee_id: d.employeeId, org_unit_id: d.orgUnitId, period_id: period.id, work_date: d.workDate, check_in_id: d.checkInId, check_out_id: d.checkOutId, status: d.status, flags: d.flags, worked_minutes: d.workedMinutes, day_minutes: d.dayMinutes, night_minutes: d.nightMinutes, late_minutes: d.lateMinutes, early_minutes: d.earlyMinutes, absent: d.absent, work_units: d.workUnits, segments: d.segments, rules: snapshots.get(d.scheduleId), processed_at: now.toISOString() }];
+      return [{ id: randomUUID(), schedule_id: d.scheduleId, employee_id: d.employeeId, org_unit_id: d.orgUnitId, period_id: period.id, work_date: d.workDate, check_in_id: d.checkInId, check_out_id: d.checkOutId, effective_check_in_at: d.checkInAt, effective_check_out_at: d.checkOutAt, adjustment_id: d.adjustmentId ?? null, status: d.status, flags: d.flags, worked_minutes: d.workedMinutes, day_minutes: d.dayMinutes, night_minutes: d.nightMinutes, late_minutes: d.lateMinutes, early_minutes: d.earlyMinutes, absent: d.absent, work_units: d.workUnits, segments: d.segments, rules: snapshots.get(d.scheduleId), processed_at: now.toISOString() }];
     });
     for (let offset = 0; offset < dayRecords.length; offset += 500) {
       const rows = JSON.stringify(dayRecords.slice(offset, offset + 500));
-      await db.$executeRaw`INSERT INTO daily_attendance (id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,rules,processed_at)
-      SELECT id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,rules,processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,schedule_id uuid,employee_id uuid,org_unit_id uuid,period_id uuid,work_date date,check_in_id uuid,check_out_id uuid,status text,flags text[],worked_minutes numeric,day_minutes numeric,night_minutes numeric,late_minutes int,early_minutes int,absent boolean,work_units numeric,segments jsonb,rules jsonb,processed_at timestamptz)
-      ON CONFLICT (schedule_id) DO UPDATE SET period_id=EXCLUDED.period_id,check_in_id=EXCLUDED.check_in_id,check_out_id=EXCLUDED.check_out_id,status=EXCLUDED.status,flags=EXCLUDED.flags,worked_minutes=EXCLUDED.worked_minutes,day_minutes=EXCLUDED.day_minutes,night_minutes=EXCLUDED.night_minutes,late_minutes=EXCLUDED.late_minutes,early_minutes=EXCLUDED.early_minutes,absent=EXCLUDED.absent,work_units=EXCLUDED.work_units,segments=EXCLUDED.segments,rules=EXCLUDED.rules,processed_at=EXCLUDED.processed_at`;
+      await db.$executeRaw`INSERT INTO daily_attendance (id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,effective_check_in_at,effective_check_out_at,adjustment_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,rules,processed_at)
+      SELECT id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,effective_check_in_at,effective_check_out_at,adjustment_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,rules,processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,schedule_id uuid,employee_id uuid,org_unit_id uuid,period_id uuid,work_date date,check_in_id uuid,check_out_id uuid,effective_check_in_at timestamptz,effective_check_out_at timestamptz,adjustment_id uuid,status text,flags text[],worked_minutes numeric,day_minutes numeric,night_minutes numeric,late_minutes int,early_minutes int,absent boolean,work_units numeric,segments jsonb,rules jsonb,processed_at timestamptz)
+      ON CONFLICT (schedule_id) DO UPDATE SET period_id=EXCLUDED.period_id,check_in_id=EXCLUDED.check_in_id,check_out_id=EXCLUDED.check_out_id,effective_check_in_at=EXCLUDED.effective_check_in_at,effective_check_out_at=EXCLUDED.effective_check_out_at,adjustment_id=EXCLUDED.adjustment_id,status=EXCLUDED.status,flags=EXCLUDED.flags,worked_minutes=EXCLUDED.worked_minutes,day_minutes=EXCLUDED.day_minutes,night_minutes=EXCLUDED.night_minutes,late_minutes=EXCLUDED.late_minutes,early_minutes=EXCLUDED.early_minutes,absent=EXCLUDED.absent,work_units=EXCLUDED.work_units,segments=EXCLUDED.segments,rules=EXCLUDED.rules,processed_at=EXCLUDED.processed_at`;
     }
     const states = result.punches.map(p => {
       const s = p.scheduleId ? scheduleById.get(p.scheduleId) : null;
@@ -419,7 +460,7 @@ export class AttendanceService {
     const punches = await this.prisma.rawPunch.findMany({ where: { processing: { is: { scheduleId: row.scheduleId } } }, include: rawInclude, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] });
     const names = await this.dayNames([row]);
     await this.audit.record({ actorId: user.id, entityType: "daily_attendance", entityId: id, action: "READ", result: "ALLOWED", ipAddress });
-    return { day: dayView(row, names.get(id)!), punches: punches.map(rawView), segments: row.segments };
+    return { day: dayView(row, names.get(id)!), punches: punches.map(rawView), segments: row.segments, corrections: await visibleCorrectionViews(this.prisma, this.scope, user, row.employeeId, row.orgUnitId, row.workDate) };
   }
 
   private async actualVisibility(user: AuthUser, periodId: string, orgUnitId?: string): Promise<Prisma.OvertimeActualWhereInput> {
@@ -474,6 +515,6 @@ export class AttendanceService {
     const punches = await this.prisma.rawPunch.findMany({ where: { id: { in: evidence.punchIds }, employeeId: row.employeeId }, include: rawInclude, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] });
     const names = await this.dayNames([row]);
     await this.audit.record({ actorId: user.id, entityType: "overtime_actual", entityId: id, action: "READ", result: "ALLOWED", ipAddress });
-    return { actual: actualView(row, names.get(id)!), segments: evidence.segments, pairs: evidence.pairs, requests: evidence.requests, punches: punches.map(rawView), rules: evidence.rules };
+    return { actual: actualView(row, names.get(id)!), segments: evidence.segments, pairs: evidence.pairs, requests: evidence.requests, punches: punches.map(rawView), rules: evidence.rules, corrections: await visibleCorrectionViews(this.prisma, this.scope, user, row.employeeId, row.orgUnitId, row.workDate) };
   }
 }

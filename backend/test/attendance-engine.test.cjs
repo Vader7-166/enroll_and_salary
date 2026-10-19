@@ -177,3 +177,65 @@ test('preserves seconds in worked minutes and rounds late minutes upward', () =>
   assert.equal(day.earlyMinutes, 1);
   assert.deepEqual(day.flags, ['LATE', 'EARLY']);
 });
+test('uses approved replacement intervals when raw punches are incomplete without rewriting their resolutions', () => {
+  const normal = schedule();
+  const computed = computeAttendance([normal], [punch('in', '2026-10-02T02:00:00.000Z', 'IN')], { [normal.id]: rules }, [{
+    id: 'adjustment-1', employeeId: 'employee-1', orgUnitId: 'unit-1', workDate: '2026-10-02',
+    intervals: [{ startAt: '2026-10-02T02:00:00.000Z', endAt: '2026-10-02T10:00:00.000Z' }], excuseLateEarly: false,
+  }]);
+
+  const day = computed.days[0];
+  assert.equal(day.adjustmentId, 'adjustment-1');
+  assert.equal(day.checkInId, null);
+  assert.equal(day.checkOutId, null);
+  assert.equal(day.status, 'OK');
+  assert.equal(day.workedMinutes, 435);
+  assert.deepEqual(computed.punches, [{ punchId: 'in', scheduleId: 'shift-1', status: 'MATCHED', reason: null }]);
+});
+
+test('keeps disjoint replacement intervals separate and splits them at the Vietnam night boundary', () => {
+  const nightBoundary = schedule({
+    startAt: '2026-10-02T13:00:00.000Z', endAt: '2026-10-02T17:00:00.000Z', workMinutes: 240, breakMinutes: 0,
+  });
+  const day = computeAttendance([nightBoundary], [], { [nightBoundary.id]: rules }, [{
+    id: 'adjustment-2', employeeId: 'employee-1', orgUnitId: 'unit-1', workDate: '2026-10-02',
+    intervals: [
+      { startAt: '2026-10-02T13:00:00.000Z', endAt: '2026-10-02T14:00:00.000Z' },
+      { startAt: '2026-10-02T15:00:00.000Z', endAt: '2026-10-02T16:00:00.000Z' },
+    ], excuseLateEarly: false,
+  }]).days[0];
+
+  assert.equal(day.workedMinutes, 120);
+  assert.equal(day.dayMinutes, 60);
+  assert.equal(day.nightMinutes, 60);
+  assert.deepEqual(day.segments.map(segment => [segment.startAt, segment.endAt, segment.kind]), [
+    ['2026-10-02T13:00:00.000Z', '2026-10-02T14:00:00.000Z', 'DAY'],
+    ['2026-10-02T15:00:00.000Z', '2026-10-02T16:00:00.000Z', 'NIGHT'],
+  ]);
+});
+
+test('keeps explanation-only observation intact and credits only eligible BR21 late or early time', () => {
+  const normal = schedule({ breakMinutes: 0 });
+  const raw = [
+    punch('in', '2026-10-02T02:10:00.000Z', 'IN'),
+    punch('out', '2026-10-02T09:55:00.000Z', 'OUT'),
+  ];
+  const explanation = { id: 'explanation-1', employeeId: 'employee-1', orgUnitId: 'unit-1', workDate: '2026-10-02', intervals: null, excuseLateEarly: false };
+  const waived = { ...explanation, id: 'explanation-2', excuseLateEarly: true };
+  const unwaived = computeAttendance([normal], raw, { [normal.id]: rules }, [explanation]).days[0];
+  const credited = computeAttendance([normal], raw, { [normal.id]: rules }, [waived]).days[0];
+
+  assert.equal(unwaived.adjustmentId, 'explanation-1');
+  assert.equal(unwaived.checkInId, 'in');
+  assert.equal(unwaived.checkOutId, 'out');
+  assert.equal(unwaived.workedMinutes, 465);
+  assert.equal(unwaived.lateMinutes, 10);
+  assert.equal(unwaived.earlyMinutes, 5);
+  assert.equal(credited.adjustmentId, 'explanation-2');
+  assert.equal(credited.checkInId, 'in');
+  assert.equal(credited.checkOutId, 'out');
+  assert.equal(credited.workedMinutes, 480);
+  assert.equal(credited.lateMinutes, 0);
+  assert.equal(credited.earlyMinutes, 0);
+  assert.deepEqual(credited.flags, []);
+});

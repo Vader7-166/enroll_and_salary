@@ -24,12 +24,18 @@ export interface EngineSchedule {
   pairingEndAt?: string;
 }
 export interface EnginePunch { id: string; employeeId: string; punchedAt: string; direction: PunchDirection }
+export interface ApprovedAttendanceAdjustment {
+  id: string; employeeId: string; orgUnitId: string; workDate: string;
+  intervals: Array<{ startAt: string; endAt: string }> | null;
+  excuseLateEarly: boolean;
+}
 export interface AttendanceSegment { startAt: string; endAt: string; calendarDate: string; kind: "DAY" | "NIGHT"; minutes: number }
 export interface ComputedDay {
   scheduleId: string; employeeId: string; orgUnitId: string; workDate: string;
   checkInId: string | null; checkOutId: string | null; checkInAt: string | null; checkOutAt: string | null;
   status: "OK" | "ERR"; flags: string[]; workedMinutes: number; dayMinutes: number; nightMinutes: number;
   lateMinutes: number; earlyMinutes: number; absent: boolean; workUnits: string; segments: AttendanceSegment[];
+  adjustmentId?: string;
 }
 export interface PunchResolution {
   punchId: string; scheduleId: string | null;

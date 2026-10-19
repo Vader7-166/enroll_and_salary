@@ -15,6 +15,8 @@ export interface AuthUser {
   permissions: string[];
   assignments: AuthAssignment[];
   expiresAt: string;
+  requiresPasswordChange: boolean;
+  passwordExpiresAt: string | null;
 }
 
 export interface AuthRequest extends Request {

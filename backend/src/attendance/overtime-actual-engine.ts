@@ -7,7 +7,7 @@ import type {
   ActualSegment,
   ComputedActual,
 } from "./overtime-actual.types";
-import type { ComputedDay, EnginePunch, EngineSchedule, PairingRules, PunchResolution } from "./attendance.types";
+import type { ApprovedAttendanceAdjustment, ComputedDay, EnginePunch, EngineSchedule, PairingRules, PunchResolution } from "./attendance.types";
 
 const MINUTE_MS = 60_000;
 const VIETNAM_OFFSET_MS = 7 * 60 * MINUTE_MS;
@@ -31,6 +31,12 @@ function roundMinutes(value: number): number {
 
 function rangeFor(value: Pick<ActualRequestInput, "startAt" | "endAt">): Range {
   return { start: new Date(value.startAt).getTime(), end: new Date(value.endAt).getTime() };
+}
+
+function adjustmentRanges(adjustment: ApprovedAttendanceAdjustment): Range[] {
+  return mergeRanges((adjustment.intervals ?? []).map(interval => ({
+    start: new Date(interval.startAt).getTime(), end: new Date(interval.endAt).getTime(),
+  })));
 }
 
 function mergeRanges(ranges: Range[]): Range[] {
@@ -87,8 +93,8 @@ function hasRangeAt(ranges: Range[], timestamp: number): boolean {
 
 function contextPair(day: ComputedDay | undefined, context: Context): ActualPair {
   const flags = [...(day?.flags ?? ["MISSING_IN", "MISSING_OUT"])];
-  if (!day?.checkInId && !flags.includes("MISSING_IN")) flags.push("MISSING_IN");
-  if (!day?.checkOutId && !flags.includes("MISSING_OUT")) flags.push("MISSING_OUT");
+  if (!day?.checkInAt && !flags.includes("MISSING_IN")) flags.push("MISSING_IN");
+  if (!day?.checkOutAt && !flags.includes("MISSING_OUT")) flags.push("MISSING_OUT");
   return {
     contextId: context.id,
     scheduleIds: context.scheduleIds,
@@ -145,8 +151,12 @@ function relevantResolution(resolution: PunchResolution, punchesById: Map<string
     && at <= context.end + context.rules.outAfterMinutes * MINUTE_MS);
 }
 
-/** Computes observed overtime from approved ranges and punch-derived attendance, never payment. */
+/** Computes observed overtime from approved ranges and raw or approved-corrected attendance, never payment. */
 export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngineResult {
+  const adjustmentsByGroup = new Map((input.adjustments ?? []).map(adjustment => [
+    groupKey(adjustment.employeeId, adjustment.orgUnitId, adjustment.workDate),
+    adjustment,
+  ]));
   const groups = new Map<string, Group>();
   const ensureGroup = (employeeId: string, orgUnitId: string, workDate: string): Group => {
     const key = groupKey(employeeId, orgUnitId, workDate);
@@ -193,7 +203,7 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
     }
   }
 
-  const rawAttendance = computeAttendance(engineSchedules, input.punches, rulesBySchedule);
+  const rawAttendance = computeAttendance(engineSchedules, input.punches, rulesBySchedule, input.adjustments);
   const virtualIds = new Set(contexts.filter(context => context.virtual).map(context => context.id));
   const attendance = {
     days: rawAttendance.days.filter(day => !virtualIds.has(day.scheduleId)),
@@ -250,15 +260,21 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
     if (group.requests.length === 0 && !group.assigned) continue;
     const rules = input.rules[group.orgUnitId + ":" + group.workDate];
     if (!rules) continue;
+    const adjustment = adjustmentsByGroup.get(group.key);
     const approvedRanges = mergeRanges(group.requests.filter(request => request.status === "APPROVED").map(rangeFor));
     const activeRequestedMinutes = roundMinutes(group.requests.filter(request => ACTIVE_STATUSES.has(request.status)).reduce((total, request) => total + request.requestedMinutes, 0));
     const approvedMinutes = roundMinutes(approvedRanges.reduce((total, range) => total + (range.end - range.start) / MINUTE_MS, 0));
     const groupContexts = contextsByGroup.get(group.key) ?? [];
-    const pairs = groupContexts.map(context => contextPair(rawDaysById.get(context.id), context));
-    pairs.push(...(explicitPairs.get(group.key) ?? []));
+    const rawPairs = groupContexts.map(context => contextPair(rawDaysById.get(context.id), context));
+    rawPairs.push(...(explicitPairs.get(group.key) ?? []));
+    const replaced = adjustment != null && adjustment.intervals !== null;
+    const pairs: ActualPair[] = replaced ? adjustment.intervals!.map((interval, index) => ({
+      contextId: `adjustment:${adjustment.id}:${index}`, scheduleIds: group.schedules.map(schedule => schedule.id),
+      checkInId: null, checkOutId: null, checkInAt: interval.startAt, checkOutAt: interval.endAt, flags: [],
+    })) : rawPairs;
     const flags = new Set<string>();
     const now = Date.now();
-    for (const [index, context] of groupContexts.entries()) {
+    for (const [index, context] of (replaced ? [] : groupContexts).entries()) {
       const pair = pairs[index];
       if (now < context.end + rules.outAfterMinutes * MINUTE_MS && !validPair(pair)) flags.add("AWAITING_PUNCHES");
       else for (const flag of pair.flags) {
@@ -270,13 +286,16 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
       if (owner) return owner === group.key;
       return !groupContexts.length && vietnamDate(Date.parse(punch.punchedAt)) === group.workDate;
     });
-    if (!pairs.length) {
+    if (!replaced && !pairs.length) {
       if (group.requests.some(request => now < rangeFor(request).end + rules.outAfterMinutes * MINUTE_MS)) flags.add("AWAITING_PUNCHES");
       else if (group.requests.length || standalonePunches.length) flags.add("UNMATCHED_PUNCH");
     }
-    if (standalonePunches.some(punch => !explicitOwners.has(punch.id))) flags.add("UNMATCHED_PUNCH");
+    if (!replaced && standalonePunches.some(punch => !explicitOwners.has(punch.id))) flags.add("UNMATCHED_PUNCH");
     const normalRanges = mergeRanges(group.schedules.map(rangeFor));
-    const observedRanges = mergeRanges(pairs.map(pairRange).filter((range): range is Range => range !== null)).flatMap(range => subtractRanges(range, normalRanges));
+    const observedSourceRanges = adjustment?.intervals !== null && adjustment
+      ? adjustmentRanges(adjustment)
+      : mergeRanges(pairs.map(pairRange).filter((range): range is Range => range !== null));
+    const observedRanges = observedSourceRanges.flatMap(range => subtractRanges(range, normalRanges));
     const segments = buildSegments(observedRanges, approvedRanges, group.requests);
     const actualMinutes = roundMinutes(segments.reduce((total, segment) => total + segment.minutes, 0));
     const eligibleMinutes = roundMinutes(segments.filter(segment => segment.eligible).reduce((total, segment) => total + segment.minutes, 0));
@@ -286,7 +305,7 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
     if (unworkedApprovedMinutes > 0 && !flags.has("AWAITING_PUNCHES")) flags.add("APPROVED_NOT_WORKED");
     const punchIds = input.punches.filter(punch => punch.employeeId === group.employeeId && relevantResolution(resolutionsById.get(punch.id)!, punchesById, groupContexts)).map(punch => punch.id);
     punchIds.push(...standalonePunches.map(punch => punch.id));
-    for (const pair of pairs) {
+    for (const pair of rawPairs) {
       if (pair.checkInId) punchIds.push(pair.checkInId);
       if (pair.checkOutId) punchIds.push(pair.checkOutId);
     }
@@ -297,6 +316,7 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
       nightMinutes: roundMinutes(segments.filter(segment => segment.kind === "NIGHT" && segment.eligible).reduce((total, segment) => total + segment.minutes, 0)),
       unapprovedMinutes, unworkedApprovedMinutes, flags: [...flags].sort(), segments, pairs,
       requests: group.requests, punchIds: [...new Set(punchIds)],
+      ...(adjustment ? { adjustmentId: adjustment.id } : {}),
     });
   }
   return { attendance, actuals };

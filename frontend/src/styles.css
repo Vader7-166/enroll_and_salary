@@ -150,3 +150,44 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
 .overtime-capacity { margin-top: 12px; }
 @media (max-width: 1024px) { .workspace-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 767px) { .workspace-filters, .overtime-form-grid { grid-template-columns: 1fr; } .overtime-workspace .page-heading { flex-direction: column; gap: 12px; } .overtime-workspace .page-heading > .ant-btn { width: 100%; } }
+
+.account-modal .form-grid > *, .account-modal .ant-form-item-control { min-width: 0; }
+.account-modal .ant-select { width: 100%; }
+@media (max-width: 767px) { .account-modal .form-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Attendance correction workflow */
+.attendance-corrections { min-width: 0; }
+.correction-toolbar { display: grid; grid-template-columns: minmax(240px, 1fr) auto auto; gap: 12px; align-items: center; margin-bottom: 16px; }
+.correction-toolbar .ant-radio-group { display: flex; flex-wrap: wrap; }
+.correction-editor .ant-modal-body { max-height: min(72vh, 760px); overflow: auto; }
+.correction-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.correction-target-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.correction-target-tools .ant-input-search { max-width: 360px; }
+.correction-target-table { margin-bottom: 0; }
+.correction-item-list, .correction-detail-items { display: grid; gap: 12px; }
+.correction-item, .correction-detail-item { padding: 12px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--canvas); }
+.correction-item-heading, .correction-detail-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.correction-item-heading span { display: grid; gap: 2px; min-width: 0; }
+.correction-item-heading small { color: var(--secondary); }
+.correction-intervals { display: grid; gap: 8px; margin: 12px 0; }
+.correction-interval-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; }
+.correction-item .ant-checkbox-wrapper { margin-top: 4px; }
+.correction-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.correction-detail-heading { margin-bottom: 16px; }
+.correction-detail-heading h2 { margin: 4px 0 0; font-size: 18px; line-height: 1.5; }
+.correction-detail-item p { margin: 8px 0; }
+.correction-snapshots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.correction-snapshot { min-width: 0; display: grid; gap: 6px; }
+.correction-warning-list { margin: 0; padding-left: 20px; }
+@media (max-width: 767px) {
+  .correction-toolbar, .correction-form-grid, .correction-snapshots, .correction-interval-row { grid-template-columns: 1fr; }
+  .correction-toolbar .ant-btn, .correction-editor-actions .ant-btn { width: 100%; }
+  .correction-toolbar, .correction-editor-actions { align-items: stretch; flex-direction: column; }
+  .correction-toolbar .ant-radio-group { gap: 4px; }
+  .correction-target-tools { align-items: stretch; flex-direction: column; }
+  .correction-target-tools .ant-input-search { max-width: none; }
+}
+@media (max-width: 390px) {
+  .correction-editor .ant-modal-content { margin-inline: -2px; }
+  .attendance-corrections .table-panel > .ant-table-wrapper { overflow-x: auto; overflow-y: hidden; }
+}

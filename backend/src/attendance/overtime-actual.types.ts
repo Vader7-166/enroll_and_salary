@@ -1,4 +1,4 @@
-import type { AttendanceSegment, EnginePunch, EngineResult, EngineSchedule, PairingRules } from "./attendance.types";
+import type { ApprovedAttendanceAdjustment, AttendanceSegment, EnginePunch, EngineResult, EngineSchedule, PairingRules } from "./attendance.types";
 
 export interface ActualRequestInput {
   id: string; employeeId: string; orgUnitId: string; workDate: string;
@@ -16,11 +16,13 @@ export interface ComputedActual extends ActualAssignment {
   dayMinutes: number; nightMinutes: number; unapprovedMinutes: number; unworkedApprovedMinutes: number;
   flags: string[]; segments: ActualSegment[]; pairs: ActualPair[];
   requests: ActualRequestInput[]; punchIds: string[];
+  adjustmentId?: string;
 }
 export interface ActualEngineInput {
   schedules: EngineSchedule[]; requests: ActualRequestInput[]; punches: EnginePunch[];
   assignments: ActualAssignment[];
   // Key: orgUnitId + ":" + workDate. Resolved by dated policy in the service.
   rules: Record<string, PairingRules>;
+  adjustments?: ApprovedAttendanceAdjustment[];
 }
 export interface ActualEngineResult { attendance: EngineResult; actuals: ComputedActual[] }

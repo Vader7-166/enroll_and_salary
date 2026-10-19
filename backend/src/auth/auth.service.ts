@@ -2,7 +2,6 @@ import { randomBytes, createHash } from 'node:crypto';
 import {
   ForbiddenException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -12,7 +11,8 @@ import { PrismaService } from '../database/prisma.service';
 import { businessDate } from './business-date';
 import type { AuthUser } from './auth.types';
 import { verifyPassword } from './password';
-import { ScopeService } from '../organization/scope.service';
+import { PasswordPolicyService } from './password-policy.service';
+import { ChangePasswordDto } from './accounts.dto';
 
 const AUTH_FAILURE = { code: 'AUTH_INVALID', message: 'Invalid username or password.' };
 const SESSION_FAILURE = { code: 'AUTH_REQUIRED', message: 'Authentication is required.' };
@@ -26,7 +26,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
-    private readonly scope: ScopeService,
+    private readonly passwords: PasswordPolicyService,
   ) {}
 
   async login(usernameInput: unknown, passwordInput: unknown, ipAddress?: string): Promise<LoginResult> {
@@ -61,9 +61,9 @@ export class AuthService {
       await tx.$queryRaw`SELECT id FROM user_account WHERE id = ${account.id}::uuid FOR UPDATE`;
       const current = await tx.userAccount.findUnique({
         where: { id: account.id },
-        select: { status: true, lockedUntil: true },
+        select: { status: true, lockedUntil: true, passwordHash: true },
       });
-      if (!current || current.status !== AccountStatus.ACTIVE || (current.lockedUntil !== null && current.lockedUntil > now)) {
+      if (!current || current.passwordHash !== account.passwordHash || current.status !== AccountStatus.ACTIVE || (current.lockedUntil !== null && current.lockedUntil > now)) {
         throw new UnauthorizedException(AUTH_FAILURE);
       }
       const user = await this.currentUser(account.id, expiresAt, tx);
@@ -145,72 +145,18 @@ export class AuthService {
     });
   }
 
-  async accounts(user: AuthUser): Promise<{ items: AccountSummary[] }> {
-    this.requireAccountsManage(user);
-    const asOf = businessDate();
-    const now = new Date();
-    const accounts = await this.prisma.userAccount.findMany({
-      where: await this.managedAccountWhere(user),
-      orderBy: { username: 'asc' },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        status: true,
-        lockedUntil: true,
-        assignments: {
-          where: this.effectiveWhere(asOf),
-          select: { roleCode: true },
-        },
-        _count: {
-          select: {
-            sessions: {
-              where: {
-                expiresAt: { gt: now },
-                absoluteExpiresAt: { gt: now },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    return {
-      items: accounts.map((account) => ({
-        id: account.id,
-        username: account.username,
-        displayName: account.displayName,
-        status: account.status,
-        roles: [...new Set(account.assignments.map((assignment) => assignment.roleCode))],
-        sessionCount: account._count.sessions,
-        lockedUntil: account.lockedUntil?.toISOString() ?? null,
-      })),
-    };
-  }
-
-  async revokeSessions(user: AuthUser, accountId: string, ipAddress?: string): Promise<void> {
-    this.requireAccountsManage(user);
-    await this.prisma.$transaction(async (tx) => {
-      const account = await tx.userAccount.findFirst({
-        where: { AND: [{ id: accountId }, await this.managedAccountWhere(user, tx)] },
-        select: { id: true },
-      });
-      if (!account) throw new NotFoundException({ code: 'ACCOUNT_NOT_FOUND', message: 'Account was not found.' });
-
-      const deleted = await tx.webSession.deleteMany({ where: { userAccountId: accountId } });
-      await this.audit.record(
-        {
-          actorId: user.id,
-          entityType: 'UserAccount',
-          entityId: accountId,
-          action: 'REVOKE_SESSIONS',
-          result: 'SUCCESS',
-          newValue: { revokedSessionCount: deleted.count },
-          ipAddress,
-        },
-        tx,
-      );
-    });
+  async changePassword(user: AuthUser, dto: ChangePasswordDto, ipAddress?: string) {
+    await this.prisma.$transaction(async db => {
+      await db.$queryRaw`SELECT id FROM user_account WHERE id = ${user.id}::uuid FOR UPDATE`;
+      const account = await db.userAccount.findUniqueOrThrow({ where: { id: user.id } });
+      if (account.status !== AccountStatus.ACTIVE || !await verifyPassword(dto.currentPassword, account.passwordHash))
+        throw new ForbiddenException({ code: 'CURRENT_PASSWORD_INVALID', message: 'Mật khẩu hiện tại không chính xác.' });
+      const passwordHash = await this.passwords.hashNew(dto.newPassword, db, user.id, account.passwordHash);
+      await db.userAccount.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date(), revision: { increment: 1 } } });
+      await this.passwords.remember(db, user.id, passwordHash, account);
+      const revoked = await db.webSession.deleteMany({ where: { userAccountId: user.id } });
+      await this.audit.record({ actorId: user.id, entityType: 'UserAccount', entityId: user.id, action: 'CHANGE_PASSWORD', result: 'SUCCESS', newValue: { revokedSessionCount: revoked.count }, ipAddress }, db);
+    }, { timeout: 15000 });
   }
 
   private async currentUser(accountId: string, expiresAt: Date, db: Prisma.TransactionClient = this.prisma): Promise<AuthUser> {
@@ -222,7 +168,9 @@ export class AuthService {
         username: true,
         displayName: true,
         status: true,
-        employee: { select: { status: true } },
+        mustChangePassword: true,
+        passwordChangedAt: true,
+        employee: { select: { status: true, terminationDate: true } },
         assignments: {
           where: {
             ...this.effectiveWhere(asOf),
@@ -246,7 +194,7 @@ export class AuthService {
       },
     });
     if (!account) throw new UnauthorizedException(SESSION_FAILURE);
-    if (account.status !== AccountStatus.ACTIVE || account.employee?.status === EmployeeStatus.TERMINATED) {
+    if (account.status !== AccountStatus.ACTIVE || account.employee?.status === EmployeeStatus.TERMINATED || (account.employee?.terminationDate && account.employee.terminationDate <= asOf)) {
       throw new ForbiddenException(ACCOUNT_FAILURE);
     }
 
@@ -267,6 +215,7 @@ export class AuthService {
       permissions,
       assignments,
       expiresAt: expiresAt.toISOString(),
+      ...this.passwords.state(account),
     };
   }
 
@@ -312,21 +261,6 @@ export class AuthService {
         tx,
       );
     });
-  }
-
-  private async managedAccountWhere(user: AuthUser, db: Prisma.TransactionClient = this.prisma): Promise<Prisma.UserAccountWhereInput> {
-    const scope = await this.scope.load(user, 'accounts.manage', db);
-    const ids = [...scope.allowed];
-    return { AND: [
-      { assignments: { some: { ...this.effectiveWhere(scope.asOf), scopeOrgUnitId: { in: ids } } } },
-      { assignments: { none: { ...this.effectiveWhere(scope.asOf), scopeOrgUnitId: { notIn: ids } } } },
-    ] };
-  }
-
-  private requireAccountsManage(user: AuthUser): void {
-    if (!user.permissions.includes('accounts.manage')) {
-      throw new ForbiddenException({ code: 'PERMISSION_DENIED', message: 'Accounts management permission is required.' });
-    }
   }
 
   private effectiveWhere(asOf: Date) {
@@ -380,12 +314,3 @@ export class AuthService {
   }
 }
 
-export interface AccountSummary {
-  id: string;
-  username: string;
-  displayName: string;
-  status: AccountStatus;
-  roles: RoleCode[];
-  sessionCount: number;
-  lockedUntil: string | null;
-}

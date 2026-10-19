@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import type { AuthRequest } from './auth.types';
@@ -15,6 +15,8 @@ export class SessionGuard implements CanActivate {
     if (!token) throw new UnauthorizedException(SESSION_FAILURE);
 
     const { sessionId, user } = await this.auth.authenticate(token);
+    if (user.requiresPasswordChange && !/^\/api\/auth\/(me|logout|change-password|password-policy)$/.test(request.path))
+      throw new ForbiddenException({ code: 'PASSWORD_CHANGE_REQUIRED', message: 'Cần đổi mật khẩu trước khi truy cập nghiệp vụ.' });
     const authRequest = request as AuthRequest;
     authRequest.user = user;
     authRequest.sessionId = sessionId;

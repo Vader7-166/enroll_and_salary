@@ -91,8 +91,11 @@ theo nghiệp vụ trong R1, chỉ hiện mục có quyền truy cập; URL/API 
 | Danh sách | Tiêu đề + mô tả ngắn → ngữ cảnh → filter → toolbar → bảng → phân trang |
 | Hồ sơ chi tiết | Danh tính/trạng thái → thông tin chính → tab lịch sử/HĐ/phân công theo quyền |
 | Tạo/sửa đơn | Ngữ cảnh + người liên quan → thông tin bắt buộc → kiểm tra lỗi → gửi/xác nhận |
+| Tài khoản | Admin xem danh sách/trạng thái/phiên; tạo/sửa vai trò + cây phạm vi + hiệu lực và loại trừ; lý do, revision, lịch sử chỉ đọc; khóa/mở khóa/reset/thu hồi phiên. Chỉ danh tính nhân sự tối thiểu, không mở hồ sơ/lương cho AD |
+| Đổi mật khẩu | Menu cá nhân cho người dùng; màn riêng không có điều hướng nghiệp vụ khi mật khẩu tạm/hết hạn; chính sách hiện hành + xác nhận, đổi xong đăng nhập lại |
 | Bảng công | Kỳ/cơ sở/đơn vị/trạng thái → ngoại lệ cần xử lý → ma trận công → drawer chi tiết ca/log |
 | OT thực tế | Trong Chấm công: kỳ/đơn vị/nhân viên/ngoại lệ → đề nghị/đã duyệt/thực tế/đủ điều kiện → drawer snapshot, ngày lịch/ngày–đêm, cặp ghép và nguồn lô/dòng; ghi rõ không phải giờ chi trả |
+| Giải trình công | Tab trong Chấm công: kỳ/đơn vị/trạng thái → TT chọn ngày/người, lý do, tham chiếu hoặc tệp, khoảng hiệu lực; sự cố nhiều người phải có mã chung → QĐ xem trước/sau và lịch sử rồi duyệt/trả lại/từ chối. Chỉ trạng thái đã duyệt thay kết quả; luôn phân biệt quẹt gốc với giờ điều chỉnh. Drawer 390px xếp metadata và snapshot một cột, checkbox chọn người/chọn tất cả có nhãn |
 | Bảng lương | Kỳ công nguồn/kỳ lương/ngày trả → tiến độ/cổng chặn → bảng lương → drawer giải thích |
 | Duyệt | Tóm tắt người/phạm vi/khoảng thời gian → dữ liệu và thay đổi → duyệt hoặc từ chối kèm lý do theo quy trình |
 | Tham số/công thức | Giá trị + khoảng hiệu lực + nguồn kế thừa → lịch sử phiên bản → chạy thử trước áp dụng |

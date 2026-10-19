@@ -156,3 +156,70 @@ test('waits for future punches instead of classifying future approval as unworke
   assert.equal(actual.eligibleMinutes, 0); assert.deepEqual(actual.flags, ['AWAITING_PUNCHES']);
 });
 
+test('uses corrected disjoint intervals for overtime only where they intersect approved time', () => {
+  const output = computeOvertimeAttendance({
+    schedules: [schedule()],
+    requests: [request({ startAt: '2026-10-02T09:00:00.000Z', endAt: '2026-10-02T12:00:00.000Z', requestedMinutes: 180 })],
+    punches: [],
+    assignments: [{ employeeId: 'employee-1', orgUnitId: 'unit-1', workDate: '2026-10-02' }],
+    rules: { 'unit-1:2026-10-02': rules },
+    adjustments: [{
+      id: 'adjustment-ot', employeeId: 'employee-1', orgUnitId: 'unit-1', workDate: '2026-10-02',
+      intervals: [
+        { startAt: '2026-10-02T01:00:00.000Z', endAt: '2026-10-02T09:00:00.000Z' },
+        { startAt: '2026-10-02T10:00:00.000Z', endAt: '2026-10-02T11:00:00.000Z' },
+      ], excuseLateEarly: false,
+    }],
+  });
+  const actual = output.actuals[0];
+
+  assert.equal(actual.adjustmentId, 'adjustment-ot');
+  assert.equal(actual.actualMinutes, 60);
+  assert.equal(actual.eligibleMinutes, 60);
+  assert.equal(actual.unworkedApprovedMinutes, 120);
+  assert.deepEqual(actual.segments.map(segment => [segment.startAt, segment.endAt, segment.eligible]), [
+    ['2026-10-02T10:00:00.000Z', '2026-10-02T11:00:00.000Z', true],
+  ]);
+});
+
+test('does not turn BR21 regular credit into observed overtime', () => {
+  const output = computeOvertimeAttendance({
+    schedules: [schedule()],
+    requests: [request({ startAt: '2026-10-02T10:00:00.000Z', endAt: '2026-10-02T12:00:00.000Z', requestedMinutes: 120 })],
+    punches: [punch('in', '2026-10-02T01:10:00.000Z', 'IN'), punch('out', '2026-10-02T08:55:00.000Z', 'OUT')],
+    assignments: [{ employeeId: 'employee-1', orgUnitId: 'unit-1', workDate: '2026-10-02' }],
+    rules: { 'unit-1:2026-10-02': rules },
+    adjustments: [{
+      id: 'explanation-br21', employeeId: 'employee-1', orgUnitId: 'unit-1', workDate: '2026-10-02', intervals: null, excuseLateEarly: true,
+    }],
+  });
+  const day = output.attendance.days[0];
+  const actual = output.actuals[0];
+
+  assert.equal(day.adjustmentId, 'explanation-br21');
+  assert.equal(day.workedMinutes, 480);
+  assert.equal(day.lateMinutes, 0);
+  assert.equal(day.earlyMinutes, 0);
+  assert.equal(actual.adjustmentId, 'explanation-br21');
+  assert.equal(actual.actualMinutes, 0);
+  assert.equal(actual.eligibleMinutes, 0);
+});
+
+test("resolves standalone missing-punch presence using attested intervals without inventing raw events", () => {
+  const output = computeOvertimeAttendance({
+    schedules: [], requests: [],
+    punches: [punch("raw-in", "2026-10-02T10:00:00.000Z", "IN")],
+    assignments: [{ employeeId: "employee-1", orgUnitId: "unit-1", workDate: "2026-10-02" }],
+    rules: { "unit-1:2026-10-02": rules },
+    adjustments: [{ id: "attested", employeeId: "employee-1", orgUnitId: "unit-1", workDate: "2026-10-02",
+      intervals: [{ startAt: "2026-10-02T10:00:00.000Z", endAt: "2026-10-02T11:00:00.000Z" }], excuseLateEarly: false }],
+  });
+  const actual = output.actuals[0];
+  assert.equal(actual.actualMinutes, 60);
+  assert.equal(actual.eligibleMinutes, 0);
+  assert.deepEqual(actual.flags, ["UNAPPROVED_WORK"]);
+  assert.deepEqual(actual.punchIds, ["raw-in"]);
+  assert.deepEqual(actual.pairs.map(pair => [pair.checkInId, pair.checkOutId, pair.checkInAt, pair.checkOutAt]),
+    [[null, null, "2026-10-02T10:00:00.000Z", "2026-10-02T11:00:00.000Z"]]);
+  assert.deepEqual(output.attendance.punches, [{ punchId: "raw-in", scheduleId: null, status: "UNMATCHED", reason: "NO_APPROVED_SHIFT" }]);
+});

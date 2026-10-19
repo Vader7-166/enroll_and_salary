@@ -23,7 +23,6 @@ import {
   Menu,
   Modal,
   Pagination,
-  Popconfirm,
   Select,
   Space,
   Spin,
@@ -35,18 +34,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { errorMessage, setUnauthorizedHandler } from "./api/client";
 import { authApi, employeeApi, organizationApi } from "./api/hrtp";
-import type {
-  Account,
-  AuthUser,
-  Employee,
-  OrganizationContext,
-  RoleCode,
-} from "./api/hrtp";
+import type { AuthUser, Employee, OrganizationContext } from "./api/hrtp";
+import { AccountsWorkspace } from "./components/AccountsWorkspace";
 import { SystemHealth } from "./components/SystemHealth";
 import { EmployeeProfileDrawer, PeriodsPage, SettingsPage } from "./components/HRWorkspace";
 import { ShiftWorkspace } from "./components/ShiftWorkspace";
 import { AttendanceWorkspace } from "./components/AttendanceWorkspace";
 import { OvertimeWorkspace } from "./components/OvertimeWorkspace";
+import { ForcedPasswordChange, PasswordChangeDialog } from "./components/PasswordChange";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
@@ -167,6 +162,7 @@ function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
 function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [route, setRoute] = useState(() => currentRoute(user));
   const [open, setOpen] = useState(false);
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   useEffect(() => {
     const update = () => setRoute(currentRoute(user));
     window.addEventListener("hashchange", update);
@@ -223,7 +219,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     route === "employees" ? (
       <EmployeesPage user={user} />
     ) : route === "accounts" ? (
-      <AccountsPage user={user} onSelfRevoked={onLogout} />
+      <AccountsWorkspace user={user} />
     ) : route === "periods" ? (
       <PeriodsPage user={user} />
     ) : route === "settings" ? (
@@ -285,6 +281,11 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             menu={{
               items: [
                 {
+                  key: "password",
+                  label: "Đổi mật khẩu",
+                  onClick: () => setPasswordChangeOpen(true),
+                },
+                {
                   key: "logout",
                   icon: <LogoutOutlined />,
                   label: "Đăng xuất",
@@ -309,6 +310,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           {body}
         </Content>
       </Layout>
+    <PasswordChangeDialog open={passwordChangeOpen} onClose={() => setPasswordChangeOpen(false)} onSuccess={onLogout} />
     </Layout>
   );
 }
@@ -672,126 +674,6 @@ function CreateEmployee({
   );
 }
 
-function AccountsPage({
-  user,
-  onSelfRevoked,
-}: {
-  user: AuthUser;
-  onSelfRevoked: () => void;
-}) {
-  const client = useQueryClient();
-  const accounts = useQuery({
-    queryKey: ["accounts"],
-    queryFn: authApi.accounts,
-  });
-  const revoke = useMutation({
-    mutationFn: authApi.revoke,
-    onSuccess: (_, id) => {
-      void client.invalidateQueries({ queryKey: ["accounts"] });
-      if (id === user.id) onSelfRevoked();
-    },
-  });
-  return (
-    <div className="content-stack">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">QUẢN TRỊ / BẢO MẬT</p>
-          <Title level={1}>Tài khoản</Title>
-          <Paragraph type="secondary">
-            Xem trạng thái tài khoản và thu hồi toàn bộ phiên đang hoạt động.
-          </Paragraph>
-        </div>
-      </div>
-      <section className="panel table-panel">
-        {accounts.isError ? (
-          <Alert
-            type="error"
-            showIcon
-            message="Không tải được tài khoản"
-            description={errorMessage(accounts.error)}
-          />
-        ) : (
-          <Table<Account>
-            rowKey="id"
-            loading={accounts.isLoading}
-            dataSource={accounts.data?.items ?? []}
-            pagination={false}
-            scroll={{ x: 760 }}
-            locale={{ emptyText: <Empty description="Không có tài khoản" /> }}
-            columns={[
-              {
-                title: "Tài khoản",
-                key: "account",
-                render: (_, account) => (
-                  <span>
-                    <Text strong>{account.displayName}</Text>
-                    <small className="table-subtext">{account.username}</small>
-                  </span>
-                ),
-              },
-              {
-                title: "Vai trò",
-                dataIndex: "roles",
-                render: (roles: RoleCode[]) =>
-                  roles.map((role) => <Tag key={role}>{role}</Tag>),
-              },
-              {
-                title: "Trạng thái",
-                dataIndex: "status",
-                render: (status) => (
-                  <Tag color={status === "ACTIVE" ? "success" : "default"}>
-                    {status}
-                  </Tag>
-                ),
-              },
-              {
-                title: "Phiên đang hoạt động",
-                dataIndex: "sessionCount",
-                align: "right",
-              },
-              {
-                title: "Thao tác",
-                key: "action",
-                align: "right",
-                render: (_, account) => (
-                  <Popconfirm
-                    title="Thu hồi tất cả phiên?"
-                    description={
-                      "Các thiết bị đang đăng nhập bằng " +
-                      account.username +
-                      " sẽ phải đăng nhập lại."
-                    }
-                    okText="Thu hồi"
-                    cancelText="Hủy"
-                    onConfirm={() => revoke.mutate(account.id)}
-                  >
-                    <Button
-                      danger
-                      size="small"
-                      loading={
-                        revoke.isPending && revoke.variables === account.id
-                      }
-                    >
-                      Thu hồi phiên
-                    </Button>
-                  </Popconfirm>
-                ),
-              },
-            ]}
-          />
-        )}
-      </section>
-      {revoke.isError && (
-        <Alert
-          type="error"
-          showIcon
-          message="Không thể thu hồi phiên"
-          description={errorMessage(revoke.error)}
-        />
-      )}
-    </div>
-  );
-}
 
 function OrganizationPage() {
   const context = useQuery({
@@ -886,7 +768,7 @@ export function App() {
     );
   return user ? (
     <AntApp>
-      <Shell key={user.id} user={user} onLogout={end} />
+      {user.requiresPasswordChange ? <ForcedPasswordChange onSuccess={end} /> : <Shell key={user.id} user={user} onLogout={end} />}
     </AntApp>
   ) : (
     <Login onLogin={establish} />

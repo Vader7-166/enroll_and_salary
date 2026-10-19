@@ -76,6 +76,7 @@ model OrgUnit {
   attendanceDays DailyAttendance[]
   overtimeRequests OvertimeRequest[]
   overtimeActuals OvertimeActual[]
+  correctionItems AttendanceCorrectionItem[]
   @@map("org_unit")
 }
 
@@ -142,6 +143,7 @@ model Employee {
   attendanceDays DailyAttendance[]
   overtimeMembers OvertimeMember[]
   overtimeActuals OvertimeActual[]
+  correctionItems AttendanceCorrectionItem[]
   @@index([fullName])
   @@map("employee")
 }
@@ -177,6 +179,9 @@ model UserAccount {
   employeeId    String? @map("employee_id") @db.Uuid
   failedLogins  Int @default(0) @map("failed_logins")
   lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  revision      Int @default(1)
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  passwordChangedAt DateTime @default(now()) @map("password_changed_at") @db.Timestamptz(3)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   employee      Employee? @relation(fields: [employeeId], references: [id])
   assignments   RoleAssignment[]
@@ -188,7 +193,22 @@ model UserAccount {
   attendanceImports AttendanceImport[]
   overtimeRequests OvertimeRequest[]
   overtimeHistory OvertimeHistory[]
+  passwordHistory PasswordHistory[]
+  correctionsCreated AttendanceCorrection[] @relation("CorrectionCreator")
+  correctionsDecided AttendanceCorrection[] @relation("CorrectionReviewer")
+  correctionEvidence AttendanceCorrectionEvidence[]
+  correctionHistory AttendanceCorrectionHistory[]
   @@map("user_account")
+}
+
+model PasswordHistory {
+  id String @id @default(uuid()) @db.Uuid
+  userAccountId String @map("user_account_id") @db.Uuid
+  passwordHash String @map("password_hash")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  userAccount UserAccount @relation(fields: [userAccountId], references: [id])
+  @@index([userAccountId, createdAt])
+  @@map("password_history")
 }
 
 model RoleAssignment {
@@ -325,6 +345,8 @@ model BusinessPeriod {
   attendanceDays DailyAttendance[]
   punchProcessing PunchProcessing[]
   overtimeActuals OvertimeActual[]
+  corrections AttendanceCorrection[]
+  correctionItems AttendanceCorrectionItem[]
   @@unique([code])
   @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
   @@map("business_period")
@@ -589,6 +611,10 @@ model DailyAttendance {
   workDate DateTime @map("work_date") @db.Date
   checkInId String? @map("check_in_id") @db.Uuid
   checkOutId String? @map("check_out_id") @db.Uuid
+  effectiveCheckInAt DateTime? @map("effective_check_in_at") @db.Timestamptz(3)
+  effectiveCheckOutAt DateTime? @map("effective_check_out_at") @db.Timestamptz(3)
+  adjustmentId String? @map("adjustment_id") @db.Uuid
+  adjustment AttendanceCorrectionItem? @relation(fields: [adjustmentId], references: [id])
   status String @db.VarChar(3)
   flags String[]
   workedMinutes Decimal @map("worked_minutes") @db.Decimal(12,6)
@@ -691,6 +717,8 @@ model OvertimeActual {
   flags String[]
   evidence Json
   processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+  adjustmentId String? @map("adjustment_id") @db.Uuid
+  adjustment AttendanceCorrectionItem? @relation(fields: [adjustmentId], references: [id])
   employee Employee @relation(fields: [employeeId], references: [id])
   orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
   period BusinessPeriod @relation(fields: [periodId], references: [id])
@@ -699,3 +727,85 @@ model OvertimeActual {
   @@map("overtime_actual")
 }
 
+
+model AttendanceCorrection {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  kind String @db.VarChar(16)
+  status String @default("DRAFT") @db.VarChar(16)
+  revision Int @default(1)
+  reason String
+  evidenceReference String? @map("evidence_reference")
+  incidentReference String? @map("incident_reference")
+  warnings String[]
+  createdById String @map("created_by_id") @db.Uuid
+  decidedById String? @map("decided_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  appliedOrder BigInt? @map("applied_order")
+  decisionReason String? @map("decision_reason")
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  createdBy UserAccount @relation("CorrectionCreator", fields: [createdById], references: [id])
+  decidedBy UserAccount? @relation("CorrectionReviewer", fields: [decidedById], references: [id])
+  items AttendanceCorrectionItem[]
+  evidence AttendanceCorrectionEvidence[]
+  history AttendanceCorrectionHistory[]
+  @@index([periodId, status, createdAt])
+  @@map("attendance_correction")
+}
+
+model AttendanceCorrectionItem {
+  id String @id @default(uuid()) @db.Uuid
+  correctionId String @map("correction_id") @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  sourceDates DateTime[] @map("source_dates") @db.Date
+  intervals Json?
+  excuseLateEarly Boolean @default(false) @map("excuse_late_early")
+  sourceHash String? @map("source_hash") @db.Char(64)
+  beforeSnapshot Json? @map("before_snapshot")
+  afterSnapshot Json? @map("after_snapshot")
+  correction AttendanceCorrection @relation(fields: [correctionId], references: [id])
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  attendanceDays DailyAttendance[]
+  overtimeActuals OvertimeActual[]
+  @@unique([correctionId, employeeId, orgUnitId, workDate])
+  @@index([employeeId, orgUnitId, workDate])
+  @@map("attendance_correction_item")
+}
+
+model AttendanceCorrectionEvidence {
+  id String @id @default(uuid()) @db.Uuid
+  correctionId String @map("correction_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(255)
+  contentType String @map("content_type") @db.VarChar(80)
+  size Int
+  sha256 String @db.Char(64)
+  content Bytes
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  correction AttendanceCorrection @relation(fields: [correctionId], references: [id])
+  uploadedBy UserAccount @relation(fields: [uploadedById], references: [id])
+  @@index([correctionId])
+  @@map("attendance_correction_evidence")
+}
+
+model AttendanceCorrectionHistory {
+  id String @id @default(uuid()) @db.Uuid
+  correctionId String @map("correction_id") @db.Uuid
+  action String @db.VarChar(24)
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  reason String?
+  oldValue Json? @map("old_value")
+  newValue Json @map("new_value")
+  correction AttendanceCorrection @relation(fields: [correctionId], references: [id])
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  @@index([correctionId, occurredAt])
+  @@map("attendance_correction_history")
+}

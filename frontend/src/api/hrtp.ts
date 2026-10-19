@@ -14,6 +14,8 @@ export interface AuthUser {
     scopeName: string;
   }[];
   expiresAt: string;
+  requiresPasswordChange: boolean;
+  passwordExpiresAt: string | null;
 }
 
 export interface OrgUnit {
@@ -62,14 +64,67 @@ export interface EmployeePage {
   page: number;
   pageSize: number;
 }
+
+export interface PasswordPolicy {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumber: boolean;
+  requireSymbol: boolean;
+  historyCount: number;
+  maxAgeDays: number;
+}
+export interface AccountAssignment {
+  id: string;
+  roleCode: RoleCode;
+  scopeOrgUnitId: string;
+  scopeName: string;
+  scopeCode: string;
+  scopeType: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+export interface AccountExclusion {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
 export interface Account {
   id: string;
   username: string;
   displayName: string;
-  status: string;
+  status: "ACTIVE" | "DISABLED";
   roles: RoleCode[];
   sessionCount: number;
   lockedUntil: string | null;
+  revision: number;
+  employeeId: string | null;
+  requiresPasswordChange: boolean;
+  passwordChangedAt: string;
+  passwordExpiresAt: string | null;
+  assignments: AccountAssignment[];
+  exclusions: AccountExclusion[];
+}
+export interface AccountContext {
+  asOf: string;
+  units: OrgUnit[];
+  roles: { code: RoleCode; name: string }[];
+  employees: { id: string; code: string; fullName: string }[];
+  policy: PasswordPolicy;
+}
+export interface AssignmentInput {
+  roleCode: RoleCode;
+  scopeOrgUnitId: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+}
+export interface ExclusionInput {
+  employeeId: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
 }
 
 export const authApi = {
@@ -80,12 +135,37 @@ export const authApi = {
     }),
   me: () => api<{ user: AuthUser }>("/api/auth/me"),
   logout: () => api<{ ok: true }>("/api/auth/logout", { method: "POST" }),
+  passwordPolicy: () => api<{ policy: PasswordPolicy }>("/api/auth/password-policy"),
+  changePassword: (payload: { currentPassword: string; newPassword: string }) =>
+    api<{ ok: true }>("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  accountsContext: () => api<AccountContext>("/api/auth/accounts/context"),
   accounts: () => api<{ items: Account[] }>("/api/auth/accounts"),
+  createAccount: (payload: {
+    username: string;
+    displayName: string;
+    employeeId?: string | null;
+    password: string;
+    assignments: AssignmentInput[];
+    exclusions: ExclusionInput[];
+    reason: string;
+  }) => api<{ account: Account }>("/api/auth/accounts", { method: "POST", body: JSON.stringify(payload) }),
+  updateAccount: (id: string, payload: {
+    revision: number;
+    displayName: string;
+    employeeId: string | null;
+    assignments: AssignmentInput[];
+    exclusions: ExclusionInput[];
+    reason: string;
+  }) => api<{ account: Account }>("/api/auth/accounts/" + encodeURIComponent(id) + "/update", { method: "POST", body: JSON.stringify(payload) }),
+  setAccountStatus: (id: string, payload: { revision: number; status: Account["status"]; reason: string }) =>
+    api<{ account: Account }>("/api/auth/accounts/" + encodeURIComponent(id) + "/status", { method: "POST", body: JSON.stringify(payload) }),
+  resetAccountPassword: (id: string, payload: { revision: number; password: string; reason: string }) =>
+    api<{ account: Account }>("/api/auth/accounts/" + encodeURIComponent(id) + "/password", { method: "POST", body: JSON.stringify(payload) }),
   revoke: (id: string) =>
-    api<{ ok: true }>(
-      "/api/auth/accounts/" + encodeURIComponent(id) + "/revoke",
-      { method: "POST" },
-    ),
+    api<{ ok: true }>("/api/auth/accounts/" + encodeURIComponent(id) + "/revoke", { method: "POST" }),
 };
 
 export const organizationApi = {

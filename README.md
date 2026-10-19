@@ -36,7 +36,7 @@
 ---
 
 > [!IMPORTANT]
-> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt, đăng ký/duyệt và đối chiếu OT thực tế; **chưa có tiền OT, engine tính lương, chốt công hoặc AI**. Tên dự án và đặc tả R1 thể hiện phạm vi mục tiêu, không phải tuyên bố đã hoàn thành toàn bộ sản phẩm hoặc sẵn sàng vận hành thực tế.
+> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt, đăng ký/duyệt và đối chiếu OT thực tế, giải trình/điều chỉnh công có kiểm duyệt; **chưa có tiền OT, engine tính lương, chốt công hoặc AI**. Tên dự án và đặc tả R1 thể hiện phạm vi mục tiêu, không phải tuyên bố đã hoàn thành toàn bộ sản phẩm hoặc sẵn sàng vận hành thực tế.
 
 <a id="tong-quan"></a>
 ## Tổng quan
@@ -56,7 +56,7 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 
 | Nhóm | Đã triển khai trong bản local |
 |---|---|
-| Xác thực & phân quyền | Đăng nhập/đăng xuất, quản lý phiên, thu hồi phiên; kiểm tra vai trò, cây đơn vị, hiệu lực và danh sách loại trừ |
+| Xác thực & phân quyền | Đăng nhập/đăng xuất; Admin tạo/sửa tài khoản, quyền/loại trừ có hiệu lực, khóa/mở khóa, reset/đổi mật khẩu, lịch sử/hạn đổi và thu hồi phiên; kiểm tra vai trò, cây đơn vị và audit |
 | Hồ sơ nhân sự | Tìm kiếm, lọc, xem chi tiết và tạo nhân sự trong phạm vi được cấp |
 | Hợp đồng & điều chuyển | Hợp đồng, phụ lục mã hóa; lịch sử và điều chuyển theo ngày hiệu lực |
 | Thiết lập & kỳ công | Tham số/chính sách theo phiên bản và hiệu lực; tạo, mở kỳ công |
@@ -66,9 +66,10 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Bảng công & truy vết | Lọc theo kỳ, đơn vị, nhân viên; xem ngoại lệ, phân đoạn giờ làm và nguồn lượt quẹt |
 | Đăng ký & duyệt OT | Tổ trưởng lập/sửa/gửi; Quản đốc duyệt/trả lại/từ chối; chứng từ đồng ý từng người, trần ngày/tháng/năm và lịch sử bất biến |
 | Đối chiếu OT thực tế | Đề nghị/đã duyệt/thực tế/đủ điều kiện; ca đêm nối OT, tách ngày lịch/giờ ngày–đêm, ngoại lệ và nguồn quẹt; bảo vệ kỳ đóng/khóa |
+| Giải trình & điều chỉnh | TT lập/gửi lý do và bằng chứng, QĐ duyệt/trả lại/từ chối; sự cố nhiều người, snapshot trước/sau, tính lại công/OT không sửa lượt quẹt gốc |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
-**Chưa triển khai:** tiền OT, nghỉ phép và giải trình, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Các nội dung này nằm trong thiết kế hoặc kế hoạch, không được xem là chức năng đang hoạt động.
+**Chưa triển khai:** tiền OT, nghỉ phép, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Các nội dung này nằm trong thiết kế hoặc kế hoạch, không được xem là chức năng đang hoạt động.
 
 ### Nguyên tắc xử lý chấm công
 
@@ -78,6 +79,7 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 - Tệp sai một dòng bị **từ chối toàn lô**; không âm thầm lưu phần hợp lệ.
 - Chỉ kỳ **OPEN** được ghi kết quả công. Log chờ hoặc đến sau chốt được giữ kèm trạng thái/lý do; không sửa kết quả của kỳ CLOSED/LOCKED.
 - Giờ đủ điều kiện OT là giao giữa thực tế ngoài ca và khoảng đã duyệt, không phải tiền OT; giờ ngoài ca/chưa duyệt không tự được trả. Cờ muộn/sớm không tự phát sinh khấu trừ lương.
+- Điều chỉnh đã duyệt thay khoảng giờ hiện diện hiệu lực; không tạo lượt quẹt giả. Giải trình không tự miễn muộn/sớm quá ngưỡng chính sách; không tạo quyền OT hoặc tiền OT.
 
 <a id="kien-truc"></a>
 ## Kiến trúc & công nghệ
@@ -211,6 +213,15 @@ Seed mặc định tạo bộ **2.200 hồ sơ nhân sự mô phỏng** theo cơ
 
 **Mật khẩu được sinh ngẫu nhiên**, lưu tại `.local/demo-accounts.json` trên máy đã seed. Không có mật khẩu mặc định công khai; không đưa tệp này vào commit hoặc chia sẻ.
 
+### Quản trị tài khoản
+
+Admin có quyền **Tài khoản → Tạo tài khoản**: nhập thông tin, mật khẩu tạm, vai trò
++ đơn vị/ngày hiệu lực, loại trừ nếu cần và lý do. Không có tự đăng ký; không hardcode
+username Admin. Người dùng mới/reset phải đổi mật khẩu trước khi làm nghiệp vụ; sau
+đổi phải đăng nhập lại. Sửa quyền, khóa/mở khóa, reset đều thu hồi phiên hiện có.
+Người dùng bình thường đổi mật khẩu qua menu tên người dùng. Admin không tự sửa quyền
+hoặc khóa mình; bản sửa cũ bị chặn bằng revision. Xem [quy tắc và API §7.14](docs/20-tech-stack-va-moi-truong-phat-trien.md#714-admin-tài-khoản-và-phân-quyền).
+
 ### Thử luồng chấm công
 
 1. Tạo/mở kỳ công bằng tài khoản có quyền quản lý kỳ; chuẩn bị phân công nhân sự còn hiệu lực.
@@ -254,6 +265,10 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `POST` | `/api/auth/login` | Đăng nhập bằng `username`, `password`; thiết lập cookie phiên |
 | `GET` | `/api/auth/me` | Thông tin người dùng hiện tại |
 | `POST` | `/api/auth/logout` | Kết thúc phiên |
+| GET/POST | /api/auth/accounts | Danh sách / tạo tài khoản nội bộ theo quyền quản trị |
+| GET | /api/auth/accounts/context | Cây phạm vi, vai trò, danh tính tối thiểu và chính sách mật khẩu |
+| POST | /api/auth/accounts/:id/update, status, password, revoke | Sửa quyền/loại trừ, khóa/mở khóa, reset mật khẩu và thu hồi phiên |
+| GET/POST | /api/auth/password-policy, /api/auth/change-password | Đọc chính sách / đổi mật khẩu cá nhân; đổi xong kết thúc mọi phiên |
 | `GET` | `/api/attendance/context` | Cơ sở, đơn vị, kỳ và cấu hình được phép |
 | `POST` | `/api/attendance/profiles` | Lưu cấu hình cột mới |
 | `POST` | `/api/attendance/imports` | Nhập tệp multipart: `file`, `siteId`, `referencePeriodId`, `profileId` tùy chọn |
@@ -268,6 +283,9 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `GET` | `/api/overtime/requests`, `/api/overtime/requests/:id` | Lọc đề nghị; chi tiết, hạn mức và lịch sử |
 | `POST` | `/api/overtime/requests`, `/api/overtime/requests/:id/update` | Tạo/sửa nháp |
 | `POST` | `/api/overtime/requests/:id/submit`, `approve`, `return`, `reject`, `cancel` | Chuyển trạng thái kèm revision, lý do theo thao tác |
+| `GET` | `/api/attendance/corrections`, `/targets`, `/:id` | Lọc giải trình, chọn ngày công trong phạm vi, xem bằng chứng/snapshot/lịch sử |
+| `POST` | `/api/attendance/corrections`, `/:id/update`, `/:id/submit`, `/:id/approve`, `/:id/return`, `/:id/reject` | Lập/sửa/gửi và quyết định theo revision |
+| `POST` / `GET` | `/api/attendance/corrections/:id/evidence`, `/:id/evidence/:evidenceId` | Đính kèm / tải bằng chứng có kiểm tra quyền |
 
 Kiểm tra nhanh khi API đang chạy:
 
@@ -290,6 +308,8 @@ npm run verify:shifts
 npm run verify:attendance
 npm run verify:overtime
 npm run verify:overtime-actual
+npm run verify:accounts
+npm run verify:corrections
 ```
 
 Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi chạy HTTP server thật và dọn database đã tạo. Tài khoản kết nối cần quyền tạo/xóa database; không trỏ bộ kiểm chứng vào môi trường vận hành. Chạy lần lượt, không chạy đồng thời với compiler dev/watch.
@@ -302,8 +322,10 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | `verify:attendance` | Parser, engine, nhập trùng, log bất biến, ca đêm và phân quyền | 21/21 |
 | `verify:overtime` | Chứng từ, quyền, vòng đời, cạnh tranh duyệt, trùng giờ, trần 200/300 giờ, qua năm và khóa kỳ | 7/7 |
 | `verify:overtime-actual` | Giao giờ duyệt/thực tế, ca đêm, thiếu/chưa duyệt, không dùng trùng quẹt, qua năm, phạm vi và khóa kỳ nguồn | 20/20 |
+| verify:accounts | Tạo/sửa, phạm vi/hiệu lực, phiên bản cũ, mật khẩu tạm/hết hạn/lịch sử, khóa/mở khóa/thu hồi và audit không chứa bí mật | 11/11 |
+| `verify:corrections` | Quyền/phạm vi/loại trừ, bằng chứng, khóa kỳ/ca đêm, bulk nguyên tử, trả lại/từ chối, duyệt cạnh tranh, nguồn đổi, công/OT và log gốc | 7/7 |
 
-Hồi quy liên phân hệ sau tích hợp đối chiếu OT đạt **91/91**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Đây là kết quả local, **không phải badge CI hoặc chứng nhận UAT toàn bộ R1**. Browser đã chạy luồng duyệt OT, nhập quẹt, bảng/chi tiết đối chiếu và kiểm tra 390px; bảng cuộn riêng, axe không phát hiện lỗi tự động ở các bề mặt đã kiểm tra, còn mục cần đánh giá thủ công. Xem [hướng dẫn vận hành](docs/20-tech-stack-va-moi-truong-phat-trien.md).
+Hồi quy backend sau tích hợp giải trình/điều chỉnh đạt **115/115**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace, build backend/frontend và Prisma validate đều đạt; build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build. Đây là kết quả local, **không phải badge CI hoặc chứng nhận UAT toàn bộ R1**. Browser đã chạy TT lập/gửi → QĐ duyệt, xác nhận công/OT và trạng thái sau reload; kiểm tra desktop/390px, form chọn người và drawer trước/sau. Axe không phát hiện lỗi tự động trên các bề mặt đã kiểm tra, vẫn có mục cần đánh giá thủ công. Xem [hướng dẫn vận hành §7.15](docs/20-tech-stack-va-moi-truong-phat-trien.md#715-giải-trình-và-điều-chỉnh-chấm-công).
 
 Kiểm tra tính nhất quán của **đặc tả** độc lập với kiểm thử ứng dụng; cần Python 3:
 
@@ -321,7 +343,7 @@ python scripts/validate_release_scope.py
 | `HR_DATA_KEY` | Khóa 32 byte dạng Base64 dùng mã hóa dữ liệu hợp đồng |
 | `WEB_ORIGINS` | Origin được phép cho các request ghi |
 | `COOKIE_SECURE` | Bật `true` khi triển khai qua HTTPS |
-| `AUTH_*` | Thời hạn phiên, giới hạn sai mật khẩu và thời gian khóa |
+| AUTH_* | Thời hạn phiên, giới hạn sai mật khẩu và thời gian khóa; AUTH_PASSWORD_* cấu hình độ dài, độ phức tạp, lịch sử và hạn đổi (mặc định 12 ký tự/5 mật khẩu/90 ngày) |
 | `API_PROXY_TARGET` | Đích proxy API của Vite, mặc định `http://127.0.0.1:3000` |
 
 Mẫu cấu hình: [backend/.env.example](backend/.env.example) và [frontend/.env.example](frontend/.env.example). Nếu tự quản lý database, tạo `.env` theo mẫu thay vì chạy script quản lý cụm demo.

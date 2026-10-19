@@ -141,7 +141,7 @@ năng trong đặc tả; kiểm tra đồng bộ tài liệu không thay thế k
   chưa có engine tính lương. Font Be Vietnam Pro đóng gói local qua Fontsource.
 - Đã có migration và seed nền; đăng nhập/đăng xuất, phiên, phân quyền theo vai trò +
   cây đơn vị + hiệu lực + exclusion; danh sách/chi tiết/tạo nhân sự, cơ cấu tổ chức,
-  quản trị thu hồi phiên và health. Đã bổ sung hợp đồng/phụ lục và điều chuyển theo ngày.
+  quản trị tài khoản/quyền/mật khẩu/phiên và health. Đã bổ sung hợp đồng/phụ lục và điều chuyển theo ngày.
 - Phạm vi demo hiện tại: nền tảng, tổ chức/nhân sự/hợp đồng/điều chuyển, tham số/chính sách, tạo/mở kỳ công, phân ca/duyệt lịch, nhập/ghép quẹt, đăng ký/duyệt và đối chiếu OT thực tế; **không phải toàn bộ R1**.
 - Chưa có tiền OT, nghỉ/giải trình, xác nhận/chốt công, engine tính lương hoặc AI; trạng thái nghiệm thu FR/UAT/NFR của baseline lõi không tự đổi theo smoke này.
 - Làm trực tiếp trên checkout demo hiện tại theo yêu cầu chủ dự án, không commit hoặc
@@ -725,3 +725,141 @@ mục cần đánh giá thủ công. Không thay nghiệm thu R1, không commit/
 TT đã đăng nhập lại, chỉ có ba tab đọc công/ngoại lệ/OT thực tế, không có nút xử lý;
 reload trang rồi chọn lại kỳ vẫn đọc đúng 170 phút và chứng từ gốc đã lưu.
 
+### 7.14. Admin, tài khoản và phân quyền
+
+Nâng cấp bằng `npm run db:deploy`: migration `20261019090000_account_management`
+thêm revision tài khoản, cờ mật khẩu tạm, ngày đổi mật khẩu và lịch sử hash mật khẩu.
+Không đổi mật khẩu, vai trò, nhân sự hoặc trạng thái của các tài khoản đã có;
+chu kỳ hạn đổi của tài khoản cũ bắt đầu tại thời điểm nâng cấp.
+
+**Chốt luồng:** Admin có `accounts.manage` → **Tài khoản → Tạo tài khoản** → nhập
+username/tên hiển thị, liên kết nhân sự nếu cần → gán từng vai trò/phạm vi/ngày hiệu lực
+→ thêm loại trừ nếu cần → nhập mật khẩu tạm và lý do → lưu. Không có đăng ký công khai;
+không kiểm tra tên `ad.demo` trong logic cấp quyền. Admin đầu tiên vẫn do seed thiết lập;
+các tài khoản tiếp theo được tạo qua API/UI. Nhân sự thông thường không tự có tài khoản.
+
+- TT chỉ ở TEAM, QĐ ở DEPARTMENT, AD ở COMPANY/SITE; KT nhận phạm vi được cấp.
+  Có thể cấp nhiều bản ghi theo đơn vị/ngày. Ngày kết thúc bao gồm cả ngày đã chọn;
+  ngày nghiệp vụ theo Asia/Ho_Chi_Minh. Quyền tương lai/chấm dứt chưa/không được dùng.
+- Admin chỉ cấp trong cây đơn vị mình quản lý và toàn khoảng hiệu lực của quyền.
+  Kiểm tra cả thay đổi cơ cấu/quyền Admin đã lên lịch. Tài khoản có quyền hiện tại
+  hoặc tương lai ngoài phạm vi bị ẩn, không cho sửa một phần để giành quyền còn lại.
+  Ngữ cảnh liên kết/loại trừ chỉ trả ID, mã, tên nhân sự trong phạm vi; không mở quyền
+  đọc hồ sơ/lương cho AD. Danh tính liên kết/loại trừ ngoài phạm vi cũng không bị lộ.
+- Khoảng cùng vai trò/đơn vị hoặc cùng nhân sự loại trừ không chồng lấn. Không thêm
+  quyền/loại trừ hồi tố. Dòng đã kết thúc phải giữ nguyên; bỏ dòng còn hiệu lực từ
+  trước hôm nay sẽ kết thúc nó ở hôm qua, không xóa lịch sử. Username không đổi.
+- Mọi cập nhật dùng revision; bản cũ trả 409 và cần tải lại. Thay đổi tài khoản/quyền,
+  khóa, mở khóa, reset mật khẩu hoặc thu hồi phiên đều xóa phiên tại server. Admin
+  không tự sửa quyền/trạng thái/reset mật khẩu của mình; dùng menu cá nhân để đổi
+  mật khẩu. Có bảo vệ Admin công ty cuối cùng và khoảng trống quản trị tương lai.
+- **Mở khóa** dùng cho tài khoản vô hiệu hoặc đang khóa tạm do đăng nhập sai; xóa
+  số lần sai/lockedUntil và không khôi phục phiên cũ. Nhân sự đã TERMINATED hoặc
+  tới ngày terminationDate không đăng nhập được. Khi quản lý điều chuyển/nghỉ việc,
+  Admin phải đặt ngày kết thúc quyền theo quyết định; không tự cấp quyền mới từ chức danh.
+- Tài khoản mới/reset nhận mật khẩu tạm, buộc đổi trước mọi API nghiệp vụ. Chỉ
+  `me`, `logout`, `password-policy`, `change-password` được phép trong phiên này.
+  Người dùng đổi bằng mật khẩu hiện tại; đổi xong mọi phiên kết thúc, phải đăng nhập
+  lại. Mật khẩu hết hạn cũng bị giới hạn như vậy. Lịch sử chống dùng lại mật khẩu;
+  audit giữ người thao tác, trước/sau, lý do, IP, số phiên thu hồi; không giữ mật khẩu,
+  hash mật khẩu hoặc token. Không có API xóa tài khoản/audit.
+
+**Chính sách cấu hình backend** (khởi động lại API sau sửa .env):
+
+| Biến | Mặc định / giới hạn |
+|---|---|
+| AUTH_PASSWORD_MIN_LENGTH | 12; 8–128 ký tự, tối đa mật khẩu 128 |
+| AUTH_PASSWORD_REQUIRE_UPPERCASE / LOWERCASE / NUMBER / SYMBOL | true cho từng biến đầy đủ tiền tố AUTH_PASSWORD_REQUIRE_; chữ Unicode hoa/thường, số 0–9, ký tự đặc biệt không phải khoảng trắng |
+| AUTH_PASSWORD_HISTORY_COUNT | 5; 1–24 mật khẩu gần nhất, gồm mật khẩu hiện tại |
+| AUTH_PASSWORD_MAX_AGE_DAYS | 90; 0 tắt hạn, tối đa 3650 ngày |
+
+Các cờ nhận true/false hoặc 1/0. Cấu hình sai bị từ chối khi khởi động thay vì âm thầm
+hạ chính sách. Xem tên biến đầy đủ trong backend/.env.example. Giá trị hiện hành được
+cung cấp qua API chính sách; UI không tự quyết định quyền truy cập.
+
+| API | Hợp đồng |
+|---|---|
+| GET /api/auth/accounts/context | asOf, units, roles, employees tối thiểu, policy |
+| GET /api/auth/accounts | items gồm revision, quyền/loại trừ có ngày, trạng thái mật khẩu và số phiên |
+| POST /api/auth/accounts | username, displayName, employeeId tùy chọn, password, assignments, exclusions, reason → account |
+| POST /api/auth/accounts/:id/update | revision, displayName, employeeId hoặc null, assignments, exclusions, reason; thay thế đầy đủ và giữ lịch sử |
+| POST /api/auth/accounts/:id/status | revision, status ACTIVE/DISABLED, reason → account |
+| POST /api/auth/accounts/:id/password | revision, password tạm mới, reason → account |
+| POST /api/auth/accounts/:id/revoke | thu hồi tất cả phiên → ok |
+| GET /api/auth/password-policy | policy; cần phiên, kể cả phiên buộc đổi mật khẩu |
+| POST /api/auth/change-password | currentPassword, newPassword → ok; xóa cookie và toàn bộ phiên |
+
+assignments: roleCode, scopeOrgUnitId, effectiveFrom YYYY-MM-DD, effectiveTo hoặc null.
+exclusions: employeeId, effectiveFrom, effectiveTo hoặc null. Các response dùng ngày
+YYYY-MM-DD cho hiệu lực; timestamp có timezone. Lỗi phạm vi không lộ tài khoản ngoài quyền.
+
+**Kiểm chứng đã chạy:** typecheck/build; hồi quy backend tuần tự **102/102**, trong đó
+suite tài khoản **11/11** gồm container và 10 tình huống HTTP/PostgreSQL cách ly.
+Browser đã tạo/sửa tài khoản TT, đổi mật khẩu bắt buộc rồi đăng nhập lại, thêm loại trừ
+BN00004 (không còn trả về, BN00009 cùng tổ vẫn thấy), reset, khóa tạm/mở khóa và vô hiệu.
+Phiên cũ sau thay quyền/reset trả 401, TT gọi quản trị trả 403. Reload giữ thay đổi.
+Desktop/390px xem được bảng và form; sửa tràn Select trong form và giữ aria-required
+đúng trên combobox. Axe không phát hiện lỗi tự động trên bảng/form/màn đổi mật khẩu
+đã kiểm tra, vẫn có mục cần đánh giá thủ công ở một số màn. Tài khoản smoke được vô hiệu
+sau kiểm chứng, giữ audit. Chưa phải nghiệm thu toàn bộ R1; không commit/đổi nhánh.
+
+### 7.15. Giải trình và điều chỉnh chấm công
+
+Nâng cấp bằng `npm run db:deploy` và `npm run db:generate`, sau đó build/khởi động lại
+API. Migration `20261019100000_attendance_corrections` thêm hồ sơ, từng ngày công,
+bằng chứng, lịch sử và liên kết nguồn điều chỉnh vào công/OT. Bổ sung
+`attendance.explain` cho TT và `attendance.review` cho QĐ; giữ nguyên lượt quẹt gốc.
+
+**Luồng UI:** vào **Chấm công**, chọn cơ sở và kỳ → tab **Giải trình**. TT chọn
+**Lập giải trình**, ngày công và người trong phạm vi → chọn giải trình hoặc điều
+chỉnh giờ công → lý do, tham chiếu/tệp bằng chứng → lưu nháp hoặc lưu và gửi.
+Điều chỉnh nhập khoảng vào–ra thực tế, kể cả qua ngày; không nhập số phút muốn hưởng.
+Chọn nhiều người chỉ trong cùng tổ/ngày, phải có mã sự việc chung; mỗi yêu cầu tối
+đa 100 người. Một người không hợp lệ làm toàn bộ thao tác thất bại, không lưu nửa lô.
+
+- QĐ xem drawer trước/sau, nguồn và bằng chứng rồi **Duyệt**, **Trả lại** hoặc
+  **Từ chối**. Trả lại/từ chối bắt buộc lý do. Không tự duyệt hồ sơ mình lập.
+  Nháp/trả lại được người lập sửa; hồ sơ đã duyệt/từ chối không sửa trực tiếp.
+- Gửi duyệt phải có lý do và tham chiếu bằng chứng hoặc tệp PDF/PNG/JPEG/TXT
+  tối đa 5 MB. Tệp lưu trong PostgreSQL cùng SHA-256; tải qua endpoint kiểm tra
+  quyền, không có URL công khai. Việc tạo/cập nhật/gửi/quyết định/tải tệp có audit.
+- Chỉ **APPROVED** áp dụng. Điều chỉnh thay khoảng hiện diện hiệu lực, tính lại
+  công thường và OT trong cùng transaction; không tạo/sửa quẹt gốc. OT đủ điều kiện
+  vẫn phải nằm trong khoảng OT đã duyệt, không tự phát sinh tiền hoặc quyền OT.
+  Xử lý công lại giữ điều chỉnh; giải trình bổ sung không xóa khoảng đã được duyệt.
+- Giải trình chỉ miễn muộn/sớm khi từng giá trị dương nhỏ hơn 15 phút theo BR21;
+  không tự miễn trường hợp từ 15 phút trở lên, thiếu quẹt hoặc vắng.
+- Kiểm tra phạm vi hiện tại và ngày công/ngày nguồn, loại trừ nhân sự, kỳ đích
+  **OPEN** và mọi kỳ cấp cha/ngày nguồn không **CLOSED/LOCKED**, kể cả ca qua đêm.
+  Truy kỳ dùng toàn cây tổ chức theo hiệu lực, không cắt cấp cha theo quyền người duyệt.
+- Revision cũ, cạnh tranh quyết định hoặc nguồn thay đổi sau khi gửi trả **409**.
+  Khi nguồn đổi, QĐ trả lại để TT sửa/gửi lại; không duyệt trên snapshot lỗi thời.
+  Snapshot trước/sau và lịch sử giữ người thao tác, thời gian, lý do và thứ tự áp dụng.
+
+| API | Hợp đồng |
+|---|---|
+| GET /api/attendance/corrections | periodId; lọc orgUnitId, status, employeeId, search, page, pageSize |
+| GET /api/attendance/corrections/targets | periodId, workDate; orgUnitId/search/phân trang để chọn ngày công trong quyền |
+| GET /api/attendance/corrections/:id | Hồ sơ, người lập/quyết định, từng ngày công, snapshot, bằng chứng và lịch sử |
+| POST /api/attendance/corrections | periodId, kind EXPLANATION/CORRECTION, reason, evidenceReference?, incidentReference?, items |
+| POST /api/attendance/corrections/:id/update | Nội dung mới và revision; chỉ nháp/trả lại |
+| POST /api/attendance/corrections/:id/submit | revision; giữ snapshot/hash nguồn lúc gửi |
+| POST /api/attendance/corrections/:id/approve, /return, /reject | revision, reason theo thao tác; áp dụng nguyên tử khi duyệt |
+| POST /api/attendance/corrections/:id/evidence | multipart file, chỉ nháp/trả lại của người lập |
+| GET /api/attendance/corrections/:id/evidence/:evidenceId | Nội dung tải về sau kiểm tra toàn phạm vi hồ sơ |
+
+Mỗi item có employeeId, orgUnitId, workDate YYYY-MM-DD, intervals (null cho
+giải trình; mảng startAt/endAt ISO có timezone cho điều chỉnh), excuseLateEarly
+chỉ cho giải trình. Ngày công/giờ địa phương dùng Asia/Ho_Chi_Minh.
+
+**Kiểm chứng:** `npm run verify:corrections` đạt **7/7** trên PostgreSQL cách ly và
+HTTP thật: quyền/loại trừ/hết hiệu lực, upload/download bảo mật, khóa ngày nguồn
+qua đêm, bulk nguyên tử, trả lại/sửa/gửi lại/từ chối, duyệt cạnh tranh đúng một lần,
+nguồn thay đổi, tính lại công/OT và quẹt gốc không đổi. Browser TT lập/gửi, QĐ duyệt
+ca đêm BN00004 ngày 18/10/2026: hiệu lực 22:00–06:00, công 480 phút, OT thực tế từ
+6 xuống 0 phút, trạng thái APPROVED giữ sau reload; drawer desktop/390px không tràn
+trang. Axe không phát hiện lỗi tự động trên chi tiết đã kiểm tra; còn mục cần đánh
+giá thủ công. Không phải nghiệm thu toàn bộ R1; chưa chốt công/tính lương.
+Typecheck hai workspace, build backend/frontend, Prisma validate và kiểm tra đồng
+bộ đặc tả R1 đều đạt. Hồi quy toàn backend tuần tự **115/115**; build frontend còn
+cảnh báo chunk UI lớn hơn 500 kB, không chặn build.

@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { Correction } from "./corrections";
 
 export type PunchDirection = "IN" | "OUT" | "AUTO";
 export type RawPunchState = "PROCESSED" | "WAITING" | "LATE" | "UNMATCHED" | "AMBIGUOUS" | "SUPPRESSED";
@@ -83,6 +84,8 @@ export interface DailyRow {
   workUnits: string;
   processedAt: string;
   periodId: string;
+  adjustmentId: string | null;
+  correctionId: string | null;
 }
 
 export interface Page<T> { items: T[]; total: number; page: number; pageSize: number }
@@ -109,6 +112,8 @@ export interface ActualRow {
   unworkedApprovedMinutes: number;
   flags: string[];
   processedAt: string;
+  adjustmentId: string | null;
+  correctionId: string | null;
 }
 
 export interface OvertimeActualResult extends Page<ActualRow> {
@@ -151,6 +156,7 @@ export interface OvertimeActualDetail {
     workDate: string;
   }[];
   punches: RawRow[];
+  corrections?: Correction[];
   rules: unknown;
 }
 
@@ -183,7 +189,7 @@ export const attendanceApi = {
   overtimeActuals: (filters: { periodId: string; orgUnitId?: string; search?: string; exceptionsOnly?: boolean; page: number; pageSize: number }) =>
     api<OvertimeActualResult>(`/api/attendance/overtime-actuals${query(filters)}`),
   overtimeActual: (id: string) => api<OvertimeActualDetail>(`/api/attendance/overtime-actuals/${id}`),
-  day: (id: string) => api<{ day: DailyRow; punches: RawRow[]; segments: AttendanceSegment[] }>(`/api/attendance/days/${id}`),
+  day: (id: string) => api<{ day: DailyRow; punches: RawRow[]; segments: AttendanceSegment[]; corrections: Correction[] }>(`/api/attendance/days/${id}`),
   punches: (filters: { siteId: string; state?: RawPunchState; page: number; pageSize: number }) =>
     api<Page<RawRow>>(`/api/attendance/punches${query(filters)}`),
   process: (payload: { siteId: string; referencePeriodId: string }) =>

@@ -9,6 +9,7 @@ import { DownloadOutlined, FileAddOutlined, PlayCircleOutlined, SettingOutlined,
 import type { AuthUser } from "../api/hrtp";
 import { errorMessage } from "../api/client";
 import { attendanceApi } from "../api/attendance";
+import { AttendanceCorrectionsPanel } from "./AttendanceCorrectionsPanel";
 import { OvertimeActualPanel } from "./OvertimeActualPanel";
 import type { AttendancePeriod, AttendanceProfile, Batch, DailyRow, ImportMapping, RawPunchState, RawRow } from "../api/attendance";
 
@@ -137,6 +138,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
   const [selectedDay, setSelectedDay] = useState<DailyRow>();
   const [selectedBatch, setSelectedBatch] = useState<Batch>();
   const [selectedRaw, setSelectedRaw] = useState<RawRow>();
+  const [focusCorrectionId, setFocusCorrectionId] = useState<string>();
   const canImport = user.roles.includes("AD") && user.permissions.includes("attendance.import");
   const context = useQuery({ queryKey: ["attendance-context"], queryFn: attendanceApi.context });
   const selectedSite = context.data?.sites.find((site) => site.id === siteId);
@@ -184,6 +186,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
     { title: "Công", dataIndex: "workUnits", width: 84, align: "right" as const },
     { title: "Làm việc", width: 102, align: "right" as const, render: (_: unknown, row: DailyRow) => minutes(row.workedMinutes) },
     { title: "Ngoại lệ", width: 210, render: (_: unknown, row: DailyRow) => row.flags.length ? <Space size={[4, 4]} wrap>{row.flags.map(flag => <Tag className="attendance-state" color="orange" key={flag}>{attendanceFlagLabels[flag] ?? flag}</Tag>)}</Space> : <Tag className="attendance-state" color="green">Đủ</Tag> },
+    { title: "Giải trình", width: 135, render: (_: unknown, row: DailyRow) => row.correctionId ? <Button type="link" onClick={(event) => { event.stopPropagation(); setFocusCorrectionId(row.correctionId ?? undefined); setTab("corrections"); }}>Đã giải trình/điều chỉnh</Button> : <Text type="secondary">Chưa có</Text> },
   ];
   const rawColumns = [
     { title: "Thời điểm", width: 175, render: (_: unknown, row: RawRow) => vietnamTime(row.punchedAt) },
@@ -206,7 +209,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
     </div>
     {!siteId || !periodId ? <Alert type="info" showIcon message="Chọn địa điểm và kỳ tham chiếu để xem bảng công." /> : <>
       <Tabs activeKey={tab} onChange={setTab} items={[
-        { key: "board", label: "Bảng công" }, { key: "exceptions", label: "Ngoại lệ" }, { key: "overtime-actual", label: "OT thực tế" },
+        { key: "board", label: "Bảng công" }, { key: "exceptions", label: "Ngoại lệ" }, { key: "overtime-actual", label: "OT thực tế" }, { key: "corrections", label: "Giải trình" },
         ...(canImport ? [{ key: "import", label: "Nhập tệp" }, { key: "history", label: "Lịch sử nhập" }, { key: "punches", label: "Lượt quẹt gốc" }] : []),
       ]} />
       {(tab === "board" || tab === "exceptions") && <>
@@ -220,8 +223,9 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
       {tab === "overtime-actual" && <>
         {canImport && <div className="attendance-actions"><Button icon={<PlayCircleOutlined />} loading={process.isPending} onClick={() => process.mutate()}>Xử lý lượt quẹt chờ</Button></div>}
         {process.isError && <Alert className="attendance-alert" type="error" showIcon message="Không xử lý được lượt quẹt" description={errorMessage(process.error)} />}
-        <OvertimeActualPanel periodId={periodId} orgUnitId={orgUnitId} search={search} canImport={canImport} />
+        <OvertimeActualPanel periodId={periodId} orgUnitId={orgUnitId} search={search} canImport={canImport} onOpenCorrection={(correctionId) => { setFocusCorrectionId(correctionId); setTab("corrections"); }} />
       </>}
+      {tab === "corrections" && <AttendanceCorrectionsPanel user={user} periodId={periodId} orgUnitId={orgUnitId} search={search} focusCorrectionId={focusCorrectionId} onFocusHandled={() => setFocusCorrectionId(undefined)} />}
       {tab === "import" && canImport && <div className="attendance-import">
         <Space wrap>
           <Upload beforeUpload={() => false} maxCount={1} accept=".csv,.txt,.xlsx" fileList={file ? [{ uid: file.name, name: file.name }] : []} onChange={({ file: chosen }) => setFile(chosen.originFileObj ?? (chosen instanceof File ? chosen : undefined))} onRemove={() => { setFile(undefined); return true; }}><Button icon={<UploadOutlined />}>Chọn tệp quẹt</Button></Upload>

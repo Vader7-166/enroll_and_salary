@@ -5,11 +5,16 @@ import { AuthService } from './auth.service';
 import { OriginGuard } from './origin.guard';
 import { SessionGuard } from './session.guard';
 import { ScopeService } from '../organization/scope.service';
+import { AccountsService } from './accounts.service';
+import { AccountsController } from './accounts.controller';
+import { PasswordPolicyService } from './password-policy.service';
 
 @Module({
-  controllers: [AuthController],
+  controllers: [AuthController, AccountsController],
   providers: [
     ScopeService,
+    AccountsService,
+    PasswordPolicyService,
     AuthService,
     SessionGuard,
     OriginGuard,

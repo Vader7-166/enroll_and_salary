@@ -12,7 +12,7 @@ pháp lý gốc trong thư mục [`KhaoSat/`](KhaoSat).
 | Tác nhân hệ thống | **4**: Tổ trưởng (TT) · Quản đốc (QĐ) · Kế toán (KT) · Admin (AD). Công nhân là đối tượng dữ liệu, không đăng nhập |
 | Chuẩn pháp lý áp dụng | BLLĐ 2019; NĐ 145/2020/NĐ-CP; NĐ 293/2025/NĐ-CP; NĐ 283/2026/NĐ-CP; NĐ 13/2023/NĐ-CP; Luật Thuế TNCN 109/2025/QH15; NQ 110/2025/UBTVQH15; NĐ 253/2026/NĐ-CP; TT 111/2013 và NQ 954/2020 cho bộ thuế lịch sử 2025 |
 | Kỳ áp dụng | Từ kỳ lương 2026 |
-| Phiên bản tài liệu | 2.20 |
+| Phiên bản tài liệu | 2.22 |
 
 **Tech stack đã chốt (TECH-01):** React + TypeScript + Vite, Ant Design, TanStack Query;
 NestJS + TypeScript; PostgreSQL + Prisma; Decimal.js. Kiến trúc modular monolith,
@@ -20,11 +20,12 @@ phát triển trên VS Code. Xem [20 — Tech stack và môi trường phát tri
 
 **Luồng local đã chạy:** migration/seed, đăng nhập/phiên và phạm vi đơn vị; nhân sự,
 hợp đồng/phụ lục mã hóa, điều chuyển theo ngày hiệu lực; tham số/chính sách phiên bản,
-tạo/mở kỳ công, danh mục ca/phân ca/gửi duyệt/QĐ duyệt và lịch sử; quản trị phiên và
+tạo/mở kỳ công, danh mục ca/phân ca/gửi duyệt/QĐ duyệt và lịch sử; Admin tạo/sửa tài khoản, quyền/loại trừ có hiệu lực, khóa/mở khóa, reset/đổi mật khẩu và quản trị phiên;
 nhập tệp/ghép lượt quẹt, bảng công/ngoại lệ và nguồn gốc lượt quẹt; đăng ký/gửi/duyệt OT,
 trả lại/từ chối/hủy, hạn mức và snapshot lịch sử; đối chiếu OT thực tế/đủ điều kiện,
-ngoại lệ, ca qua ngày và nguồn quẹt; health PostgreSQL thật. Hướng dẫn cài/chạy, bảo vệ
-khóa mã hóa và tài khoản demo tại [20 §7](20-tech-stack-va-moi-truong-phat-trien.md#7-chạy-môi-trường-demo-local). Chưa có tiền OT, nghỉ/giải trình, xác nhận/chốt công, tính lương, API chốt/khóa kỳ hoặc AI; không đổi nghiệm thu lõi,
+ngoại lệ, ca qua ngày và nguồn quẹt; giải trình/điều chỉnh TT–QĐ, bằng chứng, sự cố
+nhiều người và snapshot trước/sau; health PostgreSQL thật. Hướng dẫn cài/chạy, bảo vệ
+khóa mã hóa và tài khoản demo tại [20 §7](20-tech-stack-va-moi-truong-phat-trien.md#7-chạy-môi-trường-demo-local). Chưa có tiền OT, nghỉ phép, xác nhận/chốt công, tính lương, API chốt/khóa kỳ hoặc AI; không đổi nghiệm thu lõi,
 không commit/đổi nhánh.
 **Dữ liệu local:** bộ doanh nghiệp giả lập 2.200 nhân sự theo cơ cấu bốn cơ sở;
 có chức danh, hợp đồng/lương mã hóa, phụ lục và điều chuyển. Giữ hồ sơ đã nhập,
@@ -195,6 +196,8 @@ bộ tài liệu này:
 
 | Phiên bản | Nội dung |
 |---|---|
+| 2.22 | Triển khai giải trình/điều chỉnh công TT–QĐ: lý do/bằng chứng bảo mật, bulk cùng sự cố nguyên tử, trả lại/sửa/gửi lại/từ chối, snapshot/lịch sử, revision và nguồn lỗi thời. Duyệt tính lại công/OT, xử lý lại vẫn giữ hiệu lực; không sửa quẹt gốc hoặc tạo quyền OT. Bảo vệ kỳ nguồn/đích/cấp cha và phạm vi theo ngày; sửa tra cứu cấp cha khi người duyệt chỉ có phạm vi phân xưởng. HTTP/PostgreSQL giải trình 7/7; browser desktop/390px. Xem 20 §7.15 |
+| 2.21 | Triển khai Admin tạo/sửa tài khoản nội bộ và quyền/loại trừ có hiệu lực; kiểm tra toàn khoảng phạm vi, lịch sử không hồi tố, revision, khóa/mở khóa và thu hồi phiên. Mật khẩu tạm/hết hạn buộc đổi; chính sách độ dài/phức tạp/lịch sử/hạn cấu hình được; audit không chứa bí mật. Migration giữ tài khoản cũ; API/UI thật, desktop/390px, hồi quy tài khoản 11/11 và toàn backend 102/102. Xem 20 §7.14; không thay nghiệm thu R1 |
 | 2.20 | Triển khai đối chiếu OT thực tế từ lượt quẹt: đề nghị/duyệt/thực tế/đủ điều kiện, giao khoảng duyệt, không cộng công thường/nghỉ, nối ca đêm và tách ngày lịch/ngày–đêm/tháng/năm. Lưu kết quả/nguồn, bảo vệ phạm vi ngày nguồn và kỳ đóng/khóa ở API/database; UI theo quyền, desktop/390px và bàn phím. Kiểm chứng OT thực tế 20/20, toàn backend tuần tự 91/91; chưa tính tiền OT. Xem 20 §7.13 |
 | 2.19 | Hoàn thành subtask đăng ký/duyệt OT: migration/API/UI, TT lập/sửa/gửi/hủy, QĐ duyệt/trả lại/từ chối; chứng từ từng người, phạm vi hiện tại/theo ngày, chống trùng, trần 200/300 giờ, khóa kỳ, cạnh tranh duyệt và snapshot bất biến. Sửa lệch UTC khi mở sửa; UI desktop/390px và HTTP/PostgreSQL thật. OT 7/7, hồi quy 71/71; chưa đối chiếu OT thực tế hoặc tiền OT. Xem 20 §7.12 |
 | 2.18 | Triển khai nhập CSV/TXT/XLSX, cấu hình cột, nguồn lượt quẹt bất biến, chống nhập trùng, ghép ca đã duyệt và ca đêm/nghỉ giữa ca; bảng công/ngoại lệ theo phạm vi hiện tại và ngày công. Log chờ/kỳ kề/log muộn không sửa công kỳ đóng/khóa. Kiểm chứng 21/21 và UI thật; xem 20 §7.11 |

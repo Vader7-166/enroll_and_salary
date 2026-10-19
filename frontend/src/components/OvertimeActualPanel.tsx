@@ -84,7 +84,7 @@ function PairEvidence({ detail }: { detail: OvertimeActualDetail }) {
   return <Table<OvertimeActualDetail["pairs"][number]> rowKey="contextId" components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={detail.pairs} pagination={false} scroll={{ x: 975 }} locale={{ emptyText: "Không có bằng chứng ghép lượt quẹt." }} />;
 }
 
-export function OvertimeActualPanel({ periodId, orgUnitId, search, canImport }: { periodId: string; orgUnitId?: string; search?: string; canImport: boolean }) {
+export function OvertimeActualPanel({ periodId, orgUnitId, search, canImport, onOpenCorrection }: { periodId: string; orgUnitId?: string; search?: string; canImport: boolean; onOpenCorrection?: (correctionId: string) => void }) {
   const screens = Grid.useBreakpoint();
   const [page, setPage] = useState(1);
   const [exceptionsOnly, setExceptionsOnly] = useState(false);
@@ -117,7 +117,8 @@ export function OvertimeActualPanel({ periodId, orgUnitId, search, canImport }: 
     { title: "Ngoài duyệt", dataIndex: "unapprovedMinutes", align: "right", width: 120, render: minutes },
     { title: "Cờ đối soát", dataIndex: "flags", width: 260, render: flagTags },
     { title: "Thao tác", key: "detail", fixed: screens.sm ? "right" : undefined, width: 100, render: (_, row) => <Button type="link" onClick={() => setSelectedId(row.id)} aria-label={`Xem chi tiết đối soát ${row.employee.fullName}`}>Chi tiết</Button> },
-  ], [screens.sm]);
+    { title: "Giải trình", key: "correction", width: 160, render: (_: unknown, row) => row.correctionId ? <Button type="link" onClick={() => onOpenCorrection?.(row.correctionId!)}>Đã giải trình/điều chỉnh</Button> : <Text type="secondary">Chưa có</Text> },
+  ], [screens.sm, onOpenCorrection]);
 
   const summary = actuals.data?.summary;
   const rows = actuals.data?.items ?? [];
@@ -145,12 +146,12 @@ export function OvertimeActualPanel({ periodId, orgUnitId, search, canImport }: 
     <Drawer title="Chi tiết đối soát tăng ca thực tế" open={Boolean(selectedId)} onClose={() => setSelectedId(undefined)} width={980} destroyOnHidden>
       {detail.isLoading && <Spin />}
       {detail.isError && <Alert type="error" showIcon message="Không tải được chi tiết đối soát" description={errorMessage(detail.error)} />}
-      {detail.data && <ActualDetail detail={detail.data} />}
+      {detail.data && <ActualDetail detail={detail.data} onOpenCorrection={onOpenCorrection} />}
     </Drawer>
   </section>;
 }
 
-function ActualDetail({ detail }: { detail: OvertimeActualDetail }) {
+function ActualDetail({ detail, onOpenCorrection }: { detail: OvertimeActualDetail; onOpenCorrection?: (correctionId: string) => void }) {
   const actual = detail.actual;
   const screens = Grid.useBreakpoint();
   return <>
@@ -166,6 +167,8 @@ function ActualDetail({ detail }: { detail: OvertimeActualDetail }) {
       <Descriptions.Item label="Đã duyệt nhưng chưa làm">{minutes(actual.unworkedApprovedMinutes)}</Descriptions.Item>
       <Descriptions.Item label="Lần đối chiếu gần nhất">{vietnamTime(actual.processedAt)}</Descriptions.Item>
       <Descriptions.Item label="Cờ đối soát" span={screens.sm ? 2 : 1}>{flagTags(actual.flags)}</Descriptions.Item>
+      {actual.correctionId && <Descriptions.Item label="Giải trình"><Button type="link" onClick={() => onOpenCorrection?.(actual.correctionId!)}>Mở yêu cầu điều chỉnh</Button></Descriptions.Item>}
+      {detail.corrections?.map(correction => <Descriptions.Item key={correction.id} label="Yêu cầu liên quan"><Button type="link" onClick={() => onOpenCorrection?.(correction.id)}>{correction.id}</Button></Descriptions.Item>)}
     </Descriptions>
     <Divider orientation="left">Trạng thái phê duyệt và snapshot</Divider>
     <Table rowKey="id" components={{ body: { wrapper: TableBody } }} size="small" pagination={false} dataSource={detail.requests} scroll={{ x: 980 }} columns={[
