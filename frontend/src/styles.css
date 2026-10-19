@@ -191,3 +191,43 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
   .correction-editor .ant-modal-content { margin-inline: -2px; }
   .attendance-corrections .table-panel > .ant-table-wrapper { overflow-x: auto; overflow-y: hidden; }
 }
+/* Leave catalogue and annual-leave funds */
+.leave-workspace { min-width: 0; }
+.leave-workspace > .ant-tabs > .ant-tabs-nav { margin-bottom: 20px; }
+.leave-tab-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin: 0 0 16px; }
+.leave-tab-heading .ant-typography { margin-bottom: 4px; }
+.leave-filters { display: grid; grid-template-columns: minmax(240px, 1.4fr) minmax(220px, 1fr) minmax(160px, .7fr); gap: 12px; align-items: end; margin-bottom: 16px; padding: 16px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--surface); }
+.leave-filters > label { display: grid; gap: 4px; color: var(--secondary); font-size: 12px; font-weight: 500; }
+.leave-filters .ant-select, .leave-filters .ant-input-number { width: 100%; }
+.leave-editor .ant-modal-body { display: grid; gap: 14px; max-height: min(72vh, 760px); overflow: auto; }
+.leave-editor .ant-alert { margin-bottom: 2px; }
+.leave-form-grid .ant-input-number { width: 100%; }
+.leave-switches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; padding: 12px 14px 2px; border: 1px solid var(--divider); border-radius: 8px; background: var(--canvas); }
+.leave-switches .ant-form-item { min-width: 0; margin-bottom: 10px; }
+.leave-drawer .ant-drawer-body { padding: 20px 24px; }
+.leave-drawer .ant-table-wrapper { min-width: 0; }
+.leave-months { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; border: 1px solid var(--divider); border-radius: 8px; background: var(--canvas); }
+.leave-months .ant-checkbox-wrapper { margin-inline-start: 0; }
+.leave-identity { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.leave-identity > div { min-width: 0; flex: 1; }
+.leave-identity .ant-tag { margin: 0; }
+.leave-balance-summary .ant-descriptions { font-variant-numeric: tabular-nums; }
+.leave-calculation { margin-top: 20px; }
+.leave-calculation h4.ant-typography { margin-bottom: 8px; }
+.leave-calculation pre, .leave-snapshot pre { max-width: 100%; margin: 0; padding: 12px; overflow: auto; border: 1px solid var(--divider); border-radius: 8px; background: var(--canvas); color: var(--text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.45; }
+.leave-ledger { display: grid; gap: 16px; }
+.leave-snapshot { border-top: 1px solid var(--divider); padding-top: 16px; }
+.leave-snapshot summary { cursor: pointer; color: var(--brand); font-weight: 600; }
+.leave-snapshot article { display: grid; gap: 8px; margin-top: 12px; }
+.leave-picker .ant-modal-body { display: grid; gap: 14px; max-height: min(72vh, 760px); overflow: auto; }
+.leave-picker-filters { grid-template-columns: minmax(240px, 1.4fr) minmax(220px, 1fr); margin-bottom: 0; padding: 0 0 14px; border: 0; border-bottom: 1px solid var(--divider); border-radius: 0; }
+.leave-fund-filters { grid-template-columns: 130px minmax(220px, 1.2fr) minmax(200px, 1fr) minmax(160px, .7fr); }
+@media (max-width: 1024px) { .leave-filters, .leave-fund-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .leave-fund-filters > :first-child { grid-column: auto; } }
+@media (max-width: 767px) { .leave-tab-heading { align-items: stretch; flex-direction: column; gap: 12px; } .leave-tab-heading > .ant-btn { width: 100%; } .leave-filters, .leave-fund-filters, .leave-picker-filters, .leave-switches, .leave-months { grid-template-columns: 1fr; } .leave-drawer .ant-drawer-body { padding: 16px; } .leave-editor .form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 767px) {
+  .leave-drawer .ant-drawer-header { flex-direction: column; align-items: stretch; gap: 12px; }
+  .leave-drawer .ant-drawer-header-title { flex: none; }
+  .leave-drawer .ant-drawer-extra { margin-inline-start: 0; }
+  .leave-drawer .ant-drawer-extra .ant-space { width: 100%; }
+  .leave-calculation pre, .leave-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+}

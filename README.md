@@ -67,9 +67,10 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Đăng ký & duyệt OT | Tổ trưởng lập/sửa/gửi; Quản đốc duyệt/trả lại/từ chối; chứng từ đồng ý từng người, trần ngày/tháng/năm và lịch sử bất biến |
 | Đối chiếu OT thực tế | Đề nghị/đã duyệt/thực tế/đủ điều kiện; ca đêm nối OT, tách ngày lịch/giờ ngày–đêm, ngoại lệ và nguồn quẹt; bảo vệ kỳ đóng/khóa |
 | Giải trình & điều chỉnh | TT lập/gửi lý do và bằng chứng, QĐ duyệt/trả lại/từ chối; sự cố nhiều người, snapshot trước/sau, tính lại công/OT không sửa lượt quẹt gốc |
+| Loại nghỉ & quỹ phép | Danh mục/chính sách có hiệu lực; KT tính/chuyển/ứng/điều chỉnh quỹ có sổ phát sinh; TT lập/sửa/gửi đơn ngày/nửa ngày/theo giờ, kiểm tra lịch, chứng từ và số dư; lịch sử bất biến |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
-**Chưa triển khai:** tiền OT, nghỉ phép, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Các nội dung này nằm trong thiết kế hoặc kế hoạch, không được xem là chức năng đang hoạt động.
+**Chưa triển khai:** tiền OT, duyệt/trả lại/từ chối/hủy đơn nghỉ, trừ/hoàn phép từ đơn và tích hợp nghỉ vào công/ngày lễ, chế độ BHXH và thanh toán phép khi nghỉ việc, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Các nội dung này nằm trong thiết kế hoặc kế hoạch, không được xem là chức năng đang hoạt động.
 
 ### Nguyên tắc xử lý chấm công
 
@@ -286,6 +287,13 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `GET` | `/api/attendance/corrections`, `/targets`, `/:id` | Lọc giải trình, chọn ngày công trong phạm vi, xem bằng chứng/snapshot/lịch sử |
 | `POST` | `/api/attendance/corrections`, `/:id/update`, `/:id/submit`, `/:id/approve`, `/:id/return`, `/:id/reject` | Lập/sửa/gửi và quyết định theo revision |
 | `POST` / `GET` | `/api/attendance/corrections/:id/evidence`, `/:id/evidence/:evidenceId` | Đính kèm / tải bằng chứng có kiểm tra quyền |
+| `GET` | `/api/leave/context`, `/api/leave/types`, `/api/leave/policies` | Ngữ cảnh, danh mục và lịch sử chính sách nghỉ |
+| `POST` | `/api/leave/types`, `/api/leave/policies`, `/:id/versions` dưới từng nhóm | Tạo danh mục/chính sách và phiên bản kế tiếp theo quyền AD |
+| `GET` | `/api/leave/employees`, `/api/leave/balances`, `/api/leave/balances/:employeeId/:year` | Chọn nhân sự, quỹ theo năm/ngày xem và sổ phát sinh trong phạm vi |
+| `POST` | `/api/leave/balances/:employeeId/:year/recalculate`, `/adjust`, `/carry`, `/advance` | KT tính lại, điều chỉnh, chuyển và ứng; revision hai năm và requestId chống trùng |
+| `GET` | `/api/leave/requests`, `/api/leave/requests/:id` | Danh sách, chi tiết và lịch sử đơn trong phạm vi hiện tại/từng ngày nghỉ |
+| `POST` | `/api/leave/requests/preview`, `/api/leave/requests` | Kiểm tra đơn mới / lưu nháp; TT có quyền leave.request |
+| `POST` | `/api/leave/requests/:id/update`, `/api/leave/requests/:id/submit` | Sửa nháp/gửi với revision; gửi kiểm tra lại lịch, loại nghỉ, chứng từ, quỹ và kỳ chốt/khóa |
 
 Kiểm tra nhanh khi API đang chạy:
 
@@ -310,6 +318,7 @@ npm run verify:overtime
 npm run verify:overtime-actual
 npm run verify:accounts
 npm run verify:corrections
+npm run verify:leave
 ```
 
 Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi chạy HTTP server thật và dọn database đã tạo. Tài khoản kết nối cần quyền tạo/xóa database; không trỏ bộ kiểm chứng vào môi trường vận hành. Chạy lần lượt, không chạy đồng thời với compiler dev/watch.
@@ -324,8 +333,14 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | `verify:overtime-actual` | Giao giờ duyệt/thực tế, ca đêm, thiếu/chưa duyệt, không dùng trùng quẹt, qua năm, phạm vi và khóa kỳ nguồn | 20/20 |
 | verify:accounts | Tạo/sửa, phạm vi/hiệu lực, phiên bản cũ, mật khẩu tạm/hết hạn/lịch sử, khóa/mở khóa/thu hồi và audit không chứa bí mật | 11/11 |
 | `verify:corrections` | Quyền/phạm vi/loại trừ, bằng chứng, khóa kỳ/ca đêm, bulk nguyên tử, trả lại/từ chối, duyệt cạnh tranh, nguồn đổi, công/OT và log gốc | 7/7 |
+| `verify:leave` | Danh mục/chính sách có hiệu lực, quyền theo khoảng, tính quỹ/0 tháng/thâm niên, idempotency/revision, chuyển/hết hạn/ứng phép, ledger và seed bất biến | 20/20 |
+| `verify:leave-requests` | Lập/sửa/gửi, ngày/nửa ngày/giờ, ca đêm, nghỉ giữa ca, trùng giờ, revision, quyền/loại trừ, hiệu lực, chứng từ, số dư và kỳ chốt | 8/8 |
 
-Hồi quy backend sau tích hợp giải trình/điều chỉnh đạt **115/115**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace, build backend/frontend và Prisma validate đều đạt; build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build. Đây là kết quả local, **không phải badge CI hoặc chứng nhận UAT toàn bộ R1**. Browser đã chạy TT lập/gửi → QĐ duyệt, xác nhận công/OT và trạng thái sau reload; kiểm tra desktop/390px, form chọn người và drawer trước/sau. Axe không phát hiện lỗi tự động trên các bề mặt đã kiểm tra, vẫn có mục cần đánh giá thủ công. Xem [hướng dẫn vận hành §7.15](docs/20-tech-stack-va-moi-truong-phat-trien.md#715-giải-trình-và-điều-chỉnh-chấm-công).
+Hồi quy toàn backend sau tích hợp đơn nghỉ đạt **143/143**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace, build backend/frontend, Prisma validate và kiểm tra đồng bộ đặc tả R1 đều đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
+
+Browser đã chạy AD tạo loại nghỉ/chính sách và phiên bản kế tiếp; KT tính quỹ, điều chỉnh, ứng trước và xem ledger. Drawer desktop/390px không tràn trang; cuộn bảng bằng bàn phím hoạt động, axe không phát hiện lỗi tự động trên các drawer đã kiểm tra (vẫn có mục cần đánh giá thủ công). Đây là kết quả local, **không phải CI hoặc chứng nhận UAT toàn R1**. Xem [20 §7.16](docs/20-tech-stack-va-moi-truong-phat-trien.md#716-loại-nghỉ-chính-sách-và-quỹ-phép-năm).
+
+**Đơn nghỉ:** vào `#/leave` → **Đơn nghỉ**, đăng nhập `tt.bn`, chọn nhân sự có ca đã duyệt → **Lập đơn nghỉ** → **Lưu nháp** → **Sửa nháp** hoặc **Gửi đơn nghỉ**. Browser đã lập BN00004 ngày công 18/10, sửa cả ngày → nửa ngày → 23:00–01:00 qua ngày, gửi thành **Chờ duyệt**, revision 4; còn lịch sử đủ 4 phiên bản. Chưa trừ/giữ chỗ quỹ hoặc cập nhật công. Hướng dẫn và giới hạn tại [20 §7.17](docs/20-tech-stack-va-moi-truong-phat-trien.md#717-lập-sửa-và-gửi-đơn-nghỉ).
 
 Kiểm tra tính nhất quán của **đặc tả** độc lập với kiểm thử ứng dụng; cần Python 3:
 

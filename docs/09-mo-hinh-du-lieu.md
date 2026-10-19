@@ -19,6 +19,14 @@ ngạch/bậc cơ bản để xác định lương/P1/P2 vẫn có, dù bộ qu�
 ERD bổ sung hiện hành: [R1-data](../diagrams/release/R1-data.mmd); ảnh tổng quan gốc bên
 dưới không thay thế các bảng phụ trợ đã bổ sung ở 17/18.
 
+**Hiện thực đơn nghỉ local:** `leave_request` lưu employee/leave_type/created_by,
+ngày công từ–đến, DAY/HALF/HOUR, nửa ca hoặc khoảng giờ có múi giờ, lý do/chứng từ,
+snapshot nguồn ca/phiên bản loại nghỉ/thời lượng, revision và thời điểm gửi.
+Luồng hiện hành chỉ `DRAFT` → `PENDING`; không thay thế các trạng thái mục tiêu R1.
+`leave_request_history` giữ actor/action/revision/snapshot/thời điểm, unique theo
+đơn + revision, trigger cấm sửa/xóa. Gửi đơn chưa sinh `USE`/`REFUND` trong
+`leave_ledger_entry` hoặc sửa `daily_attendance`. Hợp đồng tại [20 §7.17](20-tech-stack-va-moi-truong-phat-trien.md#717-lập-sửa-và-gửi-đơn-nghỉ).
+
 ---
 
 ## 1. ERD tổng quan

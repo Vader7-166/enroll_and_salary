@@ -11,8 +11,9 @@ import { SettingsModule } from "./settings/settings.module";
 import { ShiftsModule } from "./shifts/shifts.module";
 import { AttendanceModule } from "./attendance/attendance.module";
 import { OvertimeModule } from "./overtime/overtime.module";
+import { LeaveModule } from "./leave/leave.module";
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule, OvertimeModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule, OvertimeModule, LeaveModule],
   controllers: [HealthController],
 })
 export class AppModule {}

@@ -863,3 +863,133 @@ giá thủ công. Không phải nghiệm thu toàn bộ R1; chưa chốt công/t
 Typecheck hai workspace, build backend/frontend, Prisma validate và kiểm tra đồng
 bộ đặc tả R1 đều đạt. Hồi quy toàn backend tuần tự **115/115**; build frontend còn
 cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
+
+### 7.16. Loại nghỉ, chính sách và quỹ phép năm
+
+Phạm vi mục này: danh mục/chính sách và quỹ phép. Luồng **lập/sửa/gửi đơn nghỉ** đã
+bổ sung ở §7.17; duyệt/trả lại/từ chối/hủy, sử dụng/hoàn phép từ đơn, tích hợp vào
+công/ngày lễ, chế độ BHXH và thanh toán phép khi nghỉ việc vẫn chưa triển khai.
+
+- Chạy `npm run db:deploy` trước khi khởi động API mới. Migration
+  `20261019110000_leave_catalog` bổ sung quyền và bootstrap loại nghỉ/chính sách công ty
+  cho demo hiện hữu; không yêu cầu xóa dữ liệu hoặc seed lại toàn doanh nghiệp.
+  Seed lặp không ghi đè cấu hình tự tạo, phiên bản hay sổ quỹ.
+- AD được tạo danh mục/chính sách và phiên bản kế tiếp trong toàn khoảng quyền có hiệu lực;
+  không có quyền đọc quỹ cá nhân. KT quản lý quỹ; TT/QĐ chỉ đọc quỹ trong phạm vi.
+  Kiểm tra cả quyền hiện tại, lịch sử phân công/cây tổ chức, vai trò và loại trừ
+  trong các tháng xác nhận, kể cả loại trừ được bổ sung sau lần tính trước.
+- Loại nghỉ lưu trạng thái áp dụng, hưởng lương, tính công, trừ phép năm, BHXH,
+  chứng từ, số ngày tối đa và ký hiệu công. BHXH chi trả không đồng thời là công ty
+  trả lương; ngừng loại nghỉ vẫn giữ các thuộc tính và lịch sử cũ. Danh mục không
+  đồng nghĩa đã có engine tính quyền lợi BHXH hoặc tác động bảng công.
+- Chính sách có định mức bình thường/nặng nhọc/đặc biệt tối thiểu **12/14/16** ngày,
+  giới hạn chuyển, ngày hết hạn chuyển và giới hạn ứng. Công ty là nguồn kế thừa,
+  chính sách cơ sở gần nhất có hiệu lực được ưu tiên. Dữ liệu mặc định mang nhãn
+  **SIMULATION**, tham chiếu DEC03: 12/14/16, chuyển tối đa 5 đến 31/3 năm đích, ứng 3.
+  Nhãn này không phải xác nhận chính sách thực tế; AD phải có quyết định/tham chiếu
+  khi xác nhận nghiệp vụ. Phiên bản mới không hồi tố trước hôm nay hoặc ghi đè cấu hình cũ.
+- KT tự xác nhận các tháng đủ điều kiện theo tiêu chí 50%; không chọn mặc định hoặc
+  tự suy từ dữ liệu quẹt chưa đầy đủ. Hỗ trợ danh sách rỗng, cần xác nhận rõ 0 tháng.
+  Tháng phải giao thời gian làm việc và không sau ngày tính. Mỗi tháng dùng chính sách
+  tại cuối tháng, giới hạn bởi ngày tính/ngày nghỉ việc; điều kiện làm việc do KT xác nhận.
+  Thâm niên cộng 1 ngày mỗi 5 năm hoàn thành tại ngày tính hoặc ngày nghỉ việc nếu sớm hơn.
+  Tổng các phần `(định mức tháng + ngày thâm niên) / 12`, chỉ làm tròn tổng HALF_UP
+  đến 2 chữ số thập phân. Đây là độ chính xác kỹ thuật, không thay quy tắc làm tròn
+  nghiệp vụ chưa được xác nhận. Snapshot giữ đầu vào, tháng, chính sách và tham chiếu.
+- Tính lại ghi chênh lệch với quyền đã cấp, không cộng thêm toàn định mức. Cùng đầu vào
+  không thêm bút toán hoặc tăng revision; vẫn giữ operation/requestId để gửi lại an toàn.
+  Thay snapshot dù chênh lệch 0 vẫn truy vết được bằng bút toán tính lại. Điều chỉnh
+  chỉ ghi quỹ phép năm, không giả lập ngày nghỉ; số âm không được tiêu phần đã chuyển/ứng
+  hoặc làm âm khả dụng tại các ngày sau ngày ghi lùi.
+- Chuyển năm N → N+1 chỉ từ phép năm tự có; không tái chuyển phép chuyển hoặc phép ứng.
+  Ngày giao dịch thuộc năm đích, không tương lai, không sau hạn chuyển theo chính sách
+  năm đích. Ghi đối ứng `CARRY_OUT` / `CARRY_IN` cùng transaction và kiểm tra cả hai revision.
+  Hạn dùng bao gồm ngày cuối; sau hạn loại khỏi phép chuyển khả dụng nhưng giữ sổ/đối soát.
+  Số phép năm cũ còn lại cũng được đánh dấu đối soát, không tự xóa.
+- Ứng ghi `ADVANCE_IN` ở năm nguồn và `ADVANCE_OUT` giảm quỹ năm sau; nợ được bù khi
+  năm sau được tính quỹ. Không ứng vượt trần hoặc khi đã biết nghỉ việc trước năm sau.
+  Phép khả dụng không hiển thị âm; nợ năm sau vẫn hiện riêng, không bị xóa.
+- Mỗi thao tác có UUID `requestId`, revision, ngày, lý do và tham chiếu. Gửi lại đúng
+  requestId/nội dung không ghi trùng; dùng lại với nội dung khác hoặc revision cũ trả **409**.
+  Operation/ledger không sửa/xóa; catalog và quỹ có audit trong transaction. Snapshot cũ
+  không thay theo chính sách mới. Không có API xóa lịch sử hoặc reset quỹ.
+
+| API | Hợp đồng |
+|---|---|
+| GET /api/leave/context, /types, /policies | Phạm vi, danh mục và lịch sử; lọc orgUnitId, asOf, search |
+| POST /api/leave/types, /policies | Cấu hình mới có ngày hiệu lực, trạng thái, reason và decisionReference |
+| POST /api/leave/types/:id/versions, /policies/:id/versions | Phiên bản kế tiếp, thêm revision |
+| GET /api/leave/employees | year, đơn vị, tìm kiếm và phân trang; chọn người chưa có quỹ |
+| GET /api/leave/balances, /balances/:employeeId/:year | Quỹ theo year/asOf và lịch sử phát sinh; GET quỹ chưa có không ghi dữ liệu |
+| POST /api/leave/balances/:employeeId/:year/recalculate | requestId, revision, effectiveDate, workingCondition, eligibleMonths, reason, reference |
+| POST /api/leave/balances/:employeeId/:year/adjust | Các trường chung và days có dấu, khác 0 |
+| POST /api/leave/balances/:employeeId/:year/carry, /advance | Các trường chung, days dương và targetRevision của năm sau |
+
+**Kiểm chứng:** `npm run verify:leave` đạt **20/20**, gồm phép tính và HTTP/PostgreSQL
+cách ly: định mức/thâm niên/tỷ lệ, 0 tháng, thay snapshot chênh 0, quyền giữa tháng
+và snapshot cũ, phiên bản/hết quyền, idempotency, cạnh tranh revision, chuyển/hết hạn,
+ứng/nợ năm sau, rollback hai quỹ, trigger bất biến và seed lặp an toàn. Toàn backend
+tuần tự **135/135**; typecheck hai workspace, build backend/frontend, Prisma validate
+và kiểm tra đồng bộ đặc tả R1 đều đạt. Build frontend còn cảnh báo chunk UI >500 kB.
+
+Browser AD tạo loại nghỉ/chính sách cùng phiên bản ngày 20/10/2026, giữ bản cũ ngày
+19/10; KT tính BN00004 năm 2026 với tháng 1–9: **9,75** ngày, điều chỉnh **+0,25**,
+ứng **1**, khả dụng **11,00**. GET năm 2027 xác nhận nợ **1,00**, quỹ năm **−1,00**,
+khả dụng **0,00**; AD đọc quỹ bị **403**. Đây là dữ liệu **mô phỏng** được giữ để truy vết.
+Drawer desktop/390px không tràn trang, thanh thao tác mobile xuống dòng; bảng cuộn
+được bằng ArrowRight sau khi focus bằng bàn phím. Axe không có lỗi tự động trên các
+drawer đã kiểm tra, còn mục cần đánh giá thủ công. Không phải nghiệm thu toàn R1.
+Kiểm tra cuối toàn màn danh mục/quỹ và picker nhân sự trên desktop/390px cũng có
+0 lỗi axe tự động (còn mục đánh giá thủ công). Sau reload, quỹ BN00004 vẫn có
+3 bút toán, revision 3 và 11,00 ngày khả dụng. Gửi lại thao tác không đổi quỹ giữ
+cùng operationId/requestId, không tăng revision/sổ; đổi nội dung cùng requestId trả 409.
+Sau chuẩn hóa tiêu đề và nhãn bộ lọc, kiểm tra toàn trang với drawer tổng quan/sổ
+quỹ ở 390px và sổ quỹ desktop đều có 0 lỗi axe tự động; không thay đánh giá thủ công.
+
+### 7.17. Lập, sửa và gửi đơn nghỉ
+
+- Migration `20261019120000_leave_requests`: bảng `leave_request`, lịch sử
+  `leave_request_history` bất biến và quyền `leave.request` cho TT. Chạy
+  `npm run db:deploy`; không cần reset hoặc seed lại database demo.
+- UI `#/leave` → **Đơn nghỉ**. TT chọn nhân sự trong phạm vi, loại nghỉ có hiệu lực,
+  lý do và tham chiếu chứng từ; lưu nháp, sửa nháp, gửi sang `PENDING` (Chờ duyệt).
+  QĐ/KT/AD chỉ xem đơn theo quyền `leave.read`, không có nút hay quyền lập/sửa/gửi.
+- `DAY`: khoảng ngày công, tối đa 366 ngày; chỉ tính ngày có đúng một ca đã duyệt.
+  Ngày không có ca được bỏ qua kèm cảnh báo; không có ca nào thì chặn.
+  `HALF`: một ngày công, nửa đầu hoặc nửa cuối thời lượng làm việc trong ca.
+  `HOUR`: một ngày công, startAt/endAt tròn phút có múi giờ, nằm trong ca đã duyệt.
+  UI nhập giờ Việt Nam; ca đêm nhập cả ngày lịch thực tế của giờ kết thúc.
+  Nghỉ giữa ca không hưởng lương không cộng vào số phút nghỉ.
+- Kiểm tra phân công/vai trò/cây tổ chức/loại trừ hiện tại và **mọi ngày** trong
+  khoảng nghỉ; ngày ngoài thời gian làm việc, loại nghỉ không áp dụng/ngừng hiệu lực,
+  quá maxDays, đơn trùng thời gian hoặc kỳ CLOSED/LOCKED đều bị chặn.
+- Nháp cho phép thiếu chứng từ hoặc thiếu số dư nhưng hiển thị cảnh báo. Khi gửi,
+  đọc lại nguồn và kiểm tra bắt buộc; số dư tính tại từng ngày nghỉ theo từng năm,
+  không tự tính định mức thay xác nhận tháng của KT. Chưa giữ chỗ/trừ quỹ cho đơn
+  nháp/chờ duyệt; số dư phải kiểm tra lại khi triển khai duyệt và bút toán sử dụng.
+- Sửa/gửi phải có revision hiện hành; đơn đã gửi không còn sửa/gửi tiếp. Mỗi lần
+  lưu giữ snapshot thời lượng, nguồn ca, phiên bản loại nghỉ, người thao tác và audit.
+- API: `GET /api/leave/requests?search=&status=&page=&pageSize=`, `GET /:id`;
+  `POST /preview` kiểm tra đơn mới; `POST /` tạo; `POST /:id/update` sửa;
+  `POST /:id/submit` gửi. DTO tạo gồm employeeId, leaveTypeId, dateFrom/dateTo,
+  unit DAY/HALF/HOUR, half FIRST/SECOND khi HALF, startAt/endAt khi HOUR, reason
+  và documentReference tùy loại. Update thêm revision; submit chỉ nhận revision.
+- **Giới hạn phạm vi:** chưa duyệt/trả lại/từ chối/hủy; chưa trừ/hoàn phép, chưa
+  tích hợp ngày lễ hoặc ký hiệu bảng công, chưa tính chế độ BHXH/thanh toán phép.
+  Thời lượng hiện tại là theo ca, không phải số phép đã sử dụng sau duyệt.
+
+Kiểm chứng `npm run verify:leave-requests`: **8/8** trên HTTP/PostgreSQL riêng,
+bao gồm sửa/gửi và lịch sử bất biến; sát biên nửa ca/trùng giờ; giờ qua nghỉ giữa ca;
+ca đêm qua ngày; quyền/loại trừ giữa khoảng; hiệu lực; chứng từ; thiếu/đủ số dư;
+nguồn lịch đổi và kỳ chốt. Gửi không tạo ledger hoặc sửa bảng công.
+Browser đã lập BN00004 ngày công 18/10/2026, sửa ngày → nửa ngày → theo giờ
+23:00 18/10 đến 01:00 19/10, gửi **Chờ duyệt**, **120 phút / 0,25 ngày**,
+revision **4** và đủ lịch sử. Drawer desktop/390px không tràn trang; axe trên
+drawer có 0 lỗi tự động (còn mục đánh giá thủ công).
+Form ngày/nửa ngày mobile sau chuẩn hóa Select theo mẫu quản trị tài khoản cũng
+có 0 lỗi axe tự động; giữ aria-required trên input combobox, bỏ thuộc tính bị
+rc-select lặp sai trên wrapper. QĐ đã mở chi tiết cùng đơn trên UI, không có nút
+lập/sửa/gửi. Sau reload vẫn giữ PENDING, revision 4 và thời lượng 120 phút.
+Hồi quy toàn backend sau tích hợp đơn nghỉ: **143/143**; typecheck hai workspace,
+build backend/frontend, Prisma validate và kiểm tra đồng bộ đặc tả R1 đều đạt.
+Build frontend còn cảnh báo chunk UI >500 kB; không phải chứng nhận UAT toàn R1.

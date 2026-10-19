@@ -77,6 +77,8 @@ model OrgUnit {
   overtimeRequests OvertimeRequest[]
   overtimeActuals OvertimeActual[]
   correctionItems AttendanceCorrectionItem[]
+  leaveTypes LeaveType[]
+  leavePolicies LeavePolicy[]
   @@map("org_unit")
 }
 
@@ -144,6 +146,8 @@ model Employee {
   overtimeMembers OvertimeMember[]
   overtimeActuals OvertimeActual[]
   correctionItems AttendanceCorrectionItem[]
+  leaveBalances LeaveBalance[]
+  leaveRequests LeaveRequest[]
   @@index([fullName])
   @@map("employee")
 }
@@ -198,6 +202,11 @@ model UserAccount {
   correctionsDecided AttendanceCorrection[] @relation("CorrectionReviewer")
   correctionEvidence AttendanceCorrectionEvidence[]
   correctionHistory AttendanceCorrectionHistory[]
+  leaveTypeVersions LeaveTypeVersion[]
+  leavePolicyVersions LeavePolicyVersion[]
+  leaveOperations LeaveOperation[]
+  leaveRequests LeaveRequest[]
+  leaveRequestHistory LeaveRequestHistory[]
   @@map("user_account")
 }
 
@@ -809,3 +818,159 @@ model AttendanceCorrectionHistory {
   @@index([correctionId, occurredAt])
   @@map("attendance_correction_history")
 }
+
+model LeaveType {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  code String @db.VarChar(32)
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions LeaveTypeVersion[]
+  requests LeaveRequest[]
+  @@unique([orgUnitId, code])
+  @@map("leave_type")
+}
+
+model LeaveTypeVersion {
+  id String @id @default(uuid()) @db.Uuid
+  leaveTypeId String @map("leave_type_id") @db.Uuid
+  name String @db.VarChar(150)
+  active Boolean @default(true)
+  isPaid Boolean @map("is_paid")
+  countsAsWorkday Boolean @map("counts_as_workday")
+  deductsAnnualQuota Boolean @map("deducts_annual_quota")
+  siPaid Boolean @map("si_paid")
+  requiresDocument Boolean @map("requires_document")
+  maxDays Decimal? @map("max_days") @db.Decimal(8,2)
+  attendanceSymbol String @map("attendance_symbol") @db.VarChar(12)
+  status PolicyStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+  createdBy UserAccount? @relation(fields: [createdById], references: [id])
+  @@unique([leaveTypeId, effectiveFrom])
+  @@map("leave_type_version")
+}
+
+model LeavePolicy {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @unique @map("org_unit_id") @db.Uuid
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions LeavePolicyVersion[]
+  @@map("leave_policy")
+}
+
+model LeavePolicyVersion {
+  id String @id @default(uuid()) @db.Uuid
+  policyId String @map("policy_id") @db.Uuid
+  name String @db.VarChar(150)
+  normalDays Int @map("normal_days")
+  hazardousDays Int @map("hazardous_days")
+  extremeDays Int @map("extreme_days")
+  carryLimitDays Decimal @map("carry_limit_days") @db.Decimal(8,2)
+  carryExpiryMonth Int @map("carry_expiry_month")
+  carryExpiryDay Int @map("carry_expiry_day")
+  advanceLimitDays Decimal @map("advance_limit_days") @db.Decimal(8,2)
+  status PolicyStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  policy LeavePolicy @relation(fields: [policyId], references: [id])
+  createdBy UserAccount? @relation(fields: [createdById], references: [id])
+  @@unique([policyId, effectiveFrom])
+  @@map("leave_policy_version")
+}
+
+model LeaveBalance {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  year Int
+  revision Int @default(0)
+  calculation Json?
+  employee Employee @relation(fields: [employeeId], references: [id])
+  entries LeaveLedgerEntry[]
+  @@unique([employeeId, year])
+  @@map("annual_leave_balance")
+}
+
+model LeaveOperation {
+  id String @id @default(uuid()) @db.Uuid
+  sequence BigInt @unique @default(autoincrement())
+  requestId String @unique @map("request_id") @db.Uuid
+  requestHash String @map("request_hash") @db.Char(64)
+  kind String @db.VarChar(24)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  reason String @db.VarChar(2000)
+  reference String @db.VarChar(500)
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actorId String @map("actor_id") @db.Uuid
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  entries LeaveLedgerEntry[]
+  @@map("leave_operation")
+}
+
+model LeaveLedgerEntry {
+  id String @id @default(uuid()) @db.Uuid
+  balanceId String @map("balance_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  kind String @db.VarChar(24)
+  bucket String @db.VarChar(12)
+  days Decimal @db.Decimal(8,2)
+  expiresAt DateTime? @map("expires_at") @db.Date
+  balance LeaveBalance @relation(fields: [balanceId], references: [id])
+  operation LeaveOperation @relation(fields: [operationId], references: [id])
+  @@unique([operationId, balanceId, kind])
+  @@index([balanceId])
+  @@map("leave_ledger_entry")
+}
+
+model LeaveRequest {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  leaveTypeId String @map("leave_type_id") @db.Uuid
+  createdById String @map("created_by_id") @db.Uuid
+  status String @default("DRAFT") @db.VarChar(24)
+  revision Int @default(1)
+  dateFrom DateTime @map("date_from") @db.Date
+  dateTo DateTime @map("date_to") @db.Date
+  unit String @db.VarChar(12)
+  half String? @db.VarChar(12)
+  startAt DateTime? @map("start_at") @db.Timestamptz(3)
+  endAt DateTime? @map("end_at") @db.Timestamptz(3)
+  reason String @db.VarChar(2000)
+  documentReference String? @map("document_reference") @db.VarChar(500)
+  snapshot Json
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  history LeaveRequestHistory[]
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([employeeId, dateFrom, dateTo])
+  @@map("leave_request")
+}
+
+model LeaveRequestHistory {
+  id String @id @default(uuid()) @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(24)
+  revision Int
+  snapshot Json
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  request LeaveRequest @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([requestId, revision])
+  @@map("leave_request_history")
+}
+

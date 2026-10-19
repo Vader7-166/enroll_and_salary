@@ -8,6 +8,11 @@ phân ca theo tổ/người/ngày, TT gửi và QĐ duyệt/trả lại, lịch 
 tài khoản/thu hồi phiên và health nối API thật; nhập tệp/ghép quẹt, bảng công/ngoại lệ và truy vết nguồn; đăng ký/gửi/duyệt/trả lại/từ chối OT, hạn mức và snapshot; đối chiếu OT thực tế/đủ điều kiện và bằng chứng quẹt. Chưa tính tiền OT hoặc nghiệm thu toàn bộ UI/R1.
 Ngày mặc định của màn hình nghiệp vụ mới dùng múi giờ Asia/Ho_Chi_Minh. Tab hợp đồng
 chỉ dành cho KT; AD chỉ quản lý cấu hình/kỳ và không được đọc lương nhân sự.
+Màn **Nghỉ & quỹ phép** có danh mục/chính sách theo hiệu lực và lịch sử cho các vai trò;
+AD chỉ cấu hình trong quyền, không xem quỹ cá nhân. KT tính/điều chỉnh/chuyển/ứng quỹ;
+TT/QĐ chỉ xem quỹ trong phạm vi. Tháng đủ điều kiện phải được chọn và xác nhận rõ ràng,
+kể cả 0 tháng; không tự suy ra từ lượt quẹt. Ledger hiển thị số ngày có dấu,
+người thao tác, tham chiếu/lý do, hạn dùng và đối soát; không có đơn/duyệt nghỉ.
 
 Áp dụng cho stack [20](20-tech-stack-va-moi-truong-phat-trien.md), roadmap
 [21](21-roadmap-trien-khai-5-ngay.md) và phạm vi [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md).
@@ -96,6 +101,7 @@ theo nghiệp vụ trong R1, chỉ hiện mục có quyền truy cập; URL/API 
 | Bảng công | Kỳ/cơ sở/đơn vị/trạng thái → ngoại lệ cần xử lý → ma trận công → drawer chi tiết ca/log |
 | OT thực tế | Trong Chấm công: kỳ/đơn vị/nhân viên/ngoại lệ → đề nghị/đã duyệt/thực tế/đủ điều kiện → drawer snapshot, ngày lịch/ngày–đêm, cặp ghép và nguồn lô/dòng; ghi rõ không phải giờ chi trả |
 | Giải trình công | Tab trong Chấm công: kỳ/đơn vị/trạng thái → TT chọn ngày/người, lý do, tham chiếu hoặc tệp, khoảng hiệu lực; sự cố nhiều người phải có mã chung → QĐ xem trước/sau và lịch sử rồi duyệt/trả lại/từ chối. Chỉ trạng thái đã duyệt thay kết quả; luôn phân biệt quẹt gốc với giờ điều chỉnh. Drawer 390px xếp metadata và snapshot một cột, checkbox chọn người/chọn tất cả có nhãn |
+| Nghỉ & quỹ phép | Loại nghỉ/chính sách: đơn vị/ngày hiệu lực → phiên bản → lịch sử; AD tạo phiên bản kế tiếp, không sửa nội dung cũ. Quỹ: năm/đơn vị/người/ngày xem → KT xác nhận tháng và điều kiện → quỹ/sổ phát sinh/snapshot. Tách phép năm, phép chuyển/hết hạn, ứng và nợ năm sau; mọi ghi có lý do/tham chiếu. Mobile xếp thanh thao tác xuống dòng; bảng cuộn riêng, focus được bằng bàn phím. |
 | Bảng lương | Kỳ công nguồn/kỳ lương/ngày trả → tiến độ/cổng chặn → bảng lương → drawer giải thích |
 | Duyệt | Tóm tắt người/phạm vi/khoảng thời gian → dữ liệu và thay đổi → duyệt hoặc từ chối kèm lý do theo quy trình |
 | Tham số/công thức | Giá trị + khoảng hiệu lực + nguồn kế thừa → lịch sử phiên bản → chạy thử trước áp dụng |

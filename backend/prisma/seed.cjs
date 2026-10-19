@@ -1,5 +1,6 @@
 const { seedHrSettings } = require("./seed-hr-settings.cjs");
 const { seedRealistic } = require("./seed-realistic.cjs");
+const { seedLeave } = require("./seed-leave.cjs");
 const { PrismaClient } = require("@prisma/client");
 const { createHash, randomBytes } = require("node:crypto");
 const {
@@ -132,10 +133,10 @@ async function seed() {
           create: { code, name },
         });
       const permissions = {
-        TT: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.plan", "attendance.read", "attendance.explain", "overtime.read", "overtime.plan"],
-        QD: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.approve", "attendance.read", "attendance.review", "overtime.read", "overtime.approve"],
-        KT: ["employee.read", "employee.create", "employee.history", "employee.transfer", "contract.read", "contract.manage", "organization.read", "period.read", "shift.read", "attendance.read", "overtime.read"],
-        AD: ["accounts.manage", "organization.read", "settings.manage", "period.manage", "period.read", "shift.read", "shift.manage", "attendance.read", "attendance.import"],
+        TT: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.plan", "attendance.read", "attendance.explain", "overtime.read", "overtime.plan", "leave.read", "leave.request", "leave.balance.read"],
+        QD: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.approve", "attendance.read", "attendance.review", "overtime.read", "overtime.approve", "leave.read", "leave.balance.read"],
+        KT: ["employee.read", "employee.create", "employee.history", "employee.transfer", "contract.read", "contract.manage", "organization.read", "period.read", "shift.read", "attendance.read", "overtime.read", "leave.read", "leave.balance.read", "leave.balance.manage"],
+        AD: ["accounts.manage", "organization.read", "settings.manage", "period.manage", "period.read", "shift.read", "shift.manage", "attendance.read", "attendance.import", "leave.read", "leave.configure"],
       };
       for (const [code, name] of [
         ["TT", "Tổ trưởng"],
@@ -326,6 +327,7 @@ async function seed() {
         },
       });
       await seedHrSettings(tx, id, from);
+      await seedLeave(tx, id("org:COMPANY"), from);
       if (dataset === "realistic") realisticSummary = await seedRealistic(tx, id, from);
     },
     { timeout: 60000 },
