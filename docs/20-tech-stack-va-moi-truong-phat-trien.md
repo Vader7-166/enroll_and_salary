@@ -866,9 +866,9 @@ cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
 
 ### 7.16. Loại nghỉ, chính sách và quỹ phép năm
 
-Phạm vi mục này: danh mục/chính sách và quỹ phép. Luồng **lập/sửa/gửi đơn nghỉ** đã
-bổ sung ở §7.17; duyệt/trả lại/từ chối/hủy, sử dụng/hoàn phép từ đơn, tích hợp vào
-công/ngày lễ, chế độ BHXH và thanh toán phép khi nghỉ việc vẫn chưa triển khai.
+Phạm vi mục này: danh mục/chính sách và quỹ phép. Luồng **lập/sửa/gửi đơn nghỉ** ở
+§7.17, **duyệt/trả lại/từ chối/hủy** ở §7.18; tích hợp sử dụng/hoàn phép, công và
+ngày lễ ở §7.19. Chế độ BHXH và thanh toán phép khi nghỉ việc chưa triển khai.
 
 - Chạy `npm run db:deploy` trước khi khởi động API mới. Migration
   `20261019110000_leave_catalog` bổ sung quyền và bootstrap loại nghỉ/chính sách công ty
@@ -966,30 +966,165 @@ quỹ ở 390px và sổ quỹ desktop đều có 0 lỗi axe tự động; khô
 - Nháp cho phép thiếu chứng từ hoặc thiếu số dư nhưng hiển thị cảnh báo. Khi gửi,
   đọc lại nguồn và kiểm tra bắt buộc; số dư tính tại từng ngày nghỉ theo từng năm,
   không tự tính định mức thay xác nhận tháng của KT. Chưa giữ chỗ/trừ quỹ cho đơn
-  nháp/chờ duyệt; số dư phải kiểm tra lại khi triển khai duyệt và bút toán sử dụng.
-- Sửa/gửi phải có revision hiện hành; đơn đã gửi không còn sửa/gửi tiếp. Mỗi lần
-  lưu giữ snapshot thời lượng, nguồn ca, phiên bản loại nghỉ, người thao tác và audit.
+  nháp/chờ duyệt; lúc duyệt kiểm tra lại và ghi USE theo §7.18–7.19.
+- Sửa/gửi phải có revision hiện hành. Nháp/đơn trả lại được sửa/gửi; đơn đang chờ
+  duyệt phải trả lại trước khi sửa. Mỗi lần lưu giữ snapshot thời lượng, nguồn ca,
+  phiên bản loại nghỉ, người thao tác và audit. Quyết định xem §7.18.
 - API: `GET /api/leave/requests?search=&status=&page=&pageSize=`, `GET /:id`;
   `POST /preview` kiểm tra đơn mới; `POST /` tạo; `POST /:id/update` sửa;
   `POST /:id/submit` gửi. DTO tạo gồm employeeId, leaveTypeId, dateFrom/dateTo,
   unit DAY/HALF/HOUR, half FIRST/SECOND khi HALF, startAt/endAt khi HOUR, reason
   và documentReference tùy loại. Update thêm revision; submit chỉ nhận revision.
-- **Giới hạn phạm vi:** chưa duyệt/trả lại/từ chối/hủy; chưa trừ/hoàn phép, chưa
-  tích hợp ngày lễ hoặc ký hiệu bảng công, chưa tính chế độ BHXH/thanh toán phép.
-  Thời lượng hiện tại là theo ca, không phải số phép đã sử dụng sau duyệt.
+- **Phạm vi hiện tại:** duyệt/trả lại/từ chối/hủy ở §7.18, trừ/hoàn quỹ và tích hợp
+  ngày lễ/bảng công ở §7.19; chưa tính chế độ BHXH hoặc thanh toán phép khi nghỉ việc.
+  Thời lượng đơn theo ca; số trừ quỹ loại trừ ngày lễ và loại nghỉ không trừ phép năm.
 
-Kiểm chứng `npm run verify:leave-requests`: **8/8** trên HTTP/PostgreSQL riêng,
-bao gồm sửa/gửi và lịch sử bất biến; sát biên nửa ca/trùng giờ; giờ qua nghỉ giữa ca;
-ca đêm qua ngày; quyền/loại trừ giữa khoảng; hiệu lực; chứng từ; thiếu/đủ số dư;
-nguồn lịch đổi và kỳ chốt. Gửi không tạo ledger hoặc sửa bảng công.
-Browser đã lập BN00004 ngày công 18/10/2026, sửa ngày → nửa ngày → theo giờ
-23:00 18/10 đến 01:00 19/10, gửi **Chờ duyệt**, **120 phút / 0,25 ngày**,
-revision **4** và đủ lịch sử. Drawer desktop/390px không tràn trang; axe trên
-drawer có 0 lỗi tự động (còn mục đánh giá thủ công).
-Form ngày/nửa ngày mobile sau chuẩn hóa Select theo mẫu quản trị tài khoản cũng
-có 0 lỗi axe tự động; giữ aria-required trên input combobox, bỏ thuộc tính bị
-rc-select lặp sai trên wrapper. QĐ đã mở chi tiết cùng đơn trên UI, không có nút
-lập/sửa/gửi. Sau reload vẫn giữ PENDING, revision 4 và thời lượng 120 phút.
-Hồi quy toàn backend sau tích hợp đơn nghỉ: **143/143**; typecheck hai workspace,
-build backend/frontend, Prisma validate và kiểm tra đồng bộ đặc tả R1 đều đạt.
-Build frontend còn cảnh báo chunk UI >500 kB; không phải chứng nhận UAT toàn R1.
+Mốc phần 1: `npm run verify:leave-requests` đạt 8/8; hồi quy backend 143/143.
+Browser lập BN00004 ngày công 18/10/2026, sửa ngày → nửa ngày → theo giờ 23:00
+18/10 đến 01:00 19/10, gửi Chờ duyệt, 120 phút/0,25 ngày và revision 4. Mốc phần 2
+cùng đơn, luồng quyết định và bằng chứng hiện hành bên dưới.
+
+### 7.18. Duyệt, trả lại, từ chối và hủy đơn nghỉ
+
+- Migration `20261019130000_leave_decisions` mở rộng CHECK trạng thái và thêm
+  from_status/reason vào lịch sử. Chạy `npm run db:deploy` trước API mới; không
+  reset hay seed lại demo. Lịch sử cũ không sửa; hai trường mới null ở bản ghi cũ.
+- TT có `leave.request` xử lý trong phạm vi hiện tại **và từng ngày nghỉ**; chỉ
+  một cấp duyệt, không thêm cấp QĐ. Phạm vi và loại trừ được đọc lại mỗi thao tác.
+  Chống tự xử lý bằng liên kết employeeId của tài khoản. TT được duyệt đơn đã ghi
+  nhận thay công nhân khác; không được lập/sửa/gửi/duyệt/trả lại/từ chối/hủy đơn của
+  chính mình. QĐ/KT và người chỉ có leave.read không được gọi API ghi.
+- Mọi quyết định nhận revision hiện hành; RETURN/REJECT/CANCEL bắt buộc lý do
+  không trắng, tối đa 2.000 ký tự; APPROVE cho ghi chú tùy chọn. Mỗi quyết định
+  tăng revision đúng một lần và ghi actor, thời điểm, action, from_status, reason,
+  snapshot trạng thái sau và audit trong cùng transaction. Lịch sử cấm sửa/xóa.
+  Quyết định cạnh tranh chỉ một bên thành công; bên còn lại nhận 409, không tự retry.
+
+| Thao tác | Trạng thái nguồn | Trạng thái đích |
+|---|---|---|
+| Gửi | DRAFT, RETURNED | PENDING |
+| Sửa | DRAFT, RETURNED | DRAFT; xóa submittedAt hiện tại, giữ thời điểm gửi cũ trong lịch sử |
+| Duyệt | PENDING | APPROVED |
+| Trả lại | PENDING | RETURNED |
+| Từ chối | PENDING | REJECTED |
+| Hủy | DRAFT, RETURNED, PENDING, APPROVED | CANCELLED |
+
+- Duyệt đọc lại loại nghỉ/hiệu lực, ca đã duyệt, chứng từ, giới hạn ngày, trùng giờ
+  và số dư quỹ tại từng ngày nghỉ. Nguồn dòng ca/loại nghỉ khác snapshot khi gửi
+  thì chặn 409, yêu cầu trả lại và gửi lại; không âm thầm duyệt thời lượng mới.
+  PostgreSQL JSONB không giữ thứ tự key: so sánh snapshot theo giá trị, không so
+  chuỗi JSON. Thiếu quỹ/chứng từ hoặc lịch không còn được duyệt cũng chặn.
+- CLOSED/LOCKED chặn mọi quyết định, kể cả hủy; cần xử lý kỳ theo quy trình riêng.
+  Trả lại/từ chối/hủy không đòi lịch hay loại nghỉ còn hợp lệ, để rút/điều chỉnh đơn
+  khi đầu vào đã thay đổi. Tuy nhiên vẫn bắt buộc quyền và kỳ chưa chốt/khóa.
+- REJECTED/CANCELLED là trạng thái kết thúc, không sửa/gửi/mở lại và không chặn
+  đơn mới cùng thời gian. DRAFT/RETURNED/PENDING/APPROVED vẫn tham gia kiểm tra trùng.
+  Chi tiết lịch sử kiểm tra quyền cả nhân sự/ngày trong các snapshot cũ, tránh lộ
+  hồ sơ đã bị đổi ra ngoài phạm vi hoặc thêm vào danh sách loại trừ.
+- API dưới `/api/leave/requests`: `POST /:id/approve`, `/:id/return`,
+  `/:id/reject`, `/:id/cancel`; body `{revision, reason?}`. GET list lọc
+  status theo cả sáu trạng thái. Update/submit và response item giữ hợp đồng §7.17;
+  history thêm fromStatus/reason nullable, trạng thái đích ở snapshot.status.
+- UI `#/leave` → **Đơn nghỉ** có bộ lọc sáu trạng thái. Chi tiết hiện thao tác
+  theo quyền/trạng thái; modal xác nhận và lý do; đơn trả lại có Sửa đơn trả lại và
+  Gửi đơn nghỉ. Đơn kết thúc không có thao tác ghi. Lịch sử mở rộng hiển thị trạng
+  thái trước–sau và lý do xử lý, độc lập với lý do nghỉ của công nhân.
+- **Mốc phần 2:** khi mới triển khai, APPROVED/CANCELLED chỉ ghi trạng thái/lịch sử.
+  Giới hạn đó đã được thay bằng tích hợp nguyên tử USE/REFUND và công ở §7.19;
+  không giữ chỗ quỹ cho nháp/chờ duyệt và không tuyên bố nghiệm thu toàn R1.
+
+Kiểm chứng phần 2: `npm run verify:leave-requests` đạt **13/13** trên HTTP và
+PostgreSQL riêng; toàn backend đạt **148/148**. Bao gồm đầy đủ chu trình trả lại →
+sửa/gửi → duyệt → hủy; từ chối/đơn kết thúc; lý do; quyền theo ngày/phạm vi/loại trừ;
+chống tự xử lý; cạnh tranh quyết định; ca đổi và số dư bị điều chỉnh sau khi gửi;
+kỳ chốt; snapshot/lý do/audit bất biến; không thay đổi ledger hoặc bảng công.
+Typecheck hai workspace, build backend/frontend, Prisma validate và kiểm tra đồng
+bộ đặc tả R1 đều đạt. Frontend vẫn cảnh báo chunk UI >500 kB, không chặn build.
+
+Browser TT đã xử lý BN00004 ngày công 18/10: trả lại từ revision 4, sửa/gửi lại,
+duyệt revision 8, hủy revision 9; giữ 120 phút/0,25 ngày và đủ 9 phiên bản. Đơn mới
+cùng khoảng giờ sau hủy được gửi rồi từ chối, revision 3 và giữ nguyên sau reload.
+QĐ mở được lịch sử theo phạm vi và không có nút ghi. Modal/drawer desktop và
+390px đã kiểm tra có **0 lỗi axe tự động**, còn mục cần đánh giá thủ công; chiều
+rộng trang mobile giữ 390px. Đây là bằng chứng local, không thay nghiệm thu R1.
+Biên kỳ chốt đã tái hiện và sửa: đơn trả lại ở kỳ CLOSED không được đổi ngày sang
+kỳ mở để né bảo vệ dữ liệu cũ; sửa kiểm tra cả khoảng ngày cũ và khoảng ngày mới.
+Hồi quy HTTP tương ứng thất bại trước sửa (201 thay vì 409), đạt sau sửa; bộ đơn
+nghỉ vẫn 13/13. Bộ lọc UI Đã hủy đã kiểm tra chỉ còn đơn CANCELLED, loại đơn REJECTED.
+Bộ lọc trạng thái dùng option thật (`virtual=false`) và popup nằm trong landmark
+của bộ lọc, không để rc-select phát sinh aria-selected trên wrapper vô danh.
+Dropdown mở ở desktop/390px và trang sau lọc Đã hủy đều có 0 lỗi axe tự động.
+
+### 7.19. Tích hợp đơn nghỉ với quỹ và bảng công
+
+- Chạy `npm run db:generate`, `npm run db:deploy`, build rồi khởi động lại API.
+  Migration `20261019140000_leave_integration` thêm JSON integration/leave, FK
+  từ leave_operation sang leave_request và hình dạng USE/REFUND vào CHECK ledger.
+  Không reset/seed lại dữ liệu. Migration **chặn nếu còn đơn APPROVED từ phần 2**:
+  phải đối soát/rút các đơn đó bằng bản API cũ trước cutover; không tự tạo bút toán
+  quá khứ thiếu xác nhận. Demo được kiểm tra có 0 APPROVED trước khi áp dụng.
+- TT vẫn duyệt một cấp, không cần leave.balance.manage. Duyệt/hủy đã duyệt giữ
+  transaction serializable cùng khóa lịch, quỹ và lịch lễ: trạng thái, revision,
+  bút toán, công, lịch sử và audit cùng thành công hoặc rollback. Revision cũ,
+  duyệt/hủy lặp và tranh số dư bị chặn, không phát sinh dùng/hoàn trùng.
+- Chỉ dòng deductsAnnualQuota và không phải ngày lễ mới tạo USE âm theo **ngày
+  công/năm quỹ**. Mỗi dòng làm tròn HALF_UP 2 chữ số như sổ quỹ; tổng số trừ là
+  tổng các dòng này. Ưu tiên CARRY còn hạn (hạn sớm trước), ADVANCE, ANNUAL; kiểm tra
+  cả số dư các mốc phát sinh về sau để không chiếm lại nguồn đã dùng/chuyển.
+  Thiếu bất kỳ nguồn nào rollback cả đơn, không tự ứng hay tự tính định mức.
+- Hủy APPROVED tạo REFUND dương đối ứng **từng USE**: cùng quỹ, bucket, ngày hiệu
+  lực và expiresAt, snapshot trỏ sourceEntryId. Vì giữ nguyên hạn nên không hồi
+  sinh phép chuyển đã hết hạn. Bút toán gốc và lịch sử không sửa/xóa; hủy các
+  trạng thái chưa duyệt không sinh hoàn phép. CLOSED/LOCKED vẫn chặn hủy.
+- HOLIDAY_CALENDAR là LegalParameter JSON `{dates:["YYYY-MM-DD"],status,reference}`
+  theo phạm vi cơ sở/vùng/toàn cục, subject ALL, basis WORK_DATE, có hiệu lực như
+  resolver tham số hiện hữu. status là SIMULATION hoặc BUSINESS_CONFIRMED; dates
+  phải hợp lệ/không trùng, reference không trắng. Thiếu/sai lịch tại ngày nghỉ thì
+  chặn thay vì mặc định không có lễ. Nguồn lịch thay đổi sau gửi yêu cầu trả lại
+  và gửi lại trước duyệt; nguồn đã duyệt giữ snapshot khi chạy lại công.
+- Migration cấp **lịch demo 2026 SIMULATION**, không phải lịch đã xác nhận pháp lý:
+  01/01, 16–20/02, 26/04, 30/04, 01/05, 01–02/09. Cơ sở phải xác nhận lịch chính
+  thức/nghỉ bù qua phiên bản tham số, cấu hình lịch cho năm tiếp theo; hệ thống
+  không tự suy đoán ngày nghỉ bù. Dòng nghỉ rơi vào ngày lễ theo ngày công được
+  ký hiệu **L**, có lương/tính công và không trừ phép năm; ngày không có ca đã
+  duyệt không bị biến thành thời lượng nghỉ. Ca đêm giữ ngày công bắt đầu ca.
+- Nếu có kỳ OPEN phù hợp, quyết định tính lại công/OT từ quẹt gốc và giải trình
+  đã duyệt trong transaction; không sửa quẹt, không tạo giờ OT hoặc giờ làm giả.
+  `daily_attendance.leave` chứa minutes, paidMinutes, countedUnits, symbols và
+  sources (requestId/revision, khoảng giờ, ca/đơn vị, typeVersionId, holidayParameterId).
+  Phút nghỉ/công nghỉ tách khỏi workedMinutes/dayMinutes/nightMinutes/segments.
+  Phần đã làm trùng giờ nghỉ không được cộng công hai lần, có LEAVE_WORK_OVERLAP.
+- Nghỉ đủ ca bỏ báo vắng/thiếu vào–ra; nghỉ nửa ca đổi cửa sổ ghép quẹt và chỉ
+  tính muộn/sớm trên phần còn phải làm. Không giấu lỗi ghép mơ hồ/sai cặp. Lịch
+  khác snapshot phát cờ LEAVE_SCHEDULE_CHANGED, không tự quy đổi đơn sang ca mới.
+  Ngày tương lai nghỉ một phần chưa có quẹt dùng AWAITING_SHIFT, chưa gán vắng mặt.
+- Chưa có kỳ hoặc kỳ PLANNED: quỹ vẫn ghi nhận, integration.attendance ghi
+  WAITING_PERIOD, không dựng bản công giả. Khi mở kỳ và xử lý/import công bình
+  thường, nguồn APPROVED tự được đọc lại. GET chi tiết đơn đối chiếu công hiện tại
+  để trả UPDATED/WAITING_PROCESS/WAITING_PERIOD; lịch sử giữ trạng thái lúc quyết định.
+  Nếu kỳ mở nhưng không thể áp dụng do nguồn giải trình ẩn hoặc kỳ nguồn đóng/khóa,
+  quyết định thất bại và rollback, không báo thành công cập nhật công giả.
+- Chạy lại công/nhập thêm quẹt/duyệt giải trình đều giữ nguồn nghỉ APPROVED. Hủy
+  tính lại từ các nguồn còn hiệu lực, chỉ bỏ nguồn của đơn bị hủy. Hai đơn nửa ca
+  liền kề không làm mất nguồn của nhau. Loại không trừ phép năm không có USE/REFUND,
+  nhưng ký hiệu/lương/công vẫn theo phiên bản loại nghỉ. Chưa tính chế độ BHXH,
+  chi trả phép hoặc engine tiền lương.
+- UI Đơn nghỉ hiện số USE/REFUND, ngày công và trạng thái đồng bộ; cảnh báo chờ xử
+  lý không bị tô thành đã cập nhật. Bảng công có cột nghỉ, drawer truy vết nguồn
+  đơn/phiên bản/loại nghỉ/lịch lễ; sổ quỹ theo đúng ngày chốt đã chọn.
+
+Kiểm chứng HTTP/PostgreSQL cách ly: bộ đơn nghỉ **19/19**, toàn backend **154/154**.
+Bao gồm 5 ngày có 1 lễ chỉ trừ 4 ngày và ghi P/L; chia nguồn CARRY/ADVANCE/ANNUAL;
+hoàn đúng hạn đúng nguồn một lần; nửa đầu ca nghỉ + quẹt 13:00–17:00 giữ 240 phút
+làm thực tế và tổng 1 công; chạy lại không mất nguồn; chờ kỳ mở rồi đồng bộ; hủy
+riêng một trong hai nửa ca; tranh số dư và chặn hủy/hoàn khi kỳ đã chốt.
+
+Browser TT: BN00004 ngày công 18/10, phép 23:00–01:00 (120 phút/0,25 ngày), duyệt
+revision 3 tạo 1 USE, hủy revision 4 tạo 1 REFUND. Sổ quỹ hiển thị đã dùng/hoàn
+0,25; khoản cấp tạm phục vụ kiểm chứng được đối ứng, khả dụng trở về 11 ngày.
+Ca đêm đang có đủ quẹt/giải trình vẫn giữ 480 phút thực tế/1 công; lúc duyệt có
+ngoại lệ trùng giờ làm/nghỉ và 0 phút công nghỉ cộng thêm, sau hủy nguồn nghỉ rỗng
+và cờ trùng được gỡ. Drawer đơn nghỉ/quỹ/nguồn công đã xem ở desktop và 390px;
+drawer đơn và nguồn công có **0 lỗi axe tự động** sau sửa thứ bậc heading/focus,
+còn mục cần đánh giá thủ công. Đây là bằng chứng local, không thay UAT toàn R1.
+Build frontend vẫn cảnh báo chunk UI >500 kB; không che hoặc tăng ngưỡng cảnh báo.

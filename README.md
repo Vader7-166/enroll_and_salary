@@ -67,10 +67,10 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Đăng ký & duyệt OT | Tổ trưởng lập/sửa/gửi; Quản đốc duyệt/trả lại/từ chối; chứng từ đồng ý từng người, trần ngày/tháng/năm và lịch sử bất biến |
 | Đối chiếu OT thực tế | Đề nghị/đã duyệt/thực tế/đủ điều kiện; ca đêm nối OT, tách ngày lịch/giờ ngày–đêm, ngoại lệ và nguồn quẹt; bảo vệ kỳ đóng/khóa |
 | Giải trình & điều chỉnh | TT lập/gửi lý do và bằng chứng, QĐ duyệt/trả lại/từ chối; sự cố nhiều người, snapshot trước/sau, tính lại công/OT không sửa lượt quẹt gốc |
-| Loại nghỉ & quỹ phép | Danh mục/chính sách có hiệu lực; KT tính/chuyển/ứng/điều chỉnh quỹ có sổ phát sinh; TT lập/sửa/gửi đơn ngày/nửa ngày/theo giờ, kiểm tra lịch, chứng từ và số dư; lịch sử bất biến |
+| Loại nghỉ & quỹ phép | Danh mục/chính sách hiệu lực; KT tính/chuyển/ứng/điều chỉnh; TT lập/gửi/duyệt một cấp; USE/REFUND bất biến, lịch lễ và ký hiệu nghỉ trên công, truy vết nguồn và chạy lại không mất hiệu lực |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
-**Chưa triển khai:** tiền OT, duyệt/trả lại/từ chối/hủy đơn nghỉ, trừ/hoàn phép từ đơn và tích hợp nghỉ vào công/ngày lễ, chế độ BHXH và thanh toán phép khi nghỉ việc, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Các nội dung này nằm trong thiết kế hoặc kế hoạch, không được xem là chức năng đang hoạt động.
+**Chưa triển khai:** tiền OT, chế độ BHXH và thanh toán phép khi nghỉ việc, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Các nội dung chưa triển khai không được xem là chức năng đang hoạt động.
 
 ### Nguyên tắc xử lý chấm công
 
@@ -293,7 +293,8 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `POST` | `/api/leave/balances/:employeeId/:year/recalculate`, `/adjust`, `/carry`, `/advance` | KT tính lại, điều chỉnh, chuyển và ứng; revision hai năm và requestId chống trùng |
 | `GET` | `/api/leave/requests`, `/api/leave/requests/:id` | Danh sách, chi tiết và lịch sử đơn trong phạm vi hiện tại/từng ngày nghỉ |
 | `POST` | `/api/leave/requests/preview`, `/api/leave/requests` | Kiểm tra đơn mới / lưu nháp; TT có quyền leave.request |
-| `POST` | `/api/leave/requests/:id/update`, `/api/leave/requests/:id/submit` | Sửa nháp/gửi với revision; gửi kiểm tra lại lịch, loại nghỉ, chứng từ, quỹ và kỳ chốt/khóa |
+| `POST` | `/api/leave/requests/:id/update`, `/api/leave/requests/:id/submit` | Sửa nháp/đơn trả lại và gửi với revision; kiểm tra lại lịch, loại nghỉ, chứng từ, quỹ và kỳ chốt/khóa |
+| `POST` | `/api/leave/requests/:id/approve`, `/:id/return`, `/:id/reject`, `/:id/cancel` dưới cùng nhóm | TT duyệt một cấp; revision/scope/chống tự xử lý; duyệt và hủy đã duyệt ghi USE/REFUND cùng cập nhật công nguyên tử |
 
 Kiểm tra nhanh khi API đang chạy:
 
@@ -334,13 +335,13 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | verify:accounts | Tạo/sửa, phạm vi/hiệu lực, phiên bản cũ, mật khẩu tạm/hết hạn/lịch sử, khóa/mở khóa/thu hồi và audit không chứa bí mật | 11/11 |
 | `verify:corrections` | Quyền/phạm vi/loại trừ, bằng chứng, khóa kỳ/ca đêm, bulk nguyên tử, trả lại/từ chối, duyệt cạnh tranh, nguồn đổi, công/OT và log gốc | 7/7 |
 | `verify:leave` | Danh mục/chính sách có hiệu lực, quyền theo khoảng, tính quỹ/0 tháng/thâm niên, idempotency/revision, chuyển/hết hạn/ứng phép, ledger và seed bất biến | 20/20 |
-| `verify:leave-requests` | Lập/sửa/gửi, ngày/nửa ngày/giờ, ca đêm, nghỉ giữa ca, trùng giờ, revision, quyền/loại trừ, hiệu lực, chứng từ, số dư và kỳ chốt | 8/8 |
+| `verify:leave-requests` | Vòng đời/quyền/ca đêm; USE/REFUND theo nguồn/hạn; 5 ngày có 1 lễ chỉ trừ 4; nửa ca và quẹt chiều; chạy lại; chờ kỳ mở; hủy riêng một nguồn; tranh số dư và kỳ chốt | 19/19 |
 
-Hồi quy toàn backend sau tích hợp đơn nghỉ đạt **143/143**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace, build backend/frontend, Prisma validate và kiểm tra đồng bộ đặc tả R1 đều đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
+Hồi quy toàn backend sau phần 3 đơn nghỉ đạt **154/154**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
 
 Browser đã chạy AD tạo loại nghỉ/chính sách và phiên bản kế tiếp; KT tính quỹ, điều chỉnh, ứng trước và xem ledger. Drawer desktop/390px không tràn trang; cuộn bảng bằng bàn phím hoạt động, axe không phát hiện lỗi tự động trên các drawer đã kiểm tra (vẫn có mục cần đánh giá thủ công). Đây là kết quả local, **không phải CI hoặc chứng nhận UAT toàn R1**. Xem [20 §7.16](docs/20-tech-stack-va-moi-truong-phat-trien.md#716-loại-nghỉ-chính-sách-và-quỹ-phép-năm).
 
-**Đơn nghỉ:** vào `#/leave` → **Đơn nghỉ**, đăng nhập `tt.bn`, chọn nhân sự có ca đã duyệt → **Lập đơn nghỉ** → **Lưu nháp** → **Sửa nháp** hoặc **Gửi đơn nghỉ**. Browser đã lập BN00004 ngày công 18/10, sửa cả ngày → nửa ngày → 23:00–01:00 qua ngày, gửi thành **Chờ duyệt**, revision 4; còn lịch sử đủ 4 phiên bản. Chưa trừ/giữ chỗ quỹ hoặc cập nhật công. Hướng dẫn và giới hạn tại [20 §7.17](docs/20-tech-stack-va-moi-truong-phat-trien.md#717-lập-sửa-và-gửi-đơn-nghỉ).
+**Đơn nghỉ:** vào `#/leave` → **Đơn nghỉ**, đăng nhập `tt.bn` → lập/lưu nháp → gửi → duyệt một cấp, trả lại, từ chối hoặc hủy. Duyệt ghi USE khi loại nghỉ trừ quỹ, ngày lễ L không trừ phép năm; hủy đã duyệt hoàn đúng nguồn/hạn và tính lại công. Drawer hiện số bút toán, ngày công và trạng thái chờ kỳ mở/xử lý; bảng công có ký hiệu, thời lượng và nguồn đơn/phiên bản/lịch lễ. Browser đã chạy BN00004 ca đêm 18/10, 120 phút/0,25 ngày, duyệt → xem quỹ/công → hủy; giữ 480 phút làm thực tế, báo trùng giờ làm/nghỉ rồi gỡ riêng ảnh hưởng đơn. Desktop/390px có 0 lỗi axe tự động trên drawer đã kiểm tra, còn mục cần đánh giá thủ công. Xem [20 §7.19](docs/20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
 
 Kiểm tra tính nhất quán của **đặc tả** độc lập với kiểm thử ứng dụng; cần Python 3:
 

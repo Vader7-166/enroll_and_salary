@@ -45,6 +45,14 @@ Hệ thống chỉ có **bốn vai trò** (lớp `VaiTro`, chức năng 1.1). C�
 | Kế toán | `KT` | 1.5, 2.x, 4.5, 5.5, 6.2, 6.4, 7.x, 8.x, 9.x, 10.3, 10.4 | Hồ sơ – hợp đồng, khóa kỳ công, lương, BH, thuế, phúc lợi |
 | Admin | `AD` | 1.1 – 1.6, 3.1, 4.1, 6.1 | Tài khoản, tổ chức, tham số, chính sách, mở kỳ, danh mục ca và loại nghỉ, nhập dữ liệu chấm công; **không** xem lương chi tiết, **không** sửa / xóa nhật ký |
 
+**Quyền API đơn nghỉ local:** `leave.request` cấp cho TT, dùng cho lập/sửa/gửi và
+duyệt một cấp/trả lại/từ chối/hủy; `leave.read` chỉ cho đọc trong phạm vi. Kiểm tra
+vai trò, cây đơn vị, phân công và loại trừ tại hiện tại lẫn từng ngày nghỉ.
+Chống tự xử lý dựa trên `user_account.employee_id`, không so người lập: TT được
+duyệt đơn mình đã ghi nhận **thay công nhân khác**, không xử lý đơn của chính mình.
+Người xử lý/lý do/trạng thái trước–sau/phiên bản được giữ trong lịch sử bất biến.
+Duyệt/hủy đã duyệt cập nhật trạng thái, ledger, công và audit trong một transaction; lỗi bất kỳ rollback toàn bộ, không cần cấp quyền quản lý quỹ cho TT. CLOSED/LOCKED và nguồn giải trình ngoài quyền vẫn được bảo vệ. Hợp đồng tại [20 §7.19](20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
+
 **Quyền API ca đã triển khai:** mọi vai trò có `shift.read` theo đơn vị được cấp;
 AD có `shift.manage`, TT có `shift.plan`, QĐ có `shift.approve`; KT chỉ đọc lịch.
 Đọc kế thừa danh mục cấp cha không cấp quyền đọc hồ sơ nhân sự cấp cha cho AD/TT.

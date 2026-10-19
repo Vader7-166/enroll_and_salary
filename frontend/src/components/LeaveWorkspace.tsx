@@ -384,9 +384,9 @@ function FundActionModal({ kind, balance, onClose }: { kind: "recalculate" | "ad
   </Modal>;
 }
 
-function BalanceDrawer({ employeeId, year, canManage, onClose }: { employeeId: string; year: number; canManage: boolean; onClose: () => void }) {
+ function BalanceDrawer({ employeeId, year, asOf, canManage, onClose }: { employeeId: string; year: number; asOf: string; canManage: boolean; onClose: () => void }) {
   const [action, setAction] = useState<"recalculate" | "adjust" | "carry" | "advance" | null>(null);
-  const detail = useQuery({ queryKey: ["leave", "balance", employeeId, year], queryFn: () => leaveApi.balance(employeeId, year) });
+   const detail = useQuery({ queryKey: ["leave", "balance", employeeId, year, asOf], queryFn: () => leaveApi.balance(employeeId, year, asOf) });
   const balance = detail.data?.balance;
   const ledgerColumns: ColumnsType<LeaveLedgerEntry> = [
     { title: "Ngày", dataIndex: ["operation", "effectiveDate"], width: 105 },
@@ -434,7 +434,7 @@ function FundsWorkspace({ canManage }: { canManage: boolean }) {
     </section>
     {balances.isError ? <Alert type="error" showIcon message="Không tải được danh sách quỹ phép" description={errorMessage(balances.error)} /> : <section className="panel table-panel"><Table<LeaveBalanceView> rowKey={(row) => row.id ?? `${row.employee.id}-${row.year}`} loading={balances.isLoading} dataSource={balances.data?.items ?? []} columns={columns} pagination={false} scroll={{ x: 1050 }} locale={{ emptyText: <Empty description="Chưa có quỹ phép trong điều kiện lọc. Chọn nhân sự để lập quỹ khi cần." /> }} /><div className="table-footer"><Text type="secondary">{balances.data ? `Tổng ${balances.data.total} quỹ phép` : ""}</Text><Pagination current={balances.data?.page ?? page} pageSize={balances.data?.pageSize ?? 20} total={balances.data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div></section>}
     {picker && <EmployeePicker year={year} units={context.data?.units ?? []} onClose={() => setPicker(false)} onChoose={(employee) => { setPicker(false); setSelected({ employeeId: employee.id, year }); }} />}
-    {selected && <BalanceDrawer employeeId={selected.employeeId} year={selected.year} canManage={canManage} onClose={() => setSelected(null)} />}
+     {selected && <BalanceDrawer employeeId={selected.employeeId} year={selected.year} asOf={asOf} canManage={canManage} onClose={() => setSelected(null)} />}
   </>;
 }
 

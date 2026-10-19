@@ -12,7 +12,16 @@ Màn **Nghỉ & quỹ phép** có danh mục/chính sách theo hiệu lực và 
 AD chỉ cấu hình trong quyền, không xem quỹ cá nhân. KT tính/điều chỉnh/chuyển/ứng quỹ;
 TT/QĐ chỉ xem quỹ trong phạm vi. Tháng đủ điều kiện phải được chọn và xác nhận rõ ràng,
 kể cả 0 tháng; không tự suy ra từ lượt quẹt. Ledger hiển thị số ngày có dấu,
-người thao tác, tham chiếu/lý do, hạn dùng và đối soát; không có đơn/duyệt nghỉ.
+người thao tác, tham chiếu/lý do, hạn dùng và đối soát. Tab Đơn nghỉ cho TT lập/sửa/gửi
+và duyệt một cấp, trả lại/từ chối/hủy có lý do; trạng thái bằng chữ và màu, lịch sử
+ghi người/thời điểm/phiên bản/lý do. Đơn trả lại được sửa/gửi lại; từ chối/đã hủy
+không còn thao tác. QĐ/KT chỉ xem theo phạm vi. Modal quyết định và drawer chi tiết
+phải thể hiện tác động quỹ/công: số USE/REFUND, ngày công và trạng thái chờ kỳ mở
+hoặc xử lý; không gắn nhãn đã cập nhật khi chưa có nguồn công. Ngày lễ dùng L,
+không trừ phép năm. Bảng công/drawer phân biệt phút nghỉ, công hưởng từ nghỉ và
+phút làm thực tế, truy vết mã đơn/revision/loại nghỉ/lịch lễ; báo trùng giờ làm/nghỉ.
+Vùng nguồn nghỉ có thể focus/cuộn bằng bàn phím; heading theo thứ bậc. Sổ quỹ dùng
+đúng ngày chốt đang chọn. Hợp đồng local tại [20 §7.19](20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
 
 Áp dụng cho stack [20](20-tech-stack-va-moi-truong-phat-trien.md), roadmap
 [21](21-roadmap-trien-khai-5-ngay.md) và phạm vi [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md).

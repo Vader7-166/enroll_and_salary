@@ -25,8 +25,9 @@ nhập tệp/ghép lượt quẹt, bảng công/ngoại lệ và nguồn gốc l
 trả lại/từ chối/hủy, hạn mức và snapshot lịch sử; đối chiếu OT thực tế/đủ điều kiện,
 ngoại lệ, ca qua ngày và nguồn quẹt; giải trình/điều chỉnh TT–QĐ, bằng chứng, sự cố
 nhiều người và snapshot trước/sau; danh mục/chính sách nghỉ có hiệu lực, quỹ phép,
-chuyển/ứng/điều chỉnh với sổ bất biến; health PostgreSQL thật. Hướng dẫn cài/chạy,
-khóa mã hóa và tài khoản demo tại [20 §7](20-tech-stack-va-moi-truong-phat-trien.md#7-chạy-môi-trường-demo-local). Chưa có tiền OT, đơn nghỉ/duyệt nghỉ/tích hợp nghỉ vào công,
+chuyển/ứng/điều chỉnh với sổ bất biến; TT lập/gửi/duyệt một cấp/trả lại/từ chối/hủy
+đơn nghỉ, tích hợp USE/REFUND và ký hiệu công/ngày lễ; health PostgreSQL thật.
+Hướng dẫn cài/chạy, khóa mã hóa và tài khoản demo tại [20 §7](20-tech-stack-va-moi-truong-phat-trien.md#7-chạy-môi-trường-demo-local). Chưa có tiền OT,
 chế độ BHXH, thanh toán phép khi nghỉ việc, xác nhận/chốt công, tính lương, API chốt/khóa kỳ hoặc AI;
 không đổi nghiệm thu lõi, không commit/đổi nhánh.
 **Dữ liệu local:** bộ doanh nghiệp giả lập 2.200 nhân sự theo cơ cấu bốn cơ sở;
@@ -198,6 +199,7 @@ bộ tài liệu này:
 
 | Phiên bản | Nội dung |
 |---|---|
+| 2.24 | Hoàn thành phần 1–3 đơn nghỉ: lập/sửa/gửi và duyệt một cấp TT; trả lại/từ chối/hủy; USE/REFUND theo nguồn/hạn nguyên tử với trạng thái, công, lịch sử và audit. Lịch lễ có hiệu lực không trừ phép năm, ký hiệu/công nghỉ tách phút làm thực tế; chạy lại giữ nguồn, chờ kỳ mở và hủy riêng từng đơn. Migration chặn APPROVED cũ chưa đối soát, lịch lễ 2026 mô phỏng. HTTP/PostgreSQL đơn nghỉ 19/19, toàn backend 154/154; UI TT desktop/390px và truy vết thực tế. Chưa tính BHXH/thanh toán phép/tiền lương. Xem 20 §7.19 |
 | 2.23 | Hoàn thành subtask 1–2 nghỉ phép: danh mục và chính sách phiên bản theo ngày hiệu lực; KT xác nhận tháng đủ điều kiện, định mức/thâm niên, tính lại không cấp trùng, điều chỉnh/chuyển/ứng phép đối ứng nguyên tử. Ledger/snapshot bất biến, hạn chuyển và đối soát không xóa quyền; quyền theo toàn khoảng và lịch sử, revision/idempotency/audit. Migration giữ dữ liệu cũ, bootstrap mô phỏng và seed lặp an toàn. Kiểm chứng nghỉ phép 20/20, toàn backend 135/135, browser AD/KT desktop/390px và cuộn bàn phím. Chưa triển khai đơn nghỉ, duyệt nghỉ, tích hợp công hoặc chi trả. Xem 20 §7.16 |
 | 2.22 | Triển khai giải trình/điều chỉnh công TT–QĐ: lý do/bằng chứng bảo mật, bulk cùng sự cố nguyên tử, trả lại/sửa/gửi lại/từ chối, snapshot/lịch sử, revision và nguồn lỗi thời. Duyệt tính lại công/OT, xử lý lại vẫn giữ hiệu lực; không sửa quẹt gốc hoặc tạo quyền OT. Bảo vệ kỳ nguồn/đích/cấp cha và phạm vi theo ngày; sửa tra cứu cấp cha khi người duyệt chỉ có phạm vi phân xưởng. HTTP/PostgreSQL giải trình 7/7; browser desktop/390px. Xem 20 §7.15 |
 | 2.21 | Triển khai Admin tạo/sửa tài khoản nội bộ và quyền/loại trừ có hiệu lực; kiểm tra toàn khoảng phạm vi, lịch sử không hồi tố, revision, khóa/mở khóa và thu hồi phiên. Mật khẩu tạm/hết hạn buộc đổi; chính sách độ dài/phức tạp/lịch sử/hạn cấu hình được; audit không chứa bí mật. Migration giữ tài khoản cũ; API/UI thật, desktop/390px, hồi quy tài khoản 11/11 và toàn backend 102/102. Xem 20 §7.14; không thay nghiệm thu R1 |

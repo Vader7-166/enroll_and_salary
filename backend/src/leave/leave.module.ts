@@ -8,9 +8,11 @@ import { LeaveFundsController } from "./leave-funds.controller";
 import { LeaveFundsService } from "./leave-funds.service";
 import { LeaveRequestsController } from "./leave-requests.controller";
 import { LeaveRequestsService } from "./leave-requests.service";
+import { AttendanceModule } from "../attendance/attendance.module";
+import { SettingsModule } from "../settings/settings.module";
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, AttendanceModule, SettingsModule],
   controllers: [LeaveCatalogController, LeaveFundsController, LeaveRequestsController],
   providers: [ScopeService, LeaveAccessService, LeaveCatalogService, LeaveFundsService, LeaveRequestsService],
 })

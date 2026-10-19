@@ -2,7 +2,7 @@ import { Type } from "class-transformer";
 import { IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from "class-validator";
 export class LeaveRequestQueryDto {
   @IsOptional() @IsString() @MaxLength(120) search?: string;
-  @IsOptional() @IsIn(["DRAFT", "PENDING"]) status?: string;
+  @IsOptional() @IsIn(["DRAFT", "PENDING", "RETURNED", "APPROVED", "REJECTED", "CANCELLED"]) status?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize = 20;
 }
@@ -23,4 +23,7 @@ export class UpdateLeaveRequestDto extends CreateLeaveRequestDto {
 }
 export class SubmitLeaveRequestDto {
   @IsInt() @Min(1) revision!: number;
+}
+export class LeaveRequestActionDto extends SubmitLeaveRequestDto {
+  @IsOptional() @IsString() @MaxLength(2000) reason?: string;
 }

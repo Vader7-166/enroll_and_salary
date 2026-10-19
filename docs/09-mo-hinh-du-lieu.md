@@ -22,10 +22,17 @@ dưới không thay thế các bảng phụ trợ đã bổ sung ở 17/18.
 **Hiện thực đơn nghỉ local:** `leave_request` lưu employee/leave_type/created_by,
 ngày công từ–đến, DAY/HALF/HOUR, nửa ca hoặc khoảng giờ có múi giờ, lý do/chứng từ,
 snapshot nguồn ca/phiên bản loại nghỉ/thời lượng, revision và thời điểm gửi.
-Luồng hiện hành chỉ `DRAFT` → `PENDING`; không thay thế các trạng thái mục tiêu R1.
-`leave_request_history` giữ actor/action/revision/snapshot/thời điểm, unique theo
-đơn + revision, trigger cấm sửa/xóa. Gửi đơn chưa sinh `USE`/`REFUND` trong
-`leave_ledger_entry` hoặc sửa `daily_attendance`. Hợp đồng tại [20 §7.17](20-tech-stack-va-moi-truong-phat-trien.md#717-lập-sửa-và-gửi-đơn-nghỉ).
+Trạng thái hiện hành: DRAFT, PENDING, RETURNED, APPROVED, REJECTED, CANCELLED.
+`leave_request_history` giữ actor/action/from_status/reason/revision/snapshot/thời điểm,
+unique theo đơn + revision, trigger cấm sửa/xóa. Migration
+`20261019130000_leave_decisions` mở rộng trạng thái và thêm from_status/reason;
+không sửa lịch sử cũ (hai trường mới null ở bản ghi cũ). Migration
+`20261019140000_leave_integration` thêm `leave_request.integration`, liên kết
+`leave_operation.leave_request_id` và `daily_attendance.leave`. Duyệt tạo USE âm,
+hủy đã duyệt tạo REFUND dương đối ứng từng nguồn/hạn/ngày hiệu lực, không sửa sổ cũ.
+Nguồn công giữ đơn/revision, ca, phiên bản loại nghỉ và lịch lễ; phút nghỉ và công
+từ nghỉ tách khỏi phút làm thực tế. Chi tiết đơn phản ánh trạng thái công hiện tại,
+lịch sử quyết định vẫn bất biến. Hợp đồng tại [20 §7.19](20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
 
 ---
 

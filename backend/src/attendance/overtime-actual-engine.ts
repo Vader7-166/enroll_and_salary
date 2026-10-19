@@ -197,7 +197,7 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
       contexts.push(context);
       const schedule = virtual
         ? { id, employeeId: group.employeeId, orgUnitId: group.orgUnitId, workDate: group.workDate, startAt: isoAt(component.start), endAt: isoAt(component.end), workMinutes: 0, breakStartOffset: 0, breakMinutes: 0, paidBreak: true }
-        : { ...uniqueSchedules[0], pairingStartAt: isoAt(component.start), pairingEndAt: isoAt(component.end) };
+        : { ...uniqueSchedules[0], pairingStartAt: component.start === Date.parse(uniqueSchedules[0].startAt) ? uniqueSchedules[0].pairingStartAt ?? isoAt(component.start) : isoAt(component.start), pairingEndAt: component.end === Date.parse(uniqueSchedules[0].endAt) ? uniqueSchedules[0].pairingEndAt ?? isoAt(component.end) : isoAt(component.end) };
       engineSchedules.push(schedule);
       rulesBySchedule[id] = rules;
     }

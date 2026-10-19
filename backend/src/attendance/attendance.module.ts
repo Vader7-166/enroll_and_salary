@@ -7,5 +7,5 @@ import { AttendanceController } from "./attendance.controller";
 import { AttendanceService } from "./attendance.service";
 import { CorrectionsController } from "./corrections.controller";
 import { CorrectionsService } from "./corrections.service";
-@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController, CorrectionsController], providers: [AttendanceService, CorrectionsService, ScopeService] })
+@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController, CorrectionsController], providers: [AttendanceService, CorrectionsService, ScopeService], exports: [AttendanceService] })
 export class AttendanceModule {}

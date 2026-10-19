@@ -634,6 +634,7 @@ model DailyAttendance {
   absent Boolean
   workUnits Decimal @map("work_units") @db.Decimal(10,6)
   segments Json
+  leave Json @default("{}")
   rules Json
   processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
   schedule ShiftSchedule @relation(fields: [scheduleId], references: [id])
@@ -914,7 +915,10 @@ model LeaveOperation {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   actorId String @map("actor_id") @db.Uuid
   actor UserAccount @relation(fields: [actorId], references: [id])
+  leaveRequestId String? @map("leave_request_id") @db.Uuid
+  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id])
   entries LeaveLedgerEntry[]
+  @@index([leaveRequestId])
   @@map("leave_operation")
 }
 
@@ -949,6 +953,8 @@ model LeaveRequest {
   reason String @db.VarChar(2000)
   documentReference String? @map("document_reference") @db.VarChar(500)
   snapshot Json
+  integration Json @default("{}")
+  operations LeaveOperation[]
   submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -966,6 +972,8 @@ model LeaveRequestHistory {
   actorId String @map("actor_id") @db.Uuid
   action String @db.VarChar(24)
   revision Int
+  fromStatus String? @map("from_status") @db.VarChar(24)
+  reason String? @db.VarChar(2000)
   snapshot Json
   occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
   request LeaveRequest @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)

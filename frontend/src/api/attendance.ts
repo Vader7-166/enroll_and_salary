@@ -81,7 +81,8 @@ export interface DailyRow {
   lateMinutes: number;
   earlyMinutes: number;
   absent: boolean;
-  workUnits: string;
+   workUnits: string;
+   leave: {minutes?:number;paidMinutes?:number;countedUnits?:string;symbols?:string[];sources?:Array<{requestId:string;revision:number;attendanceSymbol:string;startAt:string;endAt:string;typeVersionId:string;holiday:boolean;holidayParameterId:string}>};
   processedAt: string;
   periodId: string;
   adjustmentId: string | null;

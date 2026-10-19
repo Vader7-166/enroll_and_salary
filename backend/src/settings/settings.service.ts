@@ -17,7 +17,8 @@ import {
 } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import type { AuthUser } from "../auth/auth.types";
-import { businessDate } from "../auth/business-date";
+ import { holidayCalendar } from "../leave/holiday-calendar";
+ import { businessDate } from "../auth/business-date";
 import { PrismaService } from "../database/prisma.service";
 import { effectiveAt, ScopeService } from "../organization/scope.service";
 import {
@@ -67,7 +68,8 @@ function numericString(value: unknown): boolean {
   return typeof value === "string" && /^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value) && Number(value) > 0;
 }
 function assertParameterValue(paramCode: string, value: unknown): asserts value is Prisma.InputJsonValue {
-  if (!isJsonValue(value)) throw new BadRequestException("Giá trị tham số phải là JSON hợp lệ, không rỗng.");
+   if (!isJsonValue(value)) throw new BadRequestException("Giá trị tham số phải là JSON hợp lệ, không rỗng.");
+   if (paramCode === "HOLIDAY_CALENDAR") holidayCalendar(value);
   if (SEEDED_NUMERIC_CODES.has(paramCode) && !numericString(value))
     throw new BadRequestException("Giá trị tham số đã seed phải là chuỗi số dương.");
   if (SEEDED_INTEGER_CODES.has(paramCode) && !(typeof value === "string" && /^[1-9]\d*$/.test(value)))
