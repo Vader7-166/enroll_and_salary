@@ -27,4 +27,5 @@ export class AttendanceBoardQuery extends AttendancePageQuery {
 }
 export class AttendancePunchQuery extends AttendancePageQuery {
   @IsOptional() @IsIn(["PROCESSED", "WAITING", "LATE", "UNMATCHED", "AMBIGUOUS", "SUPPRESSED"]) state?: string;
+  @IsOptional() @IsString() @MaxLength(120) search?: string;
 }

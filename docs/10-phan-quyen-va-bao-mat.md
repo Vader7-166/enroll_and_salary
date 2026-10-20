@@ -60,6 +60,14 @@ Chỉ người lập được sửa/gửi/hủy lịch chưa duyệt; người l
 kể cả tài khoản nhiều vai trò. Mỗi lượt/phiên bản cũ đều chịu phạm vi hiện tại và
 theo ngày công, exclusion; không trả lương/hợp đồng trong API ca. Xem 20 §7.10.
 
+**Quyền API xác nhận tổ local:** `attendance.read` đọc rà soát và lịch sử; chỉ TT
+có `attendance.confirm` được xác nhận; chỉ AD có `attendance.import` được ghi căn
+cứ đủ nguồn. Kiểm tra quyền/phân công/loại trừ hiện tại, mọi ngày công và ngày
+nguồn qua đêm; một phần nguồn không đọc được thì từ chối toàn tổ, không xác nhận
+trên tập bị lọc. Ghi trong transaction serializable, kiểm tra hash và revision,
+audit cùng giao dịch. QĐ/KT chỉ xem trong phạm vi ở bước này; chưa có chốt/khóa.
+Hợp đồng tại [20 §7.20](20-tech-stack-va-moi-truong-phat-trien.md#720-xác-nhận-công-tổ).
+
 ### 1.2. Trục phạm vi dữ liệu
 
 Phạm vi lưu trong bản ghi phân quyền (tài khoản, vai trò, **đơn vị phạm vi**, hiệu lực — lớp

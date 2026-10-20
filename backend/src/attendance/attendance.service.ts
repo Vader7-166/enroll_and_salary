@@ -177,7 +177,7 @@ export class AttendanceService {
     });
   }
 
-  private async rules(db: Db, orgUnitId: string, date: Date): Promise<{ values: PairingRules; parameterIds: Record<string, string> }> {
+  async rules(db: Db, orgUnitId: string, date: Date): Promise<{ values: PairingRules; parameterIds: Record<string, string> }> {
     const values = {} as PairingRules, parameterIds: Record<string, string> = {};
     for (const name of Object.keys(ruleCodes) as Array<keyof PairingRules>) {
       const row = await this.settings.resolveLegalParameter(ruleCodes[name], "ALL", "WORK_DATE", orgUnitId, date, db);
@@ -216,7 +216,7 @@ export class AttendanceService {
     return result;
   }
 
-  private async approvedAdjustments(db: Db, from: Date, to: Date, pending: ApprovedAttendanceAdjustment[]) {
+  async approvedAdjustments(db: Db, from: Date, to: Date, pending: ApprovedAttendanceAdjustment[]) {
     const rows = await db.attendanceCorrectionItem.findMany({ where: { workDate: { gte: shifted(from, -1), lte: shifted(to, 1) }, correction: { status: "APPROVED" } }, orderBy: [{ correction: { appliedOrder: "asc" } }, { id: "asc" }] });
     const effective = new Map<string, ApprovedAttendanceAdjustment>();
     const fold = (item: ApprovedAttendanceAdjustment) => {
@@ -435,6 +435,7 @@ export class AttendanceService {
   async punches(user: AuthUser, q: AttendancePunchQuery) {
     const ids = await this.importSites(user, q.siteId);
     const where: Prisma.RawPunchWhereInput = { siteId: { in: ids }, ...(q.state ? { processing: { is: { state: q.state } } } : {}) };
+    if (q.search?.trim()) where.employee = { OR: [{ code: { contains: q.search.trim(), mode: "insensitive" } }, { fullName: { contains: q.search.trim(), mode: "insensitive" } }] };
     const [rows, total] = await Promise.all([this.prisma.rawPunch.findMany({ where, include: rawInclude, orderBy: [{ punchedAt: "desc" }, { id: "asc" }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }), this.prisma.rawPunch.count({ where })]);
     return { items: rows.map(rawView), total, page: q.page, pageSize: q.pageSize };
   }

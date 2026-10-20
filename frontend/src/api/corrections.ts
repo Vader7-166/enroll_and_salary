@@ -111,6 +111,7 @@ function query(values: object): string {
 }
 
 export const correctionsApi = {
+  detail: (id: string) => api<{ correction: Correction }>(`/api/attendance/corrections/${encodeURIComponent(id)}`),
   list: (filters: CorrectionFilters) =>
     api<{ items: Correction[]; total: number; page: number; pageSize: number }>(
       `/api/attendance/corrections${query(filters)}`,

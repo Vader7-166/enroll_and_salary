@@ -24,7 +24,7 @@ import {
 } from "antd";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type HTMLAttributes } from "react";
-import { errorMessage } from "../api/client";
+import { ApiError, errorMessage } from "../api/client";
 import { employeeApi, organizationApi } from "../api/hrtp";
 import type { AuthUser, Employee, OrgUnit } from "../api/hrtp";
 import {
@@ -35,9 +35,11 @@ import {
   type ContractType,
   type CutoffPolicy,
   type EmploymentContract,
-  type LegalParameter,
+
   type PeriodPreview as PeriodPreviewData,
 } from "../api/hr-next";
+import { LegalParametersPanel } from "./LegalParametersPanel";
+import { TechnicalDetails } from "./TechnicalDetails";
 
 const { Title, Paragraph, Text } = Typography;
 const TODAY = new Intl.DateTimeFormat("en-CA", {
@@ -66,7 +68,7 @@ const requiredDateRule = (label: string) => ({
 });
 
 function ApiProblem({ error, title }: { error: unknown; title: string }) {
-  return <Alert type="error" showIcon message={title} description={errorMessage(error)} />;
+  return <Alert type="error" showIcon message={title} description={<>{errorMessage(error)}{error instanceof ApiError && error.rawMessage !== error.message && <TechnicalDetails><pre>{JSON.stringify({ code: error.code, status: error.status, message: error.rawMessage }, null, 2)}</pre></TechnicalDetails>}</>} />;
 }
 
 function DateField({ name, label, required = true }: { name: string; label: string; required?: boolean }) {
@@ -77,11 +79,7 @@ function DateField({ name, label, required = true }: { name: string; label: stri
   );
 }
 
-// Legal numeric values are stored as decimal strings so precision survives JSON transport.
-function parseParameterValue(raw: string): unknown {
-  const text = raw.trim();
-  return /^-?\d+(?:\.\d+)?$/.test(text) ? text : JSON.parse(text);
-}
+
 
 function personStatus(status: Employee["status"]) {
   return <Tag color={status === "ACTIVE" ? "success" : "default"}>{status === "ACTIVE" ? "Đang làm việc" : "Đã nghỉ việc"}</Tag>;
@@ -290,29 +288,12 @@ function TransferEmployee({ open, employeeId, onClose }: { open: boolean; employ
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState("parameters");
-  return <div className="content-stack"><div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / HIỆU LỰC PHÁP LÝ</p><Title level={1}>Tham số và chính sách</Title><Paragraph type="secondary">Mỗi thay đổi tạo một phiên bản hiệu lực mới; dữ liệu đã chốt không bị ghi đè.</Paragraph></div></div><section className="panel settings-panel"><Tabs activeKey={activeTab} onChange={setActiveTab} items={[{ key: "parameters", label: "Tham số pháp lý", children: <ParametersTab /> }, { key: "policies", label: "Chính sách chốt công", children: <PoliciesTab /> }]} /></section></div>;
+  return <div className="content-stack"><div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / HIỆU LỰC PHÁP LÝ</p><Title level={1}>Tham số và chính sách</Title><Paragraph type="secondary">Mỗi thay đổi tạo một phiên bản hiệu lực mới; dữ liệu đã chốt không bị ghi đè.</Paragraph></div></div><section className="panel settings-panel"><Tabs activeKey={activeTab} onChange={setActiveTab} items={[{ key: "parameters", label: "Tham số pháp lý", children: <LegalParametersPanel /> }, { key: "policies", label: "Chính sách chốt công", children: <PoliciesTab /> }]} /></section></div>;
 }
 
-function ParametersTab() {
-  const client = useQueryClient(); const [open, setOpen] = useState(false);
-  const [asOf, setAsOf] = useState(TODAY);
-  const parameters = useQuery({ queryKey: ["legal-parameters", asOf], queryFn: () => settingsApi.parameters({ asOf }) });
-  const create = useMutation({ mutationFn: settingsApi.createParameter, onSuccess: ({ parameter }) => { setAsOf(parameter.effectiveFrom); void client.invalidateQueries({ queryKey: ["legal-parameters"] }); setOpen(false); } });
-  return <div className="tab-stack"><div className="history-toolbar"><Space><label htmlFor="parameter-asof">Hiệu lực tại</label><Input id="parameter-asof" type="date" value={asOf} onChange={(event) => { if (dateIsReal(event.target.value)) setAsOf(event.target.value); }} /></Space><Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Thêm phiên bản</Button></div>{parameters.isError ? <ApiProblem title="Không tải được tham số pháp lý" error={parameters.error} /> : <Table<LegalParameter> rowKey="id" loading={parameters.isLoading} size="small" scroll={{ x: 1050 }} pagination={false} dataSource={parameters.data?.items ?? []} locale={{ emptyText: <Empty description="Chưa có tham số pháp lý" /> }} columns={[
-    { title: "Mã", dataIndex: "paramCode", width: 150 }, { title: "Phạm vi", dataIndex: "scopeKey", width: 150 }, { title: "Đối tượng", dataIndex: "subjectType", width: 150 }, { title: "Căn cứ", dataIndex: "applicationBasis", width: 130 }, { title: "Giá trị", dataIndex: "value", render: (value) => <Text code>{JSON.stringify(value)}</Text> }, { title: "Hiệu lực", key: "validity", width: 220, render: (_, item) => `${item.effectiveFrom} — ${item.effectiveTo ?? "mở"}` },
-  ]} />}{create.isError && <ApiProblem title="Không tạo được phiên bản tham số" error={create.error} />}<ParameterForm open={open} loading={create.isPending} onClose={() => setOpen(false)} onSubmit={(payload) => create.mutate(payload)} /></div>;
-}
 
-function ParameterForm({ open, loading, onClose, onSubmit }: { open: boolean; loading: boolean; onClose: () => void; onSubmit: (payload: Omit<LegalParameter, "id">) => void }) {
-  const [form] = Form.useForm();
-  return <Modal title="Thêm phiên bản tham số pháp lý" open={open} onCancel={onClose} footer={null} destroyOnHidden afterClose={() => form.resetFields()} width={700}>
-    <Form form={form} layout="vertical" requiredMark="optional" disabled={loading} onFinish={(values) => onSubmit({ ...values, paramCode: values.paramCode.trim(), scopeKey: values.scopeKey.trim(), subjectType: values.subjectType.trim(), unit: values.unit.trim(), legalBasis: values.legalBasis.trim(), value: parseParameterValue(values.value), ...(values.effectiveTo ? { effectiveTo: values.effectiveTo } : {}) })}>
-      <div className="form-grid"><Form.Item name="paramCode" label="Mã tham số" rules={[{ required: true, whitespace: true, message: "Nhập mã tham số." }]}><Input /></Form.Item><Form.Item name="scopeKey" label="Phạm vi" rules={[{ required: true, pattern: /^(GLOBAL|REGION:(I|II|III|IV)|SITE:[0-9a-f-]+)$/i, message: "Dùng GLOBAL, REGION:I–IV hoặc SITE:<UUID>." }]}><Input placeholder="GLOBAL" /></Form.Item><Form.Item name="subjectType" label="Đối tượng áp dụng" rules={[{ required: true, whitespace: true, message: "Nhập đối tượng áp dụng." }]}><Input /></Form.Item><Form.Item name="applicationBasis" label="Căn cứ áp dụng" rules={[{ required: true, message: "Chọn căn cứ." }]}><Select options={[{ value: "WORK_DATE", label: "Ngày công" }, { value: "TAX_YEAR", label: "Năm thuế" }, { value: "PAYMENT_DATE", label: "Ngày thanh toán" }]} /></Form.Item><Form.Item name="unit" label="Đơn vị tính" rules={[{ required: true, whitespace: true, message: "Nhập đơn vị tính." }]}><Input /></Form.Item><DateField name="effectiveFrom" label="Hiệu lực từ" /><DateField name="effectiveTo" label="Hiệu lực đến" required={false} /><DateField name="documentEffectiveDate" label="Ngày hiệu lực văn bản" /></div>
-      <Form.Item name="value" label="Giá trị JSON" rules={[{ required: true, whitespace: true, message: "Nhập giá trị JSON." }, { validator: (_: unknown, value?: string) => { try { parseParameterValue(value ?? ""); return Promise.resolve(); } catch { return Promise.reject(new Error("Giá trị phải là JSON hợp lệ.")); } } }]}><Input.TextArea rows={4} placeholder={'Ví dụ: 5310000 hoặc {"rate": "0.1"}'} /></Form.Item><Text type="secondary">Giá trị số được lưu dưới dạng chuỗi thập phân để giữ nguyên độ chính xác.</Text>
-      <Form.Item name="legalBasis" label="Căn cứ pháp lý" rules={[{ required: true, whitespace: true, message: "Nhập căn cứ pháp lý." }]}><Input.TextArea rows={2} /></Form.Item><Space className="modal-actions"><Button onClick={onClose}>Hủy</Button><Button type="primary" htmlType="submit" loading={loading}>Tạo phiên bản</Button></Space>
-    </Form>
-  </Modal>;
-}
+
+
 
 function PoliciesTab() {
   const client = useQueryClient(); const [open, setOpen] = useState(false);
@@ -321,7 +302,12 @@ function PoliciesTab() {
   const policies = useQuery({ queryKey: ["cutoff-policies", asOf], queryFn: () => settingsApi.policies({ asOf }) });
   const create = useMutation({ mutationFn: settingsApi.createPolicy, onSuccess: ({ policy }) => { setAsOf(policy.effectiveFrom); void client.invalidateQueries({ queryKey: ["cutoff-policies"] }); setOpen(false); } });
   return <div className="tab-stack"><div className="history-toolbar"><Space><label htmlFor="policy-asof">Hiệu lực tại</label><Input id="policy-asof" type="date" value={asOf} onChange={(event) => { if (dateIsReal(event.target.value)) setAsOf(event.target.value); }} /></Space><Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Thêm phiên bản</Button></div>{policies.isError ? <ApiProblem title="Không tải được chính sách chốt công" error={policies.error} /> : <Table<CutoffPolicy> rowKey="id" loading={policies.isLoading} size="small" scroll={{ x: 870 }} pagination={false} dataSource={policies.data?.items ?? []} locale={{ emptyText: <Empty description="Chưa có chính sách chốt công" /> }} columns={[
-    { title: "Đơn vị", dataIndex: "orgUnitId", render: (id: string) => context.data?.units.find(unit => unit.id === id)?.pathLabel ?? id }, { title: "Chính sách", dataIndex: "policyKey", width: 140 }, { title: "Ngày chốt", dataIndex: "value", width: 120, align: "right" }, { title: "Trạng thái", dataIndex: "status", width: 170, render: (value) => <Tag color={value === "BUSINESS_CONFIRMED" ? "success" : "gold"}>{value === "BUSINESS_CONFIRMED" ? "Đã xác nhận" : "Mô phỏng"}</Tag> }, { title: "Hiệu lực", key: "validity", width: 220, render: (_, item) => `${item.effectiveFrom} — ${item.effectiveTo ?? "mở"}` },
+    { title: "Đơn vị", dataIndex: "orgUnitId", render: (id: string) => context.data?.units.find(unit => unit.id === id)?.pathLabel ?? <><Text type="secondary">Chưa xác định tên đơn vị</Text><TechnicalDetails>{id}</TechnicalDetails></> },
+    { title: "Chính sách", width: 230, render: (_, item) => <><Text>Ngày chốt công hằng tháng</Text><TechnicalDetails><pre>{JSON.stringify(item, null, 2)}</pre></TechnicalDetails></> },
+    { title: "Ngày chốt", dataIndex: "value", width: 120, align: "right" },
+    { title: "Trạng thái", dataIndex: "status", width: 170, render: value => <Tag color={value === "BUSINESS_CONFIRMED" ? "success" : "gold"}>{value === "BUSINESS_CONFIRMED" ? "Đã xác nhận nghiệp vụ" : "Mô phỏng"}</Tag> },
+    { title: "Căn cứ", dataIndex: "decisionReference", width: 220 },
+    { title: "Hiệu lực", key: "validity", width: 220, render: (_, item) => `${item.effectiveFrom} — ${item.effectiveTo ?? "Không giới hạn ngày kết thúc"}` },
   ]} />}{create.isError && <ApiProblem title="Không tạo được chính sách" error={create.error} />}<PolicyForm open={open} loading={create.isPending} onClose={() => setOpen(false)} onSubmit={(payload) => create.mutate(payload)} /></div>;
 }
 
@@ -344,7 +330,7 @@ export function PeriodsPage({ user }: { user: AuthUser }) {
       { title: "Phạm vi", dataIndex: "scopeOrgUnitName" },
       { title: "Khoảng công", key: "dates", render: (_, item) => item.dateFrom + " — " + item.dateTo },
       { title: "Ngày chốt", dataIndex: "cutoffDay", align: "right", width: 110 },
-      { title: "Trạng thái", dataIndex: "status", width: 130, render: (status) => <Tag color={status === "OPEN" ? "success" : status === "PLANNED" ? "gold" : "default"}>{status}</Tag> },
+      { title: "Trạng thái", dataIndex: "status", width: 150, render: (status: string) => <><Tag color={status === "OPEN" ? "success" : status === "PLANNED" ? "gold" : "default"}>{({ OPEN: "Đang mở", PLANNED: "Chưa mở", CLOSED: "Đã chốt", LOCKED: "Đã khóa" } as Record<string, string>)[status] ?? "Cần kiểm tra trạng thái"}</Tag>{!["OPEN", "PLANNED", "CLOSED", "LOCKED"].includes(status) && <TechnicalDetails>{status}</TechnicalDetails>}</> },
       { title: "Phiên bản", dataIndex: "revision", align: "right", width: 100 },
       ...(canManage ? [{ title: "Thao tác", key: "action", width: 130, render: (_: unknown, item: AttendancePeriod) => item.status === "PLANNED" ? <Button size="small" loading={openPeriod.isPending && openPeriod.variables?.id === item.id} onClick={() => openPeriod.mutate(item)}>Mở kỳ</Button> : "—" }] : []),
     ]} />}</section>{openPeriod.isError && <ApiProblem title="Không thể mở kỳ công" error={openPeriod.error} />}<CreatePeriod open={createOpen} onClose={() => setCreateOpen(false)} /></div>;

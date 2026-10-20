@@ -79,6 +79,8 @@ model OrgUnit {
   correctionItems AttendanceCorrectionItem[]
   leaveTypes LeaveType[]
   leavePolicies LeavePolicy[]
+  sourceCoverage AttendanceSourceCoverage[]
+  teamConfirmations AttendanceTeamConfirmation[]
   @@map("org_unit")
 }
 
@@ -207,6 +209,8 @@ model UserAccount {
   leaveOperations LeaveOperation[]
   leaveRequests LeaveRequest[]
   leaveRequestHistory LeaveRequestHistory[]
+  sourceCoverage AttendanceSourceCoverage[]
+  teamConfirmations AttendanceTeamConfirmation[]
   @@map("user_account")
 }
 
@@ -356,6 +360,8 @@ model BusinessPeriod {
   overtimeActuals OvertimeActual[]
   corrections AttendanceCorrection[]
   correctionItems AttendanceCorrectionItem[]
+  sourceCoverage AttendanceSourceCoverage[]
+  teamConfirmations AttendanceTeamConfirmation[]
   @@unique([code])
   @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
   @@map("business_period")
@@ -982,3 +988,40 @@ model LeaveRequestHistory {
   @@map("leave_request_history")
 }
 
+model AttendanceSourceCoverage {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  revision Int
+  sourceHash String @map("source_hash") @db.Char(64)
+  coveredFrom DateTime @map("covered_from") @db.Timestamptz(3)
+  coveredUntil DateTime @map("covered_until") @db.Timestamptz(3)
+  reference String @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  batchIds String[] @map("batch_ids") @db.Uuid
+  snapshot Json
+  actorId String @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, teamOrgUnitId, revision])
+  @@map("attendance_source_coverage")
+}
+
+model AttendanceTeamConfirmation {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  revision Int
+  sourceHash String @map("source_hash") @db.Char(64)
+  snapshot Json
+  note String @db.VarChar(2000)
+  actorId String @map("actor_id") @db.Uuid
+  confirmedAt DateTime @default(now()) @map("confirmed_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, teamOrgUnitId, revision])
+  @@map("attendance_team_confirmation")
+}

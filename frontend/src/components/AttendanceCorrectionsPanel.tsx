@@ -429,22 +429,20 @@ export function AttendanceCorrectionsPanel({
     queryFn: () => correctionsApi.list({ periodId, orgUnitId, search: localSearch || undefined, status, page, pageSize: PAGE_SIZE }),
   });
 
-  useEffect(() => {
-    if (!focusCorrectionId) return;
-    setLocalSearch(focusCorrectionId);
-    setStatus(undefined);
-    setPage(1);
-  }, [focusCorrectionId]);
+  const focused = useQuery({
+    queryKey: ["attendance-corrections", "detail", focusCorrectionId],
+    queryFn: () => correctionsApi.detail(focusCorrectionId!),
+    enabled: Boolean(focusCorrectionId),
+    staleTime: 0,
+  });
   useEffect(() => {
     setPage(1);
   }, [periodId, orgUnitId, localSearch, status]);
   useEffect(() => {
-    if (!focusCorrectionId || !corrections.data) return;
-    const found = corrections.data.items.find(correction => correction.id === focusCorrectionId);
-    if (!found) return;
-    setSelected(found);
+    if (!focusCorrectionId || !focused.isSuccess || focused.isFetching) return;
+    setSelected(focused.data.correction);
     onFocusHandled?.();
-  }, [corrections.data, focusCorrectionId, onFocusHandled]);
+  }, [focused.data, focused.isSuccess, focused.isFetching, focusCorrectionId, onFocusHandled]);
 
   const updateLocal = (correction: Correction) => {
     setSelected(correction);
@@ -472,6 +470,8 @@ export function AttendanceCorrectionsPanel({
       {canExplain && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Lập giải trình</Button>}
     </div>
     {corrections.isError && <Alert type="error" showIcon message="Không tải được danh sách giải trình" description={errorMessage(corrections.error)} />}
+    {focusCorrectionId && focused.isFetching && <div className="workspace-loading"><Spin /> Đang mở hồ sơ giải trình…</div>}
+    {focusCorrectionId && focused.isError && <Alert type="error" showIcon message="Không mở được hồ sơ giải trình" description={errorMessage(focused.error)} />}
     {corrections.isLoading ? <div className="attendance-workspace"><Spin /></div> : !corrections.isError && !corrections.data?.items.length ? <Empty description="Không có giải trình phù hợp." /> : <>
       <div className="table-panel attendance-table">
         <Table<Correction> rowKey="id" components={{ body: { wrapper: TableBody } }} columns={columns} dataSource={corrections.data?.items ?? []} loading={corrections.isFetching} pagination={false} scroll={{ x: 1280 }} onRow={correction => ({ className: "clickable-row", onClick: () => setSelected(correction) })} />

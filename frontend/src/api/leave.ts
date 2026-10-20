@@ -2,8 +2,8 @@ import { api } from "./client";
 
 export type LeaveStatus = "SIMULATION" | "BUSINESS_CONFIRMED";
 export type WorkingCondition = "NORMAL" | "HAZARDOUS" | "EXTREME";
-export type LeaveLedgerKind = "ENTITLEMENT" | "RECALCULATION" | "ADJUSTMENT" | "CARRY_IN" | "CARRY_OUT" | "ADVANCE_IN" | "ADVANCE_OUT";
-export type LeaveBucket = "ANNUAL" | "CARRY" | "ADVANCE";
+export type LeaveLedgerKind = "ENTITLEMENT" | "RECALCULATION" | "ADJUSTMENT" | "CARRY_IN" | "CARRY_OUT" | "ADVANCE_IN" | "ADVANCE_OUT" | "USE" | "REFUND" | "EXPIRE" | "RECONCILIATION" | (string & {});
+export type LeaveBucket = "ANNUAL" | "CARRY" | "ADVANCE" | (string & {});
 
 export interface LeaveUnit {
   id: string;
@@ -80,6 +80,35 @@ export interface LeaveEmployee {
   status: string;
   orgUnit: { id: string; code: string; name: string };
 }
+export interface LeaveEntitlementMonth {
+  month: number;
+  policyVersionId: string;
+  policyOrgUnitId: string;
+  status: string;
+  decisionReference: string;
+  normalDays: number;
+  hazardousDays: number;
+  extremeDays: number;
+  baseDays: number;
+  seniorityDays: number;
+}
+
+export interface LeaveEntitlementCalculation {
+  year: number;
+  effectiveDate: string;
+  hireDate: string;
+  terminationDate: string | null;
+  serviceAsOf: string;
+  serviceYears: number;
+  seniorityDays: number;
+  workingCondition: WorkingCondition;
+  eligibleMonths: number[];
+  months: LeaveEntitlementMonth[];
+  entitledDays: string;
+  accessDates: string[];
+  precision: string;
+  qualificationSource: string;
+}
 
 export interface LeaveLedgerEntry {
   id: string;
@@ -117,7 +146,7 @@ export interface LeaveBalanceView {
   availableDays: string;
   expiredCarryDays: string;
   reconciliationDays: string;
-  calculation: Record<string, unknown> | null;
+  calculation: LeaveEntitlementCalculation | null;
   entries: LeaveLedgerEntry[];
 }
 

@@ -34,6 +34,14 @@ Nguồn công giữ đơn/revision, ca, phiên bản loại nghỉ và lịch l�
 từ nghỉ tách khỏi phút làm thực tế. Chi tiết đơn phản ánh trạng thái công hiện tại,
 lịch sử quyết định vẫn bất biến. Hợp đồng tại [20 §7.19](20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
 
+**Hiện thực xác nhận công tổ local:** migration `20261019150000_team_confirmation`
+thêm `attendance_source_coverage` (AD, file/chứng từ, khoảng bao phủ, batch IDs,
+hash nguồn thu) và `attendance_team_confirmation` (bảng vật lý triển khai thực thể logic `team_timesheet_confirmation`: TT, hash nguồn công, snapshot,
+người/thời điểm/ghi chú). Mỗi bảng unique theo kỳ + tổ + revision; trigger bảo vệ
+thứ tự phiên bản, kỳ OPEN và cấm sửa/xóa/truncate. Trạng thái WAITING/CONFIRMED/STALE
+được suy từ nguồn hiện tại, không ghi đè snapshot cũ. Xác nhận tổ không chuyển
+kỳ sang CLOSED/LOCKED và chưa tạo bảng công xưởng/nguồn lương đã khóa.
+
 ---
 
 ## 1. ERD tổng quan
@@ -50,7 +58,7 @@ một, `|{` một hoặc nhiều, `o{` không hoặc nhiều.
 | G1 Quản trị hệ thống | `CoSo` → `site` · `VungLuong` → `wage_region` · `DonViPhongBan` → `org_unit` · `TaiKhoan` → `user_account` · `VaiTro` → `role` · `PhanQuyen` → `role_assignment` · `ChinhSachCoSo` → `site_policy` · `ThamSoPhapLy` → `legal_parameter` · `KyNghiepVu` → `business_period` · `NhatKyKiemToan` → `audit_log` |
 | G2 Hồ sơ và hợp đồng | `NhanVien` → `employee` · `NguoiPhuThuoc` → `dependent` · `HopDongLaoDong` → `labor_contract` · `PhuLucHopDong` → `contract_annex` · `QuyetDinhThayDoiLuong` → `salary_decision` · `QuyetDinhChamDut` → `termination_decision` |
 | G3 Ca làm việc | `CaLamViec` → `shift_definition` · `NgayNghiLe` → `holiday_calendar` · `MauXoayCa` → `rotation_pattern` · `LichPhanCa` → `shift_schedule` · `DeXuatDoiCa` → `shift_change_request` |
-| G4 Chấm công | `LoNhapChamCong` → `punch_import_batch` · `DuLieuChamCongTho` → `raw_punch` · `ChiTietCongNgay` → `daily_attendance` · `GiaiTrinhNgoaiLe` → `attendance_exception` · `XacNhanCongTo` → `team_timesheet_confirmation` · `BangChamCongThang` → `monthly_timesheet` |
+| G4 Chấm công | `LoNhapChamCong` → `punch_import_batch` · `DuLieuChamCongTho` → `raw_punch` · `ChiTietCongNgay` → `daily_attendance` · `GiaiTrinhNgoaiLe` → `attendance_exception` · `XacNhanCongTo` → `team_timesheet_confirmation` (local: `attendance_team_confirmation`) · `BangChamCongThang` → `monthly_timesheet` |
 | G5 Làm thêm giờ | `DeXuatOT` → `ot_request` · `ChiTietDeXuatOT` → `ot_request_line` · `TranOT` → `ot_cap` · `GioOTThucTe` → `ot_actual` · `QuyDoiNghiBu` → `comp_time_conversion` |
 | G6 Nghỉ phép và chế độ | `LoaiNghi` → `leave_type` · `QuyPhepNam` → `annual_leave_balance` · `DonNghi` → `leave_request` · `HoSoOmDauThaiSan` → `sickness_maternity_record` |
 | G7 Tính lương và thưởng | `CoCauLuong` → `salary_structure` · `CongThucLuong` → `component_formula` · `KhoanThuong` → `bonus` · `BangLuongThang` → `payroll_sheet` · `ChiTietLuongNhanVien` → `payroll_employee` · `KhoanMucLuong` → `payroll_line` · `ButToanDieuChinh` → `payroll_adjustment` · `PhieuLuong` → `payslip` |
@@ -286,7 +294,8 @@ Bảng phụ trợ **`attendance_hour_segment`** (`daily_attendance_id`, `segmen
 | Bảng | Trường chính | Ghi chú |
 |---|---|---|
 | `attendance_exception` | `daily_attendance_id` · `exception_type` (`MISSING_PUNCH` / `LATE` / `EARLY_LEAVE` / `FIELD_WORK` / `DEVICE_FAILURE` / `OT_MISMATCH`) · `reason` · `evidence_attachment_id` · `old_value` / `new_value` · `entered_by` (TT) · `entered_at` | Mỗi điều chỉnh ghi `audit_log` |
-| `team_timesheet_confirmation` | `monthly_timesheet_id` · `team_org_unit_id` · `confirmed_by` (TT) · `confirmed_at` · `status` | Chức năng 4.4 |
+| `team_timesheet_confirmation` (local: `attendance_team_confirmation`) | `period_id` · `team_org_unit_id` · `revision` · `source_hash` · `snapshot` · `actor_id` (TT) · `confirmed_at` · `note` | Xác nhận 4.4; snapshot bất biến, hiệu lực đối chiếu nguồn hiện tại; tên logic và bảng vật lý là cùng một thực thể |
+| `attendance_source_coverage` | `period_id` · `team_org_unit_id` · `revision` · `source_hash` · `covered_from` / `covered_until` · `reference` · `reason` · `batch_ids` · `snapshot` · `actor_id` (AD) · `created_at` | Bằng chứng đủ nguồn; không suy từ timestamp lớn nhất |
 | `monthly_timesheet` | `attendance_period_id` · `workshop_org_unit_id` · `total_workdays` · `total_ot_hours` · `status` (`DRAFT` / `TEAM_CONFIRMED` / `WORKSHOP_CLOSED` / `LOCKED`) · `closed_by` (QĐ) · `locked_by` (KT) | Bốn trạng thái |
 
 Tầng 3 **`attendance_snapshot`** (`attendance_period_id`, `content` json, `content_hash`,

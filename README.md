@@ -68,9 +68,10 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Đối chiếu OT thực tế | Đề nghị/đã duyệt/thực tế/đủ điều kiện; ca đêm nối OT, tách ngày lịch/giờ ngày–đêm, ngoại lệ và nguồn quẹt; bảo vệ kỳ đóng/khóa |
 | Giải trình & điều chỉnh | TT lập/gửi lý do và bằng chứng, QĐ duyệt/trả lại/từ chối; sự cố nhiều người, snapshot trước/sau, tính lại công/OT không sửa lượt quẹt gốc |
 | Loại nghỉ & quỹ phép | Danh mục/chính sách hiệu lực; KT tính/chuyển/ứng/điều chỉnh; TT lập/gửi/duyệt một cấp; USE/REFUND bất biến, lịch lễ và ký hiệu nghỉ trên công, truy vết nguồn và chạy lại không mất hiệu lực |
+| Xác nhận công tổ | Rà soát công/OT/nghỉ/giải trình, AD xác nhận đủ nguồn bằng file/chứng từ và khoảng bao phủ; TT xác nhận theo hash nguồn, lịch sử bất biến và phát hiện nguồn đổi |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
-**Chưa triển khai:** tiền OT, chế độ BHXH và thanh toán phép khi nghỉ việc, xác nhận/chốt công, API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Các nội dung chưa triển khai không được xem là chức năng đang hoạt động.
+**Chưa triển khai:** tiền OT, chế độ BHXH và thanh toán phép khi nghỉ việc, QĐ chốt công xưởng, KT khóa công và API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Các nội dung chưa triển khai không được xem là chức năng đang hoạt động.
 
 ### Nguyên tắc xử lý chấm công
 
@@ -336,12 +337,17 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | `verify:corrections` | Quyền/phạm vi/loại trừ, bằng chứng, khóa kỳ/ca đêm, bulk nguyên tử, trả lại/từ chối, duyệt cạnh tranh, nguồn đổi, công/OT và log gốc | 7/7 |
 | `verify:leave` | Danh mục/chính sách có hiệu lực, quyền theo khoảng, tính quỹ/0 tháng/thâm niên, idempotency/revision, chuyển/hết hạn/ứng phép, ledger và seed bất biến | 20/20 |
 | `verify:leave-requests` | Vòng đời/quyền/ca đêm; USE/REFUND theo nguồn/hạn; 5 ngày có 1 lễ chỉ trừ 4; nửa ca và quẹt chiều; chạy lại; chờ kỳ mở; hủy riêng một nguồn; tranh số dư và kỳ chốt | 19/19 |
+| `verify:team-confirmation` | Đủ nguồn AD, ca đêm, quyền TT, cảnh báo, snapshot bất biến, cạnh tranh, loại trừ/ngày nguồn, nguồn đổi và kỳ đóng/khóa | 8/8 |
 
-Hồi quy toàn backend sau phần 3 đơn nghỉ đạt **154/154**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
+Hồi quy toàn backend sau xác nhận công tổ đạt **162/162**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
 
 Browser đã chạy AD tạo loại nghỉ/chính sách và phiên bản kế tiếp; KT tính quỹ, điều chỉnh, ứng trước và xem ledger. Drawer desktop/390px không tràn trang; cuộn bảng bằng bàn phím hoạt động, axe không phát hiện lỗi tự động trên các drawer đã kiểm tra (vẫn có mục cần đánh giá thủ công). Đây là kết quả local, **không phải CI hoặc chứng nhận UAT toàn R1**. Xem [20 §7.16](docs/20-tech-stack-va-moi-truong-phat-trien.md#716-loại-nghỉ-chính-sách-và-quỹ-phép-năm).
 
 **Đơn nghỉ:** vào `#/leave` → **Đơn nghỉ**, đăng nhập `tt.bn` → lập/lưu nháp → gửi → duyệt một cấp, trả lại, từ chối hoặc hủy. Duyệt ghi USE khi loại nghỉ trừ quỹ, ngày lễ L không trừ phép năm; hủy đã duyệt hoàn đúng nguồn/hạn và tính lại công. Drawer hiện số bút toán, ngày công và trạng thái chờ kỳ mở/xử lý; bảng công có ký hiệu, thời lượng và nguồn đơn/phiên bản/lịch lễ. Browser đã chạy BN00004 ca đêm 18/10, 120 phút/0,25 ngày, duyệt → xem quỹ/công → hủy; giữ 480 phút làm thực tế, báo trùng giờ làm/nghỉ rồi gỡ riêng ảnh hưởng đơn. Desktop/390px có 0 lỗi axe tự động trên drawer đã kiểm tra, còn mục cần đánh giá thủ công. Xem [20 §7.19](docs/20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
+
+**Xác nhận công tổ:** vào `#/attendance` → chọn địa điểm/kỳ → **Xác nhận tổ** → chọn tổ. AD đối chiếu cửa sổ thu log, lô tệp/chứng từ và ghi **Xác nhận đủ nguồn**; TT rà soát công, OT, nghỉ, giải trình và cảnh báo rồi xác nhận theo hash hiện hành. Lưu người, thời điểm, revision và snapshot bất biến; nguồn đổi chuyển **Đã lỗi thời**, giữ lịch sử và yêu cầu rà soát lại. Browser đã chạy AD → TT revision 1 → tải lại còn lịch sử → đổi căn cứ nguồn → lỗi thời → TT revision 2; hồ sơ giải trình nháp hiện lý do/chứng từ và chặn xác nhận, QĐ chỉ đọc. Desktop/390px không tràn trang, dropdown mở và các bề mặt đã audit có 0 lỗi axe tự động (còn mục cần đánh giá thủ công). Xem [20 §7.20](docs/20-tech-stack-va-moi-truong-phat-trien.md#720-xác-nhận-công-tổ). Chưa triển khai QĐ chốt phân xưởng/KT khóa kỳ.
+
+**Giao diện nghiệp vụ:** xác nhận tổ hiển thị việc cần xử lý, người phụ trách, nhân viên/ngày công và liên kết tra cứu; UUID, hash, mã lỗi và dữ liệu gốc nằm trong mục **Chi tiết kỹ thuật** mặc định đóng. Chi tiết ngày công/lượt quẹt hiện tên tệp và dòng nguồn; OT có bảng quy tắc và liên kết công/lượt quẹt/giải trình. Quỹ phép có bảng cách tính theo tháng và tên nghiệp vụ sổ quỹ. Thiết lập dùng tên tham số, tên cơ sở/vùng và trường số/ngày/văn bản/danh sách ngày nghỉ; JSON chỉ thuộc thiết lập nâng cao. Kỳ công dùng Đang mở/Chưa mở/Đã chốt/Đã khóa; lịch sử OT dùng Bản lưu lịch sử/Phiên bản. Lỗi lưu hiện ngay trong biểu mẫu bằng tiếng Việt, giữ thông điệp gốc trong phần kỹ thuật. Xem [20 §7.21](docs/20-tech-stack-va-moi-truong-phat-trien.md#721-chuẩn-hóa-giao-diện-nghiệp-vụ).
 
 Kiểm tra tính nhất quán của **đặc tả** độc lập với kiểm thử ứng dụng; cần Python 3:
 

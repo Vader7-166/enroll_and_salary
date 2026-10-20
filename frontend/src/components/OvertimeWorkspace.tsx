@@ -176,10 +176,10 @@ function RequestDetail({ id, user, canApprove, onClose, onEdit }: { id: string; 
     { title: "Người thực hiện", dataIndex: ["actor", "displayName"] },
     { title: "Trạng thái", render: (_, row) => <>{row.fromStatus && <Tag color={statusColors[row.fromStatus]}>{statusLabels[row.fromStatus]}</Tag>} → <Tag color={statusColors[row.toStatus]}>{statusLabels[row.toStatus]}</Tag></> },
     { title: "Lý do", dataIndex: "reason", ellipsis: true },
-    { title: "Snapshot", width: 110, render: (_, row) => <Button type="link" onClick={() => { setSnapshot(row.snapshot); setDetailTab("summary"); }}>Xem bản ghi</Button> },
+    { title: "Bản lưu lịch sử", width: 145, render: (_, row) => <Button type="link" onClick={() => { setSnapshot(row.snapshot); setDetailTab("summary"); }}>Xem phiên bản {row.revision}</Button> },
   ];
   const summary = <>
-    {snapshot && <Alert className="overtime-feedback" type="info" showIcon message="Đang xem snapshot lịch sử" action={<Button size="small" onClick={() => setSnapshot(null)}>Về bản hiện tại</Button>} />}
+    {snapshot && <Alert className="overtime-feedback" type="info" showIcon message={`Đang xem bản lưu lịch sử — phiên bản ${snapshot.revision}`} action={<Button size="small" onClick={() => setSnapshot(null)}>Về bản hiện tại</Button>} />}
     <Descriptions bordered size="small" column={{ xs: 1, md: 2 }}>
       <Descriptions.Item label="Trạng thái"><Tag color={statusColors[current.status]}>{statusLabels[current.status]}</Tag></Descriptions.Item>
       <Descriptions.Item label="Phiên bản">{current.revision}</Descriptions.Item>

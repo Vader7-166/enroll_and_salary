@@ -7,5 +7,8 @@ import { AttendanceController } from "./attendance.controller";
 import { AttendanceService } from "./attendance.service";
 import { CorrectionsController } from "./corrections.controller";
 import { CorrectionsService } from "./corrections.service";
-@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController, CorrectionsController], providers: [AttendanceService, CorrectionsService, ScopeService], exports: [AttendanceService] })
+import { LeaveAccessService } from "../leave/leave-access.service";
+import { TeamConfirmationController } from "./team-confirmation.controller";
+import { TeamConfirmationService } from "./team-confirmation.service";
+@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController, CorrectionsController, TeamConfirmationController], providers: [AttendanceService, CorrectionsService, TeamConfirmationService, LeaveAccessService, ScopeService], exports: [AttendanceService] })
 export class AttendanceModule {}

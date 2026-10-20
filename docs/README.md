@@ -12,7 +12,7 @@ pháp lý gốc trong thư mục [`KhaoSat/`](KhaoSat).
 | Tác nhân hệ thống | **4**: Tổ trưởng (TT) · Quản đốc (QĐ) · Kế toán (KT) · Admin (AD). Công nhân là đối tượng dữ liệu, không đăng nhập |
 | Chuẩn pháp lý áp dụng | BLLĐ 2019; NĐ 145/2020/NĐ-CP; NĐ 293/2025/NĐ-CP; NĐ 283/2026/NĐ-CP; NĐ 13/2023/NĐ-CP; Luật Thuế TNCN 109/2025/QH15; NQ 110/2025/UBTVQH15; NĐ 253/2026/NĐ-CP; TT 111/2013 và NQ 954/2020 cho bộ thuế lịch sử 2025 |
 | Kỳ áp dụng | Từ kỳ lương 2026 |
-| Phiên bản tài liệu | 2.23 |
+| Phiên bản tài liệu | 2.25 |
 
 **Tech stack đã chốt (TECH-01):** React + TypeScript + Vite, Ant Design, TanStack Query;
 NestJS + TypeScript; PostgreSQL + Prisma; Decimal.js. Kiến trúc modular monolith,
@@ -26,9 +26,9 @@ trả lại/từ chối/hủy, hạn mức và snapshot lịch sử; đối chi�
 ngoại lệ, ca qua ngày và nguồn quẹt; giải trình/điều chỉnh TT–QĐ, bằng chứng, sự cố
 nhiều người và snapshot trước/sau; danh mục/chính sách nghỉ có hiệu lực, quỹ phép,
 chuyển/ứng/điều chỉnh với sổ bất biến; TT lập/gửi/duyệt một cấp/trả lại/từ chối/hủy
-đơn nghỉ, tích hợp USE/REFUND và ký hiệu công/ngày lễ; health PostgreSQL thật.
+đơn nghỉ, tích hợp USE/REFUND và ký hiệu công/ngày lễ; AD ghi căn cứ đủ nguồn, TT rà soát/xác nhận công tổ và lịch sử bất biến; health PostgreSQL thật.
 Hướng dẫn cài/chạy, khóa mã hóa và tài khoản demo tại [20 §7](20-tech-stack-va-moi-truong-phat-trien.md#7-chạy-môi-trường-demo-local). Chưa có tiền OT,
-chế độ BHXH, thanh toán phép khi nghỉ việc, xác nhận/chốt công, tính lương, API chốt/khóa kỳ hoặc AI;
+chế độ BHXH, thanh toán phép khi nghỉ việc, QĐ chốt công/KT khóa kỳ, tính lương hoặc AI;
 không đổi nghiệm thu lõi, không commit/đổi nhánh.
 **Dữ liệu local:** bộ doanh nghiệp giả lập 2.200 nhân sự theo cơ cấu bốn cơ sở;
 có chức danh, hợp đồng/lương mã hóa, phụ lục và điều chuyển. Giữ hồ sơ đã nhập,
@@ -199,6 +199,8 @@ bộ tài liệu này:
 
 | Phiên bản | Nội dung |
 |---|---|
+| 2.26 | Chuẩn hóa giao diện nghiệp vụ công/OT/xác nhận tổ, quỹ phép và thiết lập: cảnh báo có người/ngày/việc cần làm, truy vết tệp và hồ sơ, bảng quy tắc/cách tính/sổ quỹ; tham số theo tên/phạm vi và kiểu nhập. Mã nội bộ/UUID/hash/JSON chuyển vào chi tiết kỹ thuật mặc định đóng; thống nhất Phiên bản/Bản lưu lịch sử/trạng thái kỳ và lỗi tiếng Việt. Sửa mở giải trình bằng API chi tiết, thêm/xóa ngày lễ và tràn bảng thiết lập 390px. Hồi quy backend 162/162; browser AD/TT/QĐ/KT và kiểm tra accessibility cục bộ. Giữ nguyên quy tắc tính, quyền và lịch sử; chưa triển khai QĐ chốt/KT khóa kỳ. Xem 20 §7.21 |
+| 2.25 | Triển khai TT xác nhận công tổ: rà soát công/OT/nghỉ/giải trình và cảnh báo, AD chứng thực đủ cửa sổ nguồn/lô tệp; lưu người, thời điểm, revision, hash và snapshot bất biến. Kiểm tra quyền/ngày nguồn/ca đêm, chống xác nhận cạnh tranh và bản lỗi thời; nguồn đổi giữ lịch sử, buộc rà soát lại. HTTP/PostgreSQL 8/8, toàn backend 162/162; browser AD→TT hai phiên bản, hồ sơ chặn và QĐ chỉ đọc, desktop/390px và dropdown mở không lỗi axe tự động. Chưa triển khai QĐ chốt/KT khóa kỳ. Xem 20 §7.20 |
 | 2.24 | Hoàn thành phần 1–3 đơn nghỉ: lập/sửa/gửi và duyệt một cấp TT; trả lại/từ chối/hủy; USE/REFUND theo nguồn/hạn nguyên tử với trạng thái, công, lịch sử và audit. Lịch lễ có hiệu lực không trừ phép năm, ký hiệu/công nghỉ tách phút làm thực tế; chạy lại giữ nguồn, chờ kỳ mở và hủy riêng từng đơn. Migration chặn APPROVED cũ chưa đối soát, lịch lễ 2026 mô phỏng. HTTP/PostgreSQL đơn nghỉ 19/19, toàn backend 154/154; UI TT desktop/390px và truy vết thực tế. Chưa tính BHXH/thanh toán phép/tiền lương. Xem 20 §7.19 |
 | 2.23 | Hoàn thành subtask 1–2 nghỉ phép: danh mục và chính sách phiên bản theo ngày hiệu lực; KT xác nhận tháng đủ điều kiện, định mức/thâm niên, tính lại không cấp trùng, điều chỉnh/chuyển/ứng phép đối ứng nguyên tử. Ledger/snapshot bất biến, hạn chuyển và đối soát không xóa quyền; quyền theo toàn khoảng và lịch sử, revision/idempotency/audit. Migration giữ dữ liệu cũ, bootstrap mô phỏng và seed lặp an toàn. Kiểm chứng nghỉ phép 20/20, toàn backend 135/135, browser AD/KT desktop/390px và cuộn bàn phím. Chưa triển khai đơn nghỉ, duyệt nghỉ, tích hợp công hoặc chi trả. Xem 20 §7.16 |
 | 2.22 | Triển khai giải trình/điều chỉnh công TT–QĐ: lý do/bằng chứng bảo mật, bulk cùng sự cố nguyên tử, trả lại/sửa/gửi lại/từ chối, snapshot/lịch sử, revision và nguồn lỗi thời. Duyệt tính lại công/OT, xử lý lại vẫn giữ hiệu lực; không sửa quẹt gốc hoặc tạo quyền OT. Bảo vệ kỳ nguồn/đích/cấp cha và phạm vi theo ngày; sửa tra cứu cấp cha khi người duyệt chỉ có phạm vi phân xưởng. HTTP/PostgreSQL giải trình 7/7; browser desktop/390px. Xem 20 §7.15 |

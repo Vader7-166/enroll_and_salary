@@ -7,9 +7,10 @@ import type { HTMLAttributes } from "react";
 import type { TableProps } from "antd";
 import { ApiError, errorMessage } from "../api/client";
 import { leaveApi } from "../api/leave";
-import type { LeaveBalanceAction, LeaveBalanceView, LeaveEmployee, LeaveLedgerEntry, LeavePolicyHeader, LeavePolicyVersion, LeaveStatus, LeaveTypeHeader, LeaveTypeVersion, LeaveUnit, WorkingCondition } from "../api/leave";
+import type { LeaveBalanceAction, LeaveBalanceView, LeaveEmployee, LeaveEntitlementCalculation, LeaveLedgerEntry, LeavePolicyHeader, LeavePolicyVersion, LeaveStatus, LeaveTypeHeader, LeaveTypeVersion, LeaveUnit, WorkingCondition } from "../api/leave";
 import type { AuthUser } from "../api/hrtp";
 import { LeaveRequestsWorkspace } from "./LeaveRequestsWorkspace";
+import { TechnicalDetails } from "./TechnicalDetails";
 
 const { Title, Paragraph, Text } = Typography;
 const required = [{ required: true, whitespace: true, message: "Trường này là bắt buộc." }];
@@ -56,6 +57,74 @@ function statusTag(status: LeaveStatus) {
 function decimal(value: string | null | undefined): string {
   if (value === null || value === undefined || value === "") return "—";
   return Number(value).toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+const ledgerKindLabels: Record<string, string> = {
+  ENTITLEMENT: "Cấp phép năm",
+  RECALCULATION: "Tính lại quỹ phép",
+  ADJUSTMENT: "Điều chỉnh quỹ",
+  CARRY_IN: "Nhận phép chuyển",
+  CARRY_OUT: "Chuyển phép sang năm sau",
+  ADVANCE_IN: "Ghi nhận phép ứng",
+  ADVANCE_OUT: "Khấu trừ phép đã ứng",
+  USE: "Trừ quỹ theo đơn nghỉ",
+  REFUND: "Hoàn quỹ từ đơn nghỉ",
+  EXPIRE: "Hết hạn",
+  RECONCILIATION: "Đối soát",
+};
+const ledgerBucketLabels: Record<string, string> = {
+  ANNUAL: "Phép năm",
+  CARRY: "Phép chuyển",
+  ADVANCE: "Phép ứng",
+};
+const workingConditionLabels: Record<WorkingCondition, string> = {
+  NORMAL: "Điều kiện bình thường",
+  HAZARDOUS: "Nặng nhọc, độc hại, nguy hiểm",
+  EXTREME: "Đặc biệt nặng nhọc, độc hại, nguy hiểm",
+};
+
+function TechnicalJson({ title, value }: { title: string; value: unknown }) {
+  return <TechnicalDetails title={title}><pre>{JSON.stringify(value, null, 2)}</pre></TechnicalDetails>;
+}
+
+function ledgerLabel(value: string, labels: Record<string, string>, rawTitle: string) {
+  const label = labels[value];
+  return label ?? <><Text type="secondary">Chưa phân loại</Text><TechnicalJson title={rawTitle} value={value} /></>;
+}
+
+function requestReference(entry: LeaveLedgerEntry) {
+  const snapshotRequestId = typeof entry.operation.snapshot.requestId === "string" ? entry.operation.snapshot.requestId : undefined;
+  const referenceRequestId = /^Đơn nghỉ\s+(.+)$/u.exec(entry.operation.reference)?.[1];
+  const requestId = snapshotRequestId ?? referenceRequestId;
+  if (!requestId) return entry.operation.reference;
+  return <><Text>Đơn nghỉ</Text><TechnicalJson title="Mã đơn nghỉ" value={{ requestId }} /></>;
+}
+
+function CalculationView({ calculation }: { calculation: LeaveEntitlementCalculation | null }) {
+  if (!calculation) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có lần tính quỹ" />;
+  const rounding = calculation.precision === "HALF_UP_2_DECIMALS" ? "Làm tròn nửa lên đến 2 chữ số thập phân" : calculation.precision;
+  return <section className="leave-calculation">
+    <Title level={3}>Cách tính quỹ</Title>
+    <Descriptions bordered size="small" column={{ xs: 1, sm: 2, lg: 3 }}>
+      <Descriptions.Item label="Năm quỹ">{calculation.year}</Descriptions.Item>
+      <Descriptions.Item label="Ngày tính">{calculation.effectiveDate}</Descriptions.Item>
+      <Descriptions.Item label="Điều kiện làm việc">{workingConditionLabels[calculation.workingCondition] ?? calculation.workingCondition}</Descriptions.Item>
+      <Descriptions.Item label="Tháng đủ điều kiện">{calculation.eligibleMonths.length}</Descriptions.Item>
+      <Descriptions.Item label="Tổng ngày phép">{decimal(calculation.entitledDays)}</Descriptions.Item>
+      <Descriptions.Item label="Cách làm tròn">{rounding || "—"}</Descriptions.Item>
+      <Descriptions.Item label="Thời điểm chốt thâm niên">{calculation.serviceAsOf}</Descriptions.Item>
+      <Descriptions.Item label="Thâm niên đã hoàn thành">{calculation.serviceYears} năm</Descriptions.Item>
+      <Descriptions.Item label="Cộng thâm niên">{calculation.seniorityDays} ngày/năm</Descriptions.Item>
+    </Descriptions>
+    <Title level={4}>Các tháng được ghi nhận</Title>
+    <Table rowKey={(row) => String(calculation.year) + "-" + row.month + "-" + row.policyVersionId} size="small" pagination={false} scroll={{ x: 880 }} dataSource={calculation.months} locale={{ emptyText: <Empty description="Chưa có tháng đủ điều kiện được ghi nhận" /> }} columns={[
+      { title: "Tháng", width: 100, render: (_, row) => "Tháng " + row.month + "/" + calculation.year },
+      { title: "Đủ điều kiện", width: 150, render: (_, row) => calculation.eligibleMonths.includes(row.month) ? "Đã xác nhận" : "Không có trong dữ liệu tháng đủ điều kiện" },
+      { title: "Định mức năm", dataIndex: "baseDays", width: 125, align: "right", render: (value) => decimal(String(value)) },
+      { title: "Thâm niên", dataIndex: "seniorityDays", width: 115, align: "right", render: (value) => String(value) + " ngày/năm" },
+      { title: "Quyết định / tham chiếu", dataIndex: "decisionReference", width: 240, render: (value) => value || "—" },
+    ]} />
+    <TechnicalJson title="Dữ liệu tính quỹ gốc" value={calculation} />
+  </section>;
 }
 
 function formError(error: unknown) {
@@ -384,25 +453,25 @@ function FundActionModal({ kind, balance, onClose }: { kind: "recalculate" | "ad
   </Modal>;
 }
 
- function BalanceDrawer({ employeeId, year, asOf, canManage, onClose }: { employeeId: string; year: number; asOf: string; canManage: boolean; onClose: () => void }) {
+function BalanceDrawer({ employeeId, year, asOf, canManage, onClose }: { employeeId: string; year: number; asOf: string; canManage: boolean; onClose: () => void }) {
   const [action, setAction] = useState<"recalculate" | "adjust" | "carry" | "advance" | null>(null);
-   const detail = useQuery({ queryKey: ["leave", "balance", employeeId, year, asOf], queryFn: () => leaveApi.balance(employeeId, year, asOf) });
+  const detail = useQuery({ queryKey: ["leave", "balance", employeeId, year, asOf], queryFn: () => leaveApi.balance(employeeId, year, asOf) });
   const balance = detail.data?.balance;
   const ledgerColumns: ColumnsType<LeaveLedgerEntry> = [
     { title: "Ngày", dataIndex: ["operation", "effectiveDate"], width: 105 },
-    { title: "Nghiệp vụ", dataIndex: "kind", width: 140 },
-    { title: "Quỹ", dataIndex: "bucket", width: 95 },
+    { title: "Nghiệp vụ", dataIndex: "kind", width: 180, render: (value) => ledgerLabel(value, ledgerKindLabels, "Mã nghiệp vụ gốc") },
+    { title: "Quỹ", dataIndex: "bucket", width: 130, render: (value) => ledgerLabel(value, ledgerBucketLabels, "Mã quỹ gốc") },
     { title: "Số ngày", dataIndex: "days", align: "right", width: 110, render: (value) => <span className="numeric">{decimal(value)}</span> },
     { title: "Hết hạn", dataIndex: "expiresAt", width: 110, render: (value) => value ?? "—" },
-    { title: "Người thực hiện / tham chiếu", width: 240, render: (_, row) => <>{row.operation.actor.displayName}<small className="table-subtext">{row.operation.reference}</small></> },
+    { title: "Hồ sơ / tham chiếu", width: 240, render: (_, row) => <><Text>{row.operation.actor.displayName}</Text><small className="table-subtext">{requestReference(row)}</small></> },
     { title: "Lý do", dataIndex: ["operation", "reason"], width: 240, ellipsis: true },
   ];
-  return <><Drawer className="leave-drawer" title={`Quỹ phép năm ${year}`} open onClose={onClose} width={1040} extra={canManage && balance ? <Space wrap><Button onClick={() => setAction("recalculate")}>Tính lại</Button><Button onClick={() => setAction("adjust")}>Điều chỉnh</Button><Button onClick={() => setAction("carry")}>Chuyển phép</Button><Button type="primary" onClick={() => setAction("advance")}>Ứng phép</Button></Space> : undefined}>
+  return <><Drawer className="leave-drawer" title={"Quỹ phép năm " + year} open onClose={onClose} width={1040} extra={canManage && balance ? <Space wrap><Button onClick={() => setAction("recalculate")}>Tính lại</Button><Button onClick={() => setAction("adjust")}>Điều chỉnh</Button><Button onClick={() => setAction("carry")}>Chuyển phép</Button><Button type="primary" onClick={() => setAction("advance")}>Ứng phép</Button></Space> : undefined}>
     {detail.isLoading ? <div className="workspace-loading"><Spin /> Đang tải quỹ phép…</div> : detail.isError || !balance ? <Alert type="error" showIcon message="Không tải được quỹ phép" description={detail.isError ? errorMessage(detail.error) : undefined} /> : <Tabs items={[
       { key: "summary", label: "Tổng quan", children: <section className="leave-balance-summary"><div className="leave-identity"><span className="person-mark" aria-hidden="true">{balance.employee.fullName.slice(0, 1)}</span><div><Text strong>{balance.employee.fullName}</Text><small className="table-subtext">{balance.employee.code} · Vào làm {balance.employee.hireDate}</small></div><Tag>Phiên bản {balance.revision}</Tag></div><Descriptions bordered size="small" column={{ xs: 1, sm: 2, lg: 3 }}>
-        <Descriptions.Item label="Được hưởng">{decimal(balance.entitledDays)}</Descriptions.Item><Descriptions.Item label="Điều chỉnh">{decimal(balance.adjustmentDays)}</Descriptions.Item><Descriptions.Item label="Chuyển vào">{decimal(balance.carriedDays)}</Descriptions.Item><Descriptions.Item label="Chuyển ra">{decimal(balance.carriedOutDays)}</Descriptions.Item><Descriptions.Item label="Ứng trong năm">{decimal(balance.advanceDays)}</Descriptions.Item><Descriptions.Item label="Đã ứng từ năm sau">{decimal(balance.advancedToPreviousDays)}</Descriptions.Item><Descriptions.Item label="Đã dùng">{decimal(balance.usedDays)}</Descriptions.Item><Descriptions.Item label="Hoàn lại">{decimal(balance.refundedDays)}</Descriptions.Item><Descriptions.Item label="Quỹ năm">{decimal(balance.annualDays)}</Descriptions.Item><Descriptions.Item label="Khả dụng"><Text strong>{decimal(balance.availableDays)}</Text></Descriptions.Item><Descriptions.Item label="Phép chuyển hết hạn">{decimal(balance.expiredCarryDays)}</Descriptions.Item><Descriptions.Item label="Đối soát">{decimal(balance.reconciliationDays)}</Descriptions.Item>
-      </Descriptions><section className="leave-calculation"><Title level={3}>Dữ liệu tính quỹ</Title>{balance.calculation ? <pre>{JSON.stringify(balance.calculation, null, 2)}</pre> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có lần tính quỹ" />}</section></section> },
-      { key: "ledger", label: `Sổ quỹ (${balance.entries.length})`, children: <section className="leave-ledger"><Alert type="info" showIcon message="Sổ quỹ bất biến" description="Mỗi dòng ghi rõ số ngày có dấu, người thực hiện, tham chiếu và lý do. Quỹ hết hạn hoặc cần đối soát vẫn được giữ để truy vết." /><Table rowKey="id" size="small" scroll={{ x: 1080 }} pagination={{ pageSize: 10, showSizeChanger: false }} dataSource={balance.entries} columns={ledgerColumns} locale={{ emptyText: <Empty description="Chưa có bút toán quỹ phép" /> }} /><details className="leave-snapshot"><summary>Lịch sử snapshot giao dịch</summary>{balance.entries.map((entry) => <article key={entry.id}><Text strong>{entry.operation.kind} · {entry.operation.effectiveDate}</Text><pre>{JSON.stringify(entry.operation.snapshot, null, 2)}</pre></article>)}</details></section> },
+        <Descriptions.Item label="Được hưởng">{decimal(balance.entitledDays)}</Descriptions.Item><Descriptions.Item label="Điều chỉnh">{decimal(balance.adjustmentDays)}</Descriptions.Item><Descriptions.Item label="Chuyển vào">{decimal(balance.carriedDays)}</Descriptions.Item><Descriptions.Item label="Chuyển ra">{decimal(balance.carriedOutDays)}</Descriptions.Item><Descriptions.Item label="Ứng trong năm">{decimal(balance.advanceDays)}</Descriptions.Item><Descriptions.Item label="Đã ứng từ năm sau">{decimal(balance.advancedToPreviousDays)}</Descriptions.Item><Descriptions.Item label="Đã dùng">{decimal(balance.usedDays)}</Descriptions.Item><Descriptions.Item label="Hoàn lại">{decimal(balance.refundedDays)}</Descriptions.Item><Descriptions.Item label="Phép năm còn lại">{decimal(balance.annualDays)}</Descriptions.Item><Descriptions.Item label="Khả dụng">{decimal(balance.availableDays)}</Descriptions.Item><Descriptions.Item label="Phép chuyển hết hạn">{decimal(balance.expiredCarryDays)}</Descriptions.Item><Descriptions.Item label="Cần đối soát">{decimal(balance.reconciliationDays)}</Descriptions.Item>
+      </Descriptions><CalculationView calculation={balance.calculation} /></section> },
+      { key: "ledger", label: "Sổ quỹ (" + balance.entries.length + ")", children: <section className="leave-ledger"><Alert type="info" showIcon message="Sổ quỹ bất biến" description="Mỗi dòng giữ nguyên số ngày có dấu, hạn dùng, người thực hiện, tham chiếu và lý do. Quỹ hết hạn hoặc cần đối soát vẫn được giữ để truy vết." /><Table rowKey="id" size="small" scroll={{ x: 1080 }} pagination={{ pageSize: 10, showSizeChanger: false }} dataSource={balance.entries} columns={ledgerColumns} locale={{ emptyText: <Empty description="Chưa có bút toán quỹ phép" /> }} /><section className="leave-snapshot"><Title level={3}>Dữ liệu chốt nghiệp vụ</Title>{balance.entries.map((entry) => <article key={entry.id}><Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}><Descriptions.Item label="Nghiệp vụ">{ledgerLabel(entry.kind, ledgerKindLabels, "Mã nghiệp vụ gốc")}</Descriptions.Item><Descriptions.Item label="Quỹ">{ledgerLabel(entry.bucket, ledgerBucketLabels, "Mã quỹ gốc")}</Descriptions.Item><Descriptions.Item label="Ngày hiệu lực">{entry.operation.effectiveDate}</Descriptions.Item><Descriptions.Item label="Người thực hiện">{entry.operation.actor.displayName}</Descriptions.Item><Descriptions.Item label="Hồ sơ / tham chiếu">{requestReference(entry)}</Descriptions.Item><Descriptions.Item label="Lý do">{entry.operation.reason}</Descriptions.Item><Descriptions.Item label="Số ngày"><span className="numeric">{decimal(entry.days)}</span></Descriptions.Item><Descriptions.Item label="Hết hạn">{entry.expiresAt ?? "—"}</Descriptions.Item></Descriptions><TechnicalJson title="Dữ liệu gốc của giao dịch" value={entry.operation.snapshot} /></article>)}</section></section> },
     ]} />}
   </Drawer>{action && balance && <FundActionModal kind={action} balance={balance} onClose={() => setAction(null)} />}</>;
 }

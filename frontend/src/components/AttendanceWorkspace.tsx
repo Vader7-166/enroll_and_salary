@@ -11,8 +11,9 @@ import { errorMessage } from "../api/client";
 import { attendanceApi } from "../api/attendance";
 import { AttendanceCorrectionsPanel } from "./AttendanceCorrectionsPanel";
 import { OvertimeActualPanel } from "./OvertimeActualPanel";
+import { AttendanceTeamConfirmationPanel } from "./AttendanceTeamConfirmationPanel";
 import type { AttendancePeriod, AttendanceProfile, Batch, DailyRow, ImportMapping, RawPunchState, RawRow } from "../api/attendance";
-
+import { TechnicalDetails } from "./TechnicalDetails";
 const { Title, Text, Paragraph } = Typography;
 const PAGE_SIZE = 20;
 const STANDARD_MAPPING: ImportMapping = {
@@ -21,7 +22,7 @@ const STANDARD_MAPPING: ImportMapping = {
 };
 const attendanceFlagLabels: Record<string, string> = { MISSING_IN: "Thiếu vào", MISSING_OUT: "Thiếu ra", MISSING_PUNCH: "Thiếu quẹt", LATE: "Đi muộn", EARLY: "Về sớm", ABSENT: "Vắng", AMBIGUOUS: "Không xác định ca", AWAITING_SHIFT: "Chờ hết ca", LEAVE_SCHEDULE_CHANGED: "Lịch ca khác đơn nghỉ", LEAVE_WORK_OVERLAP: "Đi làm trùng giờ nghỉ" };
 const rawStateLabels: Record<RawPunchState, string> = { PROCESSED: "Đã xử lý", WAITING: "Chờ xử lý", LATE: "Đến sau chốt", UNMATCHED: "Chưa khớp lịch", AMBIGUOUS: "Không xác định ca", SUPPRESSED: "Lượt trùng liên tiếp" };
-
+const directionLabels = { IN: "Vào", OUT: "Ra", AUTO: "Tự xác định" };
 function TableBody(props: HTMLAttributes<HTMLTableSectionElement>) {
   return <tbody {...props} tabIndex={0} aria-label="Dữ liệu chấm công" />;
 }
@@ -106,18 +107,30 @@ function ProfileModal({ siteId, open, onClose }: { siteId: string; open: boolean
   </Modal>;
 }
 
-function RawDetail({ row }: { row: RawRow }) {
-  return <Descriptions size="small" column={1} bordered>
-    <Descriptions.Item label="Nhân viên">{row.employee.code} · {row.employee.fullName}</Descriptions.Item>
-    <Descriptions.Item label="Thời điểm quẹt">{vietnamTime(row.punchedAt)}</Descriptions.Item>
-    <Descriptions.Item label="Chiều / thiết bị">{row.direction} · {row.deviceCode}</Descriptions.Item>
-    <Descriptions.Item label="Trạng thái">{rawStateTag(row.state)}</Descriptions.Item>
-    <Descriptions.Item label="Lý do">{row.reason || "—"}</Descriptions.Item>
-    <Descriptions.Item label="Nguồn">Lô {row.batchId} · dòng {row.rowNumber}</Descriptions.Item>
-    <Descriptions.Item label="Dữ liệu gốc">{row.source.join(" | ") || "—"}</Descriptions.Item>
-    <Descriptions.Item label="Ghép lịch / ngày công">{row.scheduleId || "—"} · {row.workDate || "—"}</Descriptions.Item>
-    <Descriptions.Item label="Kỳ công">{row.periodId || "—"}</Descriptions.Item>
-  </Descriptions>;
+function RawDetail({ row, periods, onOpenBatch }: { row: RawRow; periods: AttendancePeriod[]; onOpenBatch: (batch: Batch) => void }) {
+  const batch = useQuery({ queryKey: ["attendance-batch", row.batchId], queryFn: () => attendanceApi.importDetail(row.batchId) });
+  const reasons: Record<string, string> = {
+    NOT_PROCESSED: "Chưa xử lý lượt chấm công.", NO_APPROVED_SHIFT: "Chưa có lịch ca đã duyệt để ghép lượt chấm công.",
+    OUTSIDE_WINDOW: "Thời điểm chấm công nằm ngoài khoảng nhận lượt vào/ra của ca.", AMBIGUOUS: "Có nhiều ca phù hợp; Admin cần kiểm tra lại lịch và lượt chấm công.",
+    DUPLICATE_PUNCH: "Lượt chấm công trùng liên tiếp, không dùng lại khi tính công.", EXTRA_PUNCH: "Lượt bổ sung, không được chọn làm lượt vào hoặc ra của ca.",
+    MISSING_OR_OUTSIDE_REFERENCE_PERIOD: "Chưa có kỳ công phù hợp với ngày bắt đầu ca.", PERIOD_PLANNED: "Kỳ công chưa mở nên lượt chấm công đang chờ xử lý.",
+    PERIOD_CLOSED: "Kỳ công đã chốt; giữ nguồn gốc, không tự sửa kết quả công.", PERIOD_LOCKED: "Kỳ công đã khóa; giữ nguồn gốc, không tự sửa kết quả công.",
+    ANCESTOR_PERIOD_CLOSED_OR_LOCKED: "Kỳ công cấp trên đã chốt hoặc khóa; không tự sửa kết quả công.",
+  };
+  return <>
+    <Descriptions size="small" column={1} bordered>
+      <Descriptions.Item label="Nhân viên">{row.employee.code} · {row.employee.fullName}</Descriptions.Item>
+      <Descriptions.Item label="Thời điểm chấm công">{vietnamTime(row.punchedAt)}</Descriptions.Item>
+      <Descriptions.Item label="Chiều / thiết bị">{directionLabels[row.direction]} · {row.deviceCode}</Descriptions.Item>
+      <Descriptions.Item label="Trạng thái">{rawStateTag(row.state)}</Descriptions.Item>
+      <Descriptions.Item label="Giải thích">{row.reason ? reasons[row.reason] ?? "Cần kiểm tra nguyên nhân xử lý cùng Admin chấm công." : "Không ghi nhận nguyên nhân ngoại lệ."}</Descriptions.Item>
+      <Descriptions.Item label="Nguồn tệp">{batch.data ? <Button type="link" onClick={() => onOpenBatch(batch.data.batch)}>{batch.data.batch.fileName} · dòng {row.rowNumber}</Button> : batch.isLoading ? "Đang tải tên tệp…" : "Chưa tải được tên tệp"}</Descriptions.Item>
+      <Descriptions.Item label="Ngày công / lịch ca">{row.workDate ?? "Chưa xác định ngày công"} · {row.scheduleId ? "Đã ghép lịch ca" : "Chưa ghép lịch ca"}</Descriptions.Item>
+      <Descriptions.Item label="Kỳ công">{periods.find(period => period.id === row.periodId)?.code ?? (row.periodId ? "Kỳ công ngoài danh sách hiện hành" : "Chưa xác định kỳ công")}</Descriptions.Item>
+    </Descriptions>
+    {batch.isError && <Alert type="error" showIcon message="Không tải được tệp nguồn" description={errorMessage(batch.error)} />}
+    <TechnicalDetails title="Dữ liệu và định danh gốc"><pre>{JSON.stringify(row, null, 2)}</pre></TechnicalDetails>
+  </>;
 }
 
 export function AttendanceWorkspace({ user }: { user: AuthUser }) {
@@ -151,7 +164,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
     enabled: Boolean(periodId) && (tab === "board" || tab === "exceptions"),
   });
   const history = useQuery({ queryKey: ["attendance-imports", siteId, historyPage], queryFn: () => attendanceApi.imports(siteId!, historyPage, PAGE_SIZE), enabled: Boolean(siteId) && tab === "history" && canImport });
-  const punches = useQuery({ queryKey: ["attendance-punches", siteId, punchState, punchPage], queryFn: () => attendanceApi.punches({ siteId: siteId!, state: punchState, page: punchPage, pageSize: PAGE_SIZE }), enabled: Boolean(siteId) && tab === "punches" && canImport });
+  const punches = useQuery({ queryKey: ["attendance-punches", siteId, punchState, search, punchPage], queryFn: () => attendanceApi.punches({ siteId: siteId!, state: punchState, search: search || undefined, page: punchPage, pageSize: PAGE_SIZE }), enabled: Boolean(siteId) && tab === "punches" && canImport });
   const dayDetail = useQuery({ queryKey: ["attendance-day", selectedDay?.id], queryFn: () => attendanceApi.day(selectedDay!.id), enabled: Boolean(selectedDay) });
   const batchDetail = useQuery({ queryKey: ["attendance-batch", selectedBatch?.id], queryFn: () => attendanceApi.importDetail(selectedBatch!.id), enabled: Boolean(selectedBatch) });
   const upload = useMutation({
@@ -176,7 +189,13 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
     },
   });
   const chooseSite = (value: string) => { setSiteId(value); setPeriodId(undefined); setProfileId(undefined); setOrgUnitId(undefined); setFile(undefined); setLastBatch(undefined); setBoardPage(1); setHistoryPage(1); setPunchPage(1); };
-  const choosePeriod = (value: string) => { setPeriodId(value); setBoardPage(1); };
+  const choosePeriod = (value: string) => { setPeriodId(value); setBoardPage(1); setFocusCorrectionId(undefined); setSelectedDay(undefined); };
+  const navigateSource = (target: "daily" | "raw" | "overtime" | "corrections", employeeCode?: string, sourceId?: string) => {
+    setSelectedDay(undefined); setSelectedRaw(undefined); setSelectedBatch(undefined);
+    setSearch(employeeCode ?? ""); setOrgUnitId(undefined); setBoardPage(1); setPunchPage(1); setPunchState(undefined);
+    setFocusCorrectionId(target === "corrections" ? sourceId : undefined);
+    setTab(target === "daily" ? "board" : target === "raw" ? "punches" : target === "overtime" ? "overtime-actual" : "corrections");
+  };
   const columns = [
     { title: "Ngày công", dataIndex: "workDate", width: 112 },
     { title: "Nhân viên", width: 230, render: (_: unknown, row: DailyRow) => <><strong>{row.employee.code}</strong><span className="table-subtext">{row.employee.fullName}</span></> },
@@ -186,16 +205,16 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
      { title: "Công", dataIndex: "workUnits", width: 84, align: "right" as const },
      { title: "Nghỉ đã duyệt", width: 150, render: (_: unknown, row: DailyRow) => row.leave.symbols?.length ? <>{row.leave.symbols.map(s=><Tag key={s}>{s}</Tag>)}<span className="table-subtext">{minutes(row.leave.minutes??0)}</span></> : "—" },
     { title: "Làm việc", width: 102, align: "right" as const, render: (_: unknown, row: DailyRow) => minutes(row.workedMinutes) },
-    { title: "Ngoại lệ", width: 210, render: (_: unknown, row: DailyRow) => row.flags.length ? <Space size={[4, 4]} wrap>{row.flags.map(flag => <Tag className="attendance-state" color="orange" key={flag}>{attendanceFlagLabels[flag] ?? flag}</Tag>)}</Space> : <Tag className="attendance-state" color="green">Đủ</Tag> },
+    { title: "Ngoại lệ", width: 210, render: (_: unknown, row: DailyRow) => row.flags.length ? <Space size={[4, 4]} wrap>{row.flags.map(flag => <Tag className="attendance-state" color="orange" key={flag}>{attendanceFlagLabels[flag] ?? "Ngoại lệ cần rà soát"}</Tag>)}</Space> : <Tag className="attendance-state" color="green">Đủ</Tag> },
     { title: "Giải trình", width: 135, render: (_: unknown, row: DailyRow) => row.correctionId ? <Button type="link" onClick={(event) => { event.stopPropagation(); setFocusCorrectionId(row.correctionId ?? undefined); setTab("corrections"); }}>Đã giải trình/điều chỉnh</Button> : <Text type="secondary">Chưa có</Text> },
   ];
   const rawColumns = [
     { title: "Thời điểm", width: 175, render: (_: unknown, row: RawRow) => vietnamTime(row.punchedAt) },
     { title: "Nhân viên", width: 220, render: (_: unknown, row: RawRow) => <><strong>{row.employee.code}</strong><span className="table-subtext">{row.employee.fullName}</span></> },
-    { title: "Chiều", dataIndex: "direction", width: 72 },
+    { title: "Chiều", dataIndex: "direction", width: 100, render: (value: RawRow["direction"]) => directionLabels[value] },
     { title: "Thiết bị", dataIndex: "deviceCode", width: 110 },
     { title: "Trạng thái", width: 130, render: (_: unknown, row: RawRow) => rawStateTag(row.state) },
-    { title: "Truy vết", width: 220, render: (_: unknown, row: RawRow) => <>{row.batchId}<span className="table-subtext">Dòng {row.rowNumber} · {row.scheduleId || "Chưa ghép lịch"}</span></> },
+    { title: "Nguồn / ghép ca", width: 220, render: (_: unknown, row: RawRow) => <>Dòng {row.rowNumber}<span className="table-subtext">{row.workDate ?? "Chưa xác định ngày công"} · {row.scheduleId ? "Đã ghép lịch ca" : "Chưa ghép lịch ca"}</span></> },
   ];
   if (context.isLoading) return <div className="attendance-workspace"><Spin /></div>;
   if (context.isError) return <div className="attendance-workspace"><Alert type="error" showIcon message="Không tải được bối cảnh chấm công" description={errorMessage(context.error)} /></div>;
@@ -210,7 +229,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
     </div>
     {!siteId || !periodId ? <Alert type="info" showIcon message="Chọn địa điểm và kỳ tham chiếu để xem bảng công." /> : <>
       <Tabs activeKey={tab} onChange={setTab} items={[
-        { key: "board", label: "Bảng công" }, { key: "exceptions", label: "Ngoại lệ" }, { key: "overtime-actual", label: "OT thực tế" }, { key: "corrections", label: "Giải trình" },
+        { key: "board", label: "Bảng công" }, { key: "exceptions", label: "Ngoại lệ" }, { key: "overtime-actual", label: "OT thực tế" }, { key: "corrections", label: "Giải trình" }, { key: "team-confirmation", label: "Xác nhận tổ" },
         ...(canImport ? [{ key: "import", label: "Nhập tệp" }, { key: "history", label: "Lịch sử nhập" }, { key: "punches", label: "Lượt quẹt gốc" }] : []),
       ]} />
       {(tab === "board" || tab === "exceptions") && <>
@@ -224,9 +243,10 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
       {tab === "overtime-actual" && <>
         {canImport && <div className="attendance-actions"><Button icon={<PlayCircleOutlined />} loading={process.isPending} onClick={() => process.mutate()}>Xử lý lượt quẹt chờ</Button></div>}
         {process.isError && <Alert className="attendance-alert" type="error" showIcon message="Không xử lý được lượt quẹt" description={errorMessage(process.error)} />}
-        <OvertimeActualPanel periodId={periodId} orgUnitId={orgUnitId} search={search} canImport={canImport} onOpenCorrection={(correctionId) => { setFocusCorrectionId(correctionId); setTab("corrections"); }} />
+        <OvertimeActualPanel periodId={periodId} orgUnitId={orgUnitId} search={search} canImport={canImport} onNavigate={navigateSource} />
       </>}
       {tab === "corrections" && <AttendanceCorrectionsPanel user={user} periodId={periodId} orgUnitId={orgUnitId} search={search} focusCorrectionId={focusCorrectionId} onFocusHandled={() => setFocusCorrectionId(undefined)} />}
+      {tab === "team-confirmation" && <AttendanceTeamConfirmationPanel user={user} periodId={periodId} onNavigate={navigateSource} />}
       {tab === "import" && canImport && <div className="attendance-import">
         <Space wrap>
           <Upload beforeUpload={() => false} maxCount={1} accept=".csv,.txt,.xlsx" fileList={file ? [{ uid: file.name, name: file.name }] : []} onChange={({ file: chosen }) => setFile(chosen.originFileObj ?? (chosen instanceof File ? chosen : undefined))} onRemove={() => { setFile(undefined); return true; }}><Button icon={<UploadOutlined />}>Chọn tệp quẹt</Button></Upload>
@@ -241,11 +261,54 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
         </>}
       </div>}
       {tab === "history" && canImport && <><div className="table-panel attendance-table"><Table<Batch> rowKey="id" loading={history.isLoading} pagination={false} scroll={{ x: 1050 }} components={{ body: { wrapper: TableBody } }} onRow={(row) => ({ className: "clickable-row", onClick: () => setSelectedBatch(row) })} columns={[{ title: "Tệp", dataIndex: "fileName", width: 260 }, { title: "Địa điểm", dataIndex: "siteName", width: 180 }, { title: "Trạng thái", width: 140, render: (_: unknown, row: Batch) => batchStatus(row) }, { title: "Người nhập", width: 180, render: (_: unknown, row: Batch) => row.createdBy.displayName }, { title: "Thời điểm", width: 180, render: (_: unknown, row: Batch) => vietnamTime(row.createdAt) }, { title: "Dòng / nhận", width: 120, align: "right", render: (_: unknown, row: Batch) => `${row.totalRows} / ${row.summary.inserted}` }]} dataSource={history.data?.items} /></div>{history.isError && <Alert className="attendance-alert" type="error" showIcon message="Không tải được lịch sử nhập" description={errorMessage(history.error)} />}{history.data && <Pagination className="attendance-pagination" current={history.data.page} pageSize={history.data.pageSize} total={history.data.total} showSizeChanger={false} onChange={setHistoryPage} />}</>}
-      {tab === "punches" && canImport && <><div className="attendance-raw-filter"><Select value={punchState} allowClear placeholder="Tất cả trạng thái" onChange={(value) => { setPunchState(value); setPunchPage(1); }} options={["PROCESSED", "WAITING", "LATE", "UNMATCHED", "AMBIGUOUS", "SUPPRESSED"].map((value) => ({ value, label: value }))} /></div><div className="table-panel attendance-table"><Table<RawRow> rowKey="id" loading={punches.isLoading} columns={rawColumns} dataSource={punches.data?.items} scroll={{ x: 1000 }} pagination={false} components={{ body: { wrapper: TableBody } }} onRow={(row) => ({ className: "clickable-row", onClick: () => setSelectedRaw(row) })} /></div>{punches.isError && <Alert className="attendance-alert" type="error" showIcon message="Không tải được lượt quẹt gốc" description={errorMessage(punches.error)} />}{punches.data && <Pagination className="attendance-pagination" current={punches.data.page} pageSize={punches.data.pageSize} total={punches.data.total} showSizeChanger={false} onChange={setPunchPage} />}</>}
+      {tab === "punches" && canImport && <><div className="attendance-raw-filter"><Select value={punchState} allowClear placeholder="Tất cả trạng thái" onChange={(value) => { setPunchState(value); setPunchPage(1); }} options={["PROCESSED", "WAITING", "LATE", "UNMATCHED", "AMBIGUOUS", "SUPPRESSED"].map((value) => ({ value, label: rawStateLabels[value as RawPunchState] }))} /></div><div className="table-panel attendance-table"><Table<RawRow> rowKey="id" loading={punches.isLoading} columns={rawColumns} dataSource={punches.data?.items} scroll={{ x: 1000 }} pagination={false} components={{ body: { wrapper: TableBody } }} onRow={(row) => ({ className: "clickable-row", onClick: () => setSelectedRaw(row) })} /></div>{punches.isError && <Alert className="attendance-alert" type="error" showIcon message="Không tải được lượt quẹt gốc" description={errorMessage(punches.error)} />}{punches.data && <Pagination className="attendance-pagination" current={punches.data.page} pageSize={punches.data.pageSize} total={punches.data.total} showSizeChanger={false} onChange={setPunchPage} />}</>}
     </>}
     <ProfileModal siteId={siteId || ""} open={profileOpen} onClose={() => setProfileOpen(false)} />
-    <Drawer title="Chi tiết ngày công" width={640} open={Boolean(selectedDay)} onClose={() => setSelectedDay(undefined)}>{dayDetail.isLoading ? <Spin /> : dayDetail.isError ? <Alert type="error" showIcon message={errorMessage(dayDetail.error)} /> : dayDetail.data && <><Descriptions size="small" bordered column={1}><Descriptions.Item label="Nhân viên">{dayDetail.data.day.employee.code} · {dayDetail.data.day.employee.fullName}</Descriptions.Item><Descriptions.Item label="Ngày / ca">{dayDetail.data.day.workDate} · {dayDetail.data.day.shift.code} ({dayDetail.data.day.shift.name})</Descriptions.Item><Descriptions.Item label="Vào / ra">{vietnamTime(dayDetail.data.day.checkInAt)} / {vietnamTime(dayDetail.data.day.checkOutAt)}</Descriptions.Item><Descriptions.Item label="Đã xử lý">{vietnamTime(dayDetail.data.day.processedAt)}</Descriptions.Item></Descriptions><Divider orientation="left">Phân đoạn giờ làm</Divider>{dayDetail.data.segments.map((segment) => <div className="attendance-provenance" key={`${segment.startAt}-${segment.kind}`}>{segment.calendarDate} · {segment.kind} · {vietnamTime(segment.startAt)} – {vietnamTime(segment.endAt)} · {minutes(segment.minutes)}</div>)}<Divider orientation="left">Lượt quẹt ghép / bị loại</Divider>{dayDetail.data.punches.map((punch) => <div className="attendance-provenance" key={punch.id}><strong>{punch.id}</strong> · {vietnamTime(punch.punchedAt)} · {punch.direction} · {rawStateTag(punch.state)} · {punch.reason || "đã ghép"}</div>)}</>}{dayDetail.data && <section aria-label="Nguồn nghỉ đã duyệt" tabIndex={0}><Typography.Title level={2}>Nghỉ đã duyệt</Typography.Title><Descriptions size="small" bordered column={1}><Descriptions.Item label="Ký hiệu">{dayDetail.data.day.leave.symbols?.join(" / ") || "—"}</Descriptions.Item><Descriptions.Item label="Thời lượng nghỉ">{minutes(dayDetail.data.day.leave.minutes ?? 0)}</Descriptions.Item><Descriptions.Item label="Hưởng lương / công từ nghỉ">{minutes(dayDetail.data.day.leave.paidMinutes ?? 0)} / {dayDetail.data.day.leave.countedUnits ?? "0"}</Descriptions.Item></Descriptions>{dayDetail.data.day.leave.sources?.map(source => <article key={source.requestId + source.startAt}><Text strong>Đơn {source.requestId} · phiên bản {source.revision}</Text><Paragraph>{source.attendanceSymbol + " · " + vietnamTime(source.startAt) + " – " + vietnamTime(source.endAt)}</Paragraph><Text type="secondary">Loại nghỉ: {source.typeVersionId} · Lịch lễ: {source.holidayParameterId}</Text></article>)}</section>}</Drawer>
-    <Drawer title="Chi tiết lô nhập" width={700} open={Boolean(selectedBatch)} onClose={() => setSelectedBatch(undefined)}>{batchDetail.isLoading ? <Spin /> : batchDetail.isError ? <Alert type="error" showIcon message={errorMessage(batchDetail.error)} /> : batchDetail.data && <><Descriptions size="small" bordered column={1}><Descriptions.Item label="Tệp">{batchDetail.data.batch.fileName}</Descriptions.Item><Descriptions.Item label="Trạng thái">{batchStatus(batchDetail.data.batch)}</Descriptions.Item><Descriptions.Item label="Mã băm">{batchDetail.data.batch.fileHash}</Descriptions.Item></Descriptions>{batchDetail.data.batch.errors.length > 0 && <Alert className="attendance-alert" type="error" showIcon message="Dòng bị từ chối" description={<ul className="attendance-errors">{batchDetail.data.batch.errors.map((error) => <li key={`${error.row}-${error.code}`}>Dòng {error.row}: {error.code} — {error.message}</li>)}</ul>} />}<Divider orientation="left">Lượt quẹt trong lô</Divider>{batchDetail.data.punches.map((punch) => <div className="attendance-provenance" key={punch.id}><strong>{punch.id}</strong> · {vietnamTime(punch.punchedAt)} · {punch.employee.code} · {rawStateTag(punch.state)}</div>)}</>}</Drawer>
-    <Drawer title="Nguồn lượt quẹt" width={560} open={Boolean(selectedRaw)} onClose={() => setSelectedRaw(undefined)}>{selectedRaw && <RawDetail row={selectedRaw} />}</Drawer>
+    <Drawer title="Chi tiết ngày công" width={720} open={Boolean(selectedDay)} onClose={() => setSelectedDay(undefined)}>
+      {dayDetail.isLoading ? <Spin /> : dayDetail.isError ? <Alert type="error" showIcon message={errorMessage(dayDetail.error)} /> : dayDetail.data && <>
+        <Descriptions size="small" bordered column={1}>
+          <Descriptions.Item label="Nhân viên">{dayDetail.data.day.employee.code} · {dayDetail.data.day.employee.fullName}</Descriptions.Item>
+          <Descriptions.Item label="Ngày / ca">{dayDetail.data.day.workDate} · {dayDetail.data.day.shift.code} · {dayDetail.data.day.shift.name}</Descriptions.Item>
+          <Descriptions.Item label="Lịch làm việc">{vietnamTime(dayDetail.data.day.shift.startAt)} – {vietnamTime(dayDetail.data.day.shift.endAt)}</Descriptions.Item>
+          <Descriptions.Item label="Vào / ra thực tế">{vietnamTime(dayDetail.data.day.checkInAt)} / {vietnamTime(dayDetail.data.day.checkOutAt)}</Descriptions.Item>
+          <Descriptions.Item label="Kết quả">{dayDetail.data.day.workUnits} công · {minutes(dayDetail.data.day.workedMinutes)} làm việc · {minutes(dayDetail.data.day.nightMinutes)} ban đêm</Descriptions.Item>
+          <Descriptions.Item label="Đi muộn / về sớm">{minutes(dayDetail.data.day.lateMinutes)} / {minutes(dayDetail.data.day.earlyMinutes)}</Descriptions.Item>
+          <Descriptions.Item label="Ngoại lệ">{dayDetail.data.day.flags.length ? dayDetail.data.day.flags.map(flag => <Tag key={flag}>{attendanceFlagLabels[flag] ?? "Ngoại lệ cần rà soát"}</Tag>) : "Không có"}</Descriptions.Item>
+          <Descriptions.Item label="Nghỉ đã duyệt">{minutes(dayDetail.data.day.leave.minutes ?? 0)} · {minutes(dayDetail.data.day.leave.paidMinutes ?? 0)} hưởng lương · {dayDetail.data.day.leave.countedUnits ?? "0"} công nghỉ</Descriptions.Item>
+          <Descriptions.Item label="Lần xử lý gần nhất">{vietnamTime(dayDetail.data.day.processedAt)}</Descriptions.Item>
+        </Descriptions>
+        <Divider orientation="left">Khoảng nghỉ đã duyệt</Divider>
+        <Table rowKey={(source, index) => source.requestId + "-" + index} size="small" pagination={false} scroll={{ x: 580 }} dataSource={dayDetail.data.day.leave.sources ?? []} columns={[
+          { title: "Loại nghỉ", dataIndex: "attendanceSymbol" }, { title: "Từ", dataIndex: "startAt", render: vietnamTime }, { title: "Đến", dataIndex: "endAt", render: vietnamTime },
+          { title: "Phiên bản", dataIndex: "revision" }, { title: "Ngày lễ", dataIndex: "holiday", render: value => value ? "Có" : "Không" },
+        ]} />
+        <Divider orientation="left">Lượt chấm công liên quan</Divider>
+        <Table<RawRow> rowKey="id" size="small" pagination={false} columns={rawColumns} dataSource={dayDetail.data.punches} scroll={{ x: 1000 }} />
+        <Divider orientation="left">Phân bổ thời gian làm việc</Divider>
+        <Table rowKey={(segment, index) => segment.startAt + "-" + index} size="small" pagination={false} scroll={{ x: 580 }} dataSource={dayDetail.data.segments} columns={[
+          { title: "Ngày", dataIndex: "calendarDate" }, { title: "Từ", dataIndex: "startAt", render: vietnamTime }, { title: "Đến", dataIndex: "endAt", render: vietnamTime },
+          { title: "Ngày / đêm", dataIndex: "kind", render: value => value === "NIGHT" ? "Đêm" : "Ngày" }, { title: "Thời lượng", dataIndex: "minutes", render: minutes },
+        ]} />
+        <Divider orientation="left">Giải trình liên quan</Divider>
+        {dayDetail.data.corrections.length ? dayDetail.data.corrections.map(correction => <p key={correction.id}><Button type="link" onClick={() => navigateSource("corrections", dayDetail.data.day.employee.code, correction.id)}>{correction.evidenceReference || correction.incidentReference || correction.reason} · Phiên bản {correction.revision}</Button></p>) : <Text type="secondary">Không có giải trình.</Text>}
+        <TechnicalDetails><pre>{JSON.stringify(dayDetail.data, null, 2)}</pre></TechnicalDetails>
+      </>}
+    </Drawer>
+    <Drawer title="Chi tiết tệp chấm công" width={760} open={Boolean(selectedBatch)} onClose={() => setSelectedBatch(undefined)}>
+      {batchDetail.isLoading ? <Spin /> : batchDetail.isError ? <Alert type="error" showIcon message={errorMessage(batchDetail.error)} /> : batchDetail.data && <>
+        <Descriptions size="small" bordered column={1}>
+          <Descriptions.Item label="Tệp">{batchDetail.data.batch.fileName}</Descriptions.Item>
+          <Descriptions.Item label="Trạng thái">{batchStatus(batchDetail.data.batch)}</Descriptions.Item>
+          <Descriptions.Item label="Địa điểm">{batchDetail.data.batch.siteName}</Descriptions.Item>
+          <Descriptions.Item label="Người nhập / thời điểm">{batchDetail.data.batch.createdBy.displayName} · {vietnamTime(batchDetail.data.batch.createdAt)}</Descriptions.Item>
+          <Descriptions.Item label="Kết quả nhập">{batchDetail.data.batch.totalRows} dòng · {batchDetail.data.batch.summary.inserted} lượt mới · {batchDetail.data.batch.summary.duplicates} lượt trùng · {batchDetail.data.batch.summary.processed} đã xử lý · {batchDetail.data.batch.summary.waiting} chờ xử lý · {batchDetail.data.batch.summary.late} đến sau chốt</Descriptions.Item>
+        </Descriptions>
+        {batchDetail.data.batch.errors.length > 0 && <Alert className="attendance-alert" type="error" showIcon message="Dòng bị từ chối" description={<ul>{batchDetail.data.batch.errors.map((error, index) => <li key={index}>Dòng {error.row}: {error.message}</li>)}</ul>} />}
+        <Divider orientation="left">Lượt chấm công trong tệp</Divider>
+        <Table<RawRow> rowKey="id" size="small" columns={rawColumns} dataSource={batchDetail.data.punches} scroll={{ x: 1000 }} pagination={{ pageSize: 20 }} onRow={row => ({ className: "clickable-row", onClick: () => { setSelectedBatch(undefined); setSelectedRaw(row); } })} />
+        <TechnicalDetails title="Định danh và dấu kiểm tra tệp"><pre>{JSON.stringify(batchDetail.data.batch, null, 2)}</pre></TechnicalDetails>
+      </>}
+    </Drawer>
+    <Drawer title="Nguồn lượt chấm công" width={640} open={Boolean(selectedRaw)} onClose={() => setSelectedRaw(undefined)}>{selectedRaw && <RawDetail row={selectedRaw} periods={context.data.periods} onOpenBatch={batch => { setSelectedRaw(undefined); setSelectedBatch(batch); }} />}</Drawer>
   </section>;
 }

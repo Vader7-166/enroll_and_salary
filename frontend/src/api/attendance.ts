@@ -191,7 +191,7 @@ export const attendanceApi = {
     api<OvertimeActualResult>(`/api/attendance/overtime-actuals${query(filters)}`),
   overtimeActual: (id: string) => api<OvertimeActualDetail>(`/api/attendance/overtime-actuals/${id}`),
   day: (id: string) => api<{ day: DailyRow; punches: RawRow[]; segments: AttendanceSegment[]; corrections: Correction[] }>(`/api/attendance/days/${id}`),
-  punches: (filters: { siteId: string; state?: RawPunchState; page: number; pageSize: number }) =>
+  punches: (filters: { siteId: string; state?: RawPunchState; search?: string; page: number; pageSize: number }) =>
     api<Page<RawRow>>(`/api/attendance/punches${query(filters)}`),
   process: (payload: { siteId: string; referencePeriodId: string }) =>
     api<{ summary: ImportSummary }>("/api/attendance/process", { method: "POST", body: JSON.stringify(payload) }),

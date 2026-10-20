@@ -231,3 +231,54 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
   .leave-drawer .ant-drawer-extra .ant-space { width: 100%; }
   .leave-calculation pre, .leave-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 }
+/* Team attendance confirmation */
+.team-confirmation { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.team-confirmation-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.team-confirmation-toolbar h2.ant-typography { margin: 0 0 4px; }
+.team-confirmation-picker { display: grid; max-width: 480px; gap: 6px; }
+.team-confirmation-picker label, .team-confirmation-form > label, .team-confirmation-confirm-form > label { display: grid; gap: 6px; color: var(--secondary); font-size: 12px; font-weight: 500; }
+.team-confirmation-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.team-confirmation-stack, .team-confirmation-evidence { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.team-confirmation > *, .team-confirmation-stack > *, .team-confirmation-evidence > * { min-width: 0; }
+.team-confirmation-summary .ant-descriptions-item-content { overflow-wrap: anywhere; }
+.team-confirmation-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.team-confirmation-card { min-width: 0; padding: 16px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--surface); }
+.team-confirmation-card h3.ant-typography { margin: 0 0 12px; font-size: 16px; }
+.team-confirmation-issues { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+.team-confirmation-issues li { overflow-wrap: anywhere; }
+.team-confirmation-source { display: block; margin-top: 3px; color: var(--secondary); font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.team-confirmation-hash { display: inline-block; max-width: 100%; color: var(--text); font-size: 11px; overflow-wrap: anywhere; word-break: break-all; }
+.team-confirmation-batches { margin-top: 16px; }
+.team-confirmation-form, .team-confirmation-confirm-form { display: grid; gap: 12px; margin-top: 16px; }
+.team-confirmation-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.team-confirmation-form > label:nth-child(3), .team-confirmation-form > label:nth-child(4), .team-confirmation-batch-picker, .team-confirmation-form-actions { grid-column: span 2; }
+.team-confirmation-batch-picker { display: grid; gap: 8px; }
+.team-confirmation-batch-picker .ant-checkbox-group { display: grid; gap: 8px; }
+.team-confirmation-form-actions { display: flex; justify-content: flex-end; }
+.team-confirmation-feedback { margin-top: 12px; }
+.team-confirmation .ant-table-placeholder, .team-confirmation .ant-table-placeholder td, .team-confirmation .ant-table-placeholder .ant-table-expanded-row-fixed { color: var(--secondary); }
+@media (max-width: 767px) {
+  .team-confirmation-toolbar, .team-confirmation-columns { align-items: stretch; flex-direction: column; grid-template-columns: 1fr; }
+  .team-confirmation-toolbar .ant-btn, .team-confirmation-form-actions .ant-btn { width: 100%; }
+  .team-confirmation-form { grid-template-columns: 1fr; }
+  .team-confirmation-form > label:nth-child(3), .team-confirmation-form > label:nth-child(4), .team-confirmation-batch-picker, .team-confirmation-form-actions { grid-column: auto; }
+  .team-confirmation-card { padding: 12px; }
+}
+@media (max-width: 390px) {
+  .team-confirmation .table-panel > .ant-table-wrapper { overflow-x: auto; overflow-y: hidden; }
+  .team-confirmation-summary .ant-descriptions-view { overflow-x: auto; }
+}
+
+.technical-details { min-width: 0; max-width: 100%; margin-top: 8px; color: var(--secondary); font-size: 12px; overflow-wrap: anywhere; }
+.technical-details > summary { width: fit-content; cursor: pointer; color: var(--primary); padding-block: 4px; }
+.technical-details-body { min-width: 0; margin-top: 8px; padding: 12px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--canvas); overflow-wrap: anywhere; }
+.technical-details pre { max-width: 100%; max-height: 420px; margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; color: var(--text); }
+.technical-details .ant-descriptions-item-content { overflow-wrap: anywhere; word-break: break-word; }
+.parameter-advanced, .holiday-editor { display: grid; min-width: 0; gap: 12px; margin-bottom: 16px; }
+.holiday-date-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.parameter-modal .ant-input-number { width: 100%; }
+.settings-panel .tab-stack { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 767px) {
+  .holiday-date-list { grid-template-columns: minmax(0, 1fr); }
+  .technical-details-body { padding: 8px; }
+}

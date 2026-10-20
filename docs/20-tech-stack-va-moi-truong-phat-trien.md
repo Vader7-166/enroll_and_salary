@@ -143,7 +143,7 @@ năng trong đặc tả; kiểm tra đồng bộ tài liệu không thay thế k
   cây đơn vị + hiệu lực + exclusion; danh sách/chi tiết/tạo nhân sự, cơ cấu tổ chức,
   quản trị tài khoản/quyền/mật khẩu/phiên và health. Đã bổ sung hợp đồng/phụ lục và điều chuyển theo ngày.
 - Phạm vi demo hiện tại: nền tảng, tổ chức/nhân sự/hợp đồng/điều chuyển, tham số/chính sách, tạo/mở kỳ công, phân ca/duyệt lịch, nhập/ghép quẹt, đăng ký/duyệt và đối chiếu OT thực tế; **không phải toàn bộ R1**.
-- Chưa có tiền OT, nghỉ/giải trình, xác nhận/chốt công, engine tính lương hoặc AI; trạng thái nghiệm thu FR/UAT/NFR của baseline lõi không tự đổi theo smoke này.
+- Chưa có tiền OT, QĐ chốt công xưởng, KT khóa kỳ, engine tính lương hoặc AI; nghỉ/giải trình và TT xác nhận tổ đã bổ sung tại §7.14–7.20. Trạng thái nghiệm thu FR/UAT/NFR của baseline lõi không tự đổi theo smoke này.
 - Làm trực tiếp trên checkout demo hiện tại theo yêu cầu chủ dự án, không commit hoặc
   tự đổi nhánh. Không cho nhiều agent sửa cùng tệp.
 
@@ -593,8 +593,9 @@ log; tệp có mã lạ/ngày sai bị từ chối cả lô; lưu/dùng cấu h�
 xem lịch sử và nguồn. Ở 390px bảng cuộn riêng, không tràn ngang toàn trang; axe không
 phát hiện lỗi tự động ở bảng công/lịch sử đã kiểm tra (vẫn có mục cần kiểm tra thủ công).
 
-Chưa triển khai nghỉ phép/giải trình, xác nhận/chốt công, tính lương hoặc AI. Đăng ký/duyệt
-OT xem §7.12, đối chiếu OT thực tế xem §7.13; kết quả ở đây chưa phải bảng công chốt.
+Nghỉ phép/giải trình và TT xác nhận công tổ đã bổ sung tại §7.14–7.20; chưa có QĐ chốt
+công xưởng, KT khóa kỳ, tính lương hoặc AI. Đăng ký/duyệt OT xem §7.12, đối chiếu
+OT thực tế xem §7.13; kết quả ở đây chưa phải bảng công chốt.
 
 Hồi quy liên phân hệ sau tích hợp: nền **13/13**, nhân sự **16/16**, phân ca **14/14**.
 Đã đăng nhập TT trên browser để xem công/ngoại lệ, sau tích hợp có thêm tab OT thực tế;
@@ -1128,3 +1129,90 @@ và cờ trùng được gỡ. Drawer đơn nghỉ/quỹ/nguồn công đã xem 
 drawer đơn và nguồn công có **0 lỗi axe tự động** sau sửa thứ bậc heading/focus,
 còn mục cần đánh giá thủ công. Đây là bằng chứng local, không thay UAT toàn R1.
 Build frontend vẫn cảnh báo chunk UI >500 kB; không che hoặc tăng ngưỡng cảnh báo.
+
+### 7.20. Xác nhận công tổ
+
+- Chạy `npm run db:generate`, `npm run db:deploy`, build rồi khởi động lại API.
+  Migration `20261019150000_team_confirmation` chỉ thêm bảng/trigger và quyền
+  `attendance.confirm` cho TT; không reset hoặc seed lại dữ liệu demo.
+- API base `/api/attendance/team-confirmations`: GET `teams?periodId`, GET
+  `review?periodId&teamOrgUnitId`, POST `coverage` (AD), POST base (TT).
+  Đọc theo `attendance.read`; ghi căn cứ theo `attendance.import`, xác nhận theo
+  `attendance.confirm`; kiểm tra cả vai trò lẫn cây đơn vị/phân công/loại trừ.
+- Review trả tổng công, OT, nghỉ, giải trình, blockers/warnings, cửa sổ thu log,
+  căn cứ đủ nguồn hiện hành, hash nguồn và revision xác nhận gần nhất. Nguồn ẩn
+  ở hiện tại/ngày công/ngày nguồn làm từ chối toàn bộ tổ, không bỏ người rồi xác nhận.
+- Cửa sổ thu log bao gồm biên ghép trước/sau và OT đã duyệt nối ca qua ngày. AD
+  phải ghi `coveredFrom`, `coveredUntil` có múi giờ, `reference`, `reason`, danh
+  sách `batchIds`, hash collection hiện tại và revision **căn cứ AD** gần nhất.
+  Khoảng phải bao phủ đủ và đã qua; file/chứng từ xác nhận trường hợp không có
+  lượt quẹt. Timestamp lớn nhất không tự chứng minh đủ nguồn. Nguồn thu đổi thì
+  căn cứ cũ không còn hợp lệ; AD cần đối chiếu và ghi phiên bản mới.
+- TT gửi revision **xác nhận TT**, hash review, `reviewed:true`,
+  `acknowledgeWarnings` và ghi chú tùy chọn. Chỉ kỳ OPEN, không bị kỳ cấp cha
+  đóng/khóa, không còn thiếu nguồn/lượt chờ phân tuyến/ERR chưa giải trình/đơn
+  nghỉ, OT hoặc giải trình chưa quyết định; kết quả công/OT phải khớp tính lại
+  từ nguồn hiện tại. Cảnh báo không chặn yêu cầu TT xác nhận đã rà soát riêng.
+- Lưu người, thời điểm, revision, hash và snapshot cùng audit trong giao dịch
+  serializable. Hai lượt cùng revision chỉ một lượt thành công; lượt còn lại
+  trả 409, không âm thầm xác nhận bản mới. Snapshot và căn cứ AD cấm sửa/xóa/
+  truncate. Nguồn đổi trả STALE, giữ nguyên lịch sử và phải rà soát/xác nhận lại.
+- So sánh công ở độ chính xác lưu trữ NUMERIC(10,6), không báo nhầm STALE vì
+  phép chia tuần hoàn khi đi muộn/về sớm. Đối chiếu OT gồm căn cứ tham số, cặp
+  quẹt, phân đoạn và đề nghị, không chỉ tổng phút.
+- `npm run verify:team-confirmation`: **8/8** kiểm tra HTTP/PostgreSQL cách ly,
+  gồm cạnh tranh, cảnh báo, loại trừ hiện tại/ngày nguồn ca đêm, nguồn đổi và
+  kỳ CLOSED/LOCKED. Hồi quy snapshot OT và độ chính xác công đã thất bại trước
+  sửa và đạt sau sửa. Đây chưa phải API QĐ chốt/KT khóa hoặc UAT toàn R1.
+- UI: `#/attendance` → chọn địa điểm/kỳ → **Xác nhận tổ** → chọn tổ. AD đối chiếu
+  cửa sổ giờ Việt Nam, lô nguồn/chứng từ, nhập lý do rồi xác nhận đủ nguồn. TT
+  xem từng nguồn công/OT/nghỉ/giải trình, đánh dấu đã rà soát và cảnh báo, nhập
+  ghi chú rồi xác nhận theo hash. QĐ/KT chỉ đọc; đây không phải thao tác chốt/khóa.
+- Browser trên PostgreSQL cách ly đã chạy AD chứng thực r1 → TT xác nhận r1 →
+  reload còn người/thời điểm/hash/ghi chú → AD chứng thực r2 → STALE, giữ lịch sử
+  và reset hai ô xác nhận → TT rà soát lại, xác nhận r2. Giải trình nháp hiện đúng
+  lý do/chứng từ và chặn xác nhận; QĐ xem được lịch sử, không có form AD/TT.
+  Desktop/390px không tràn ngang trang; bảng cuộn riêng. Axe có 0 vi phạm tự động
+  ở các bề mặt đã kiểm tra, cả dropdown tổ đang mở; còn mục cần đánh giá thủ công.
+- Hồi quy toàn backend **162/162**; typecheck hai workspace và build đạt. Build
+  frontend còn cảnh báo chunk UI >500 kB. Kết quả local, không thay UAT toàn R1;
+  fixture smoke được tách/xóa, không ghi xác nhận giả vào dữ liệu demo.
+
+### 7.21. Chuẩn hóa giao diện nghiệp vụ
+
+- **Xác nhận tổ:** việc cần xử lý và cảnh báo giải thích bằng tiếng Việt, kèm người
+  phụ trách, mã/tên nhân viên, ngày công và thao tác mở công/OT/giải trình liên quan.
+  Cảnh báo trùng được gom nhưng giữ từng bản ghi nguồn trong phần mở rộng. Lý do,
+  chứng từ và người/ngày của hồ sơ giải trình hiện ngay trong bảng rà soát.
+- **Truy vết công/OT:** chi tiết ngày công, lượt quẹt và tệp nhập hiện tên tệp,
+  dòng nguồn, chiều vào/ra và tên kỳ; bảng phân bổ/quy tắc thay JSON ở bề mặt chính.
+  Liên kết giữ ngữ cảnh kỳ/nhân viên; tìm lượt quẹt có lọc mã/họ tên qua API và
+  vẫn giới hạn cơ sở được phép. Giải trình mở trực tiếp bằng API chi tiết có kiểm
+  tra quyền, không tìm theo UUID hoặc phụ thuộc trang danh sách đang mở.
+- **Quỹ phép:** cách tính có năm/ngày tính, điều kiện làm việc, tháng đủ điều kiện,
+  định mức, thâm niên, tổng phép và cách làm tròn. Sổ quỹ dùng Cấp phép năm, Điều
+  chỉnh quỹ, Trừ quỹ theo đơn nghỉ, Hoàn quỹ…; giữ dấu số ngày, hạn, người thực
+  hiện, lý do và tham chiếu. Dữ liệu tính/giao dịch gốc vẫn mở xem được.
+- **Thiết lập:** chọn tham số bằng tên, phạm vi bằng tên công ty/vùng/cơ sở, căn
+  cứ áp dụng bằng tiếng Việt; số, ngày, văn bản có trường nhập riêng. Lịch lễ
+  thêm/xóa từng ngày và chặn ngày trùng; không bắt nhập JSON cho tham số đã có
+  biểu mẫu. Tham số mở rộng vẫn có vùng nâng cao và đơn vị tính rõ ràng.
+- **Trình bày chung:** Phiên bản, Bản lưu lịch sử, Đang mở/Chưa mở/Đã chốt/Đã khóa;
+  UUID, hash, mã lỗi và thông điệp API gốc nằm trong Chi tiết kỹ thuật mặc định
+  đóng. Lỗi kết nối/phiên/quyền/biểu mẫu có thông báo tiếng Việt; lỗi lưu tham số
+  xuất hiện trong modal đang nhập. Trang Hệ thống giữ nguyên thông tin kỹ thuật.
+- Không đổi công thức công/OT/phép, quyền ghi, trình tự duyệt, hash hay dữ liệu
+  lịch sử. Đây là chuẩn hóa các màn hình đã có, không triển khai QĐ chốt/KT khóa.
+
+Kiểm chứng local trên PostgreSQL cách ly: AD lưu tham số số cho Nhà máy Bắc Ninh
+và lịch nghỉ qua từng ngày (HTTP 201); ngày trùng bị chặn, thêm/xóa dòng không lỗi;
+phiên bản cũ nhận 409 và hiện lý do trong modal. Ca đêm 22:00–08:10 có 130 phút
+OT thực tế, 120 phút đủ điều kiện, 10 phút ngoài duyệt; mở đúng tệp/dòng quẹt.
+KT xem quỹ 10 ngày, điều chỉnh -0,25, còn 9,75 và bảng tính 10 tháng. TT không
+có chức năng nhập nguồn AD và bị khóa xác nhận khi còn điều kiện chặn; QĐ chỉ
+đọc. Nút từ cảnh báo và từng dòng giải trình mở đúng hồ sơ, ô tìm kiếm không lộ
+UUID. Desktop/390px: trang không tràn ngang, bảng cuộn riêng; axe có 0 vi phạm
+tự động trên các bề mặt xác nhận tổ, drawer quỹ phép và modal tham số đã kiểm
+tra, vẫn có mục cần đánh giá thủ công. Hồi quy backend 162/162. Build frontend
+vẫn cảnh báo chunk UI >500 kB. Đây không phải UAT toàn R1; dữ liệu kiểm chứng
+được cách ly khỏi demo và xóa sau khi hoàn thành.
