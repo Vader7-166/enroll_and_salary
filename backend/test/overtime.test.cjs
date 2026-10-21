@@ -209,6 +209,19 @@ test('Overtime requests on isolated PostgreSQL and HTTP API', { timeout: 180000 
       assert.equal((await approve(annualPending)).status, "APPROVED");
     });
 
+    await t.test('Lists and historical snapshots enforce current scope after a worker moves', async () => {
+      await db.employee.update({ where: { id: workers.HISTORY.id }, data: { hireDate: new Date(`${year - 2}-01-01T00:00:00Z`) } });
+      const historicalDay = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+      const transferDay = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const historical = await create(workers.HISTORY.id, historicalDay);
+      await ok("/employees/" + workers.HISTORY.id + "/transfers", kt, { toOrgUnitId: other.id, effectiveFrom: transferDay, decisionDate: transferDay, decisionNumber: "OT-HISTORY-SCOPE", reason: "Kiểm chứng phạm vi lịch sử" });
+      assert.equal((await requestCall('/overtime/requests/' + historical.id, tt)).status, 403);
+      const list = await ok(`/overtime/requests?dateFrom=${historicalDay}&dateTo=${historicalDay}`, tt);
+      assert.equal(list.items.some(item => item.id === historical.id), false);
+      const accounting = await ok('/overtime/requests/' + historical.id, kt);
+      assert.equal(accounting.history[0].snapshot.members[0].employee.id, workers.HISTORY.id);
+    });
+
     await t.test('Cross-midnight minutes split month/year and ancestor locks prevent every write', async () => {
       await fixture(workers.LOCK.id, date(12, 30), `${date(12, 30)}T15:00:00.000Z`, `${date(12, 31)}T01:00:00.000Z`);
       const crossing = await create(workers.LOCK.id, date(12, 31), { startAt: `${date(12, 31)}T22:00:00+07:00`, endAt: `${year + 1}-01-01T02:00:00+07:00` });
@@ -222,20 +235,6 @@ test('Overtime requests on isolated PostgreSQL and HTTP API', { timeout: 180000 
       assert.equal((await requestCall('/overtime/requests', tt, input(workers.LOCK.id, date(12, 20)))).status, 409);
       assert.equal((await requestCall('/overtime/requests/' + crossing.id + '/update', tt, { ...input(workers.LOCK.id, date(12, 31)), revision: crossing.revision })).status, 409);
       assert.equal((await requestCall('/overtime/requests/' + crossing.id + '/cancel', tt, { revision: crossing.revision, reason: 'Kỳ khóa' })).status, 409);
-      await db.businessPeriod.update({ where: { id: period.id }, data: { status: 'OPEN' } });
-    });
-
-    await t.test('Lists and historical snapshots enforce current scope after a worker moves', async () => {
-      await db.employee.update({ where: { id: workers.HISTORY.id }, data: { hireDate: new Date(`${year - 2}-01-01T00:00:00Z`) } });
-      const historicalDay = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
-      const transferDay = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      const historical = await create(workers.HISTORY.id, historicalDay);
-      await ok("/employees/" + workers.HISTORY.id + "/transfers", kt, { toOrgUnitId: other.id, effectiveFrom: transferDay, decisionDate: transferDay, decisionNumber: "OT-HISTORY-SCOPE", reason: "Kiểm chứng phạm vi lịch sử" });
-      assert.equal((await requestCall('/overtime/requests/' + historical.id, tt)).status, 403);
-      const list = await ok(`/overtime/requests?dateFrom=${historicalDay}&dateTo=${historicalDay}`, tt);
-      assert.equal(list.items.some(item => item.id === historical.id), false);
-      const accounting = await ok('/overtime/requests/' + historical.id, kt);
-      assert.equal(accounting.history[0].snapshot.members[0].employee.id, workers.HISTORY.id);
     });
   } finally {
     if (server && server.exitCode === null) { const stopped = new Promise(resolve => server.once('exit', resolve)); server.kill(); await stopped; }

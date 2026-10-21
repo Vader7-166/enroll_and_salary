@@ -1216,3 +1216,120 @@ tự động trên các bề mặt xác nhận tổ, drawer quỹ phép và moda
 tra, vẫn có mục cần đánh giá thủ công. Hồi quy backend 162/162. Build frontend
 vẫn cảnh báo chunk UI >500 kB. Đây không phải UAT toàn R1; dữ liệu kiểm chứng
 được cách ly khỏi demo và xóa sau khi hoàn thành.
+
+### 7.22. Chốt công phân xưởng
+
+- Chạy `npm run db:generate`, `npm run db:deploy`, build và khởi động lại API.
+  Mở `#/attendance`, chọn địa điểm/kỳ → **Chốt phân xưởng** → chọn xưởng.
+  Bộ lọc nhân viên/đơn vị của bảng công không thu hẹp quyết định chốt cả xưởng.
+- QĐ cần role `QD` và `attendance.review`; đọc cần `attendance.read`. Kiểm tra
+  phạm vi hiện tại, ngày công/ngày nguồn và loại trừ nhân sự; không trả một phần
+  bảng rà soát/lịch sử khi không đủ quyền. AD, TT, KT chỉ đọc màn hình chốt xưởng.
+- Tổ liên quan là tổ có lịch chưa hủy/từ chối, công/quẹt thực tế, đơn OT/nghỉ
+  hoặc giải trình đang xử lý/đã duyệt trong kỳ, theo cây tổ chức có hiệu lực.
+  Không bắt tổ chỉ có phân công nhân sự nhưng chưa phát sinh nguồn công xác nhận
+  một kỳ trống. Danh sách xưởng phải thuộc phạm vi của chính kỳ ATTENDANCE.
+- Tất cả tổ liên quan phải có xác nhận TT đúng hash hiện hành; nguồn thu AD phải
+  đủ và hết cửa sổ thu nhận, công/OT đã xử lý khớp nguồn, không còn hồ sơ nháp,
+  trả lại/chờ duyệt hoặc điều kiện chặn. Có tổng hợp công, OT duyệt/thực tế/đủ
+  điều kiện, nghỉ và cảnh báo; drawer tổ dùng lại chứng cứ chỉ đọc, không cho QĐ
+  nhập nguồn thay AD hoặc xác nhận thay TT. Liên kết mở công/OT/giải trình để xử lý.
+- Đối soát XC-01…XC-10: nghỉ và quẹt, OT thiếu quẹt, quẹt thiếu lịch, trần giờ
+  ngày, khác cơ sở, công âm/vượt kỳ, công sau nghỉ việc, hiệu lực hợp đồng, ERR
+  thiếu giải trình, OT lũy kế tháng/năm. Trần dùng tham số SITE/REGION/GLOBAL theo
+  ngày hiệu lực; OT năm bao gồm các tháng trước kỳ. Thiếu tham số hợp lệ là chặn.
+  XC-05 dùng cảnh báo cùng ngày địa phương ở nhiều cơ sở vì chưa có ma trận thời
+  gian di chuyển: cần đối chiếu, không khẳng định vi phạm; không lộ nguồn/cơ sở
+  ngoài quyền. XC-06/07/09 chặn; các XC còn lại cần QĐ xác nhận đã rà soát.
+- Chốt gửi `revision`, `sourceHash`, `reviewed`, xác nhận cảnh báo và ghi chú.
+  Kiểm tra lại trong giao dịch Serializable có khóa chung với đường ghi nguồn;
+  nguồn/phiên bản đổi hoặc cạnh tranh trả 409, không tự chốt lại bằng nguồn mới.
+  Lịch sử CLOSE/RETURN append-only, có actor/thời điểm/lý do/bản lưu; UUID/hash
+  và JSON nằm trong **Chi tiết kỹ thuật** đóng mặc định.
+- Xưởng đã chốt chặn ghi lịch, công/OT/giải trình/nghỉ, nguồn thu/xác nhận tổ,
+  phân công/điều chuyển, hợp đồng/nhân sự và tham số/chính sách tác động kỳ. Bảo
+  vệ cả OLD/NEW khi dời ngày/đơn vị; thay đổi tương lai không giao kỳ vẫn được
+  phép. Nhập thêm raw log vẫn giữ bản gốc, bỏ tính lại phần đang chốt; khi kỳ còn
+  OPEN thì nguồn mới làm bản chốt STALE, vẫn phải RETURN trước khi sửa/xử lý.
+- RETURN chỉ khi kỳ OPEN, bắt buộc lý do; giữ bản chốt cũ. Sau bổ sung, AD xử lý
+  lại nguồn, TT xác nhận lại dữ liệu đổi rồi QĐ chốt lại. Khi mọi xưởng liên quan
+  chốt hợp lệ, giao dịch cuối tự chuyển kỳ OPEN → CLOSED, không tự LOCKED. Raw
+  muộn ở kỳ CLOSED/LOCKED chỉ ghi log, không đổi kết quả công/OT đã đóng. Bước KT
+  trả trước khóa, lưu nguồn cuối và khóa kỳ được mô tả tại §7.23.
+- API: `GET /api/attendance/workshop-closures/workshops?periodId=…`,
+  `GET /api/attendance/workshop-closures/review?periodId=…&workshopOrgUnitId=…`,
+  `POST /api/attendance/workshop-closures`,
+  `POST /api/attendance/workshop-closures/return`. Không có API sửa/xóa lịch sử.
+
+Kiểm chứng local: `npm run verify:workshop-closure` gồm 6/6 kết quả trên PostgreSQL
+cách ly và HTTP thật. Bao phủ nhiều tổ, thiếu nguồn/ERR, quyền và loại trừ, chốt
+cạnh tranh, UPDATE/DELETE/TRUNCATE, chặn sửa nhân sự/phân công/tham số, chạy lại
+không sửa xưởng chốt, import bổ sung làm stale, RETURN có lý do, tái xác nhận/chốt,
+tự CLOSED sau xưởng cuối và raw muộn không đổi công. Kiểm tra OT năm lấy dữ liệu
+tháng trước, đúng ngưỡng và thay đổi nguồn; giới hạn SITE chỉ áp dụng đúng ngày.
+Browser thật đã chạy TT xác nhận qua API → QĐ rà soát hai tổ/chốt revision 1 →
+bắt buộc lý do trả → revision 2 và xem lại bản lưu revision 1. Phiên KT toàn công
+ty chỉ đọc, không có nút chốt/trả. Desktop/390px có bảng cuộn riêng, không tràn
+trang; axe 0 vi phạm tự động trên màn hình và drawer bản lưu đã kiểm tra, vẫn có
+mục cần rà soát thủ công. Hồi quy toàn backend 168/168; typecheck và build đạt.
+Smoke trên demo chính sau migration: QĐ mở kỳ GL-CC-2026-10-BN/xưởng SMT,
+tổng hợp 62 nhân sự, 1 công, OT 180/290/170 phút; nút chốt bị khóa vì tổ chưa
+xác nhận/nguồn chưa đủ/cửa sổ thu nhận còn mở. Không sửa dữ liệu công demo.
+Không phải UAT toàn R1. Fixture cách ly được dọn sau smoke; build frontend còn
+cảnh báo chunk UI >500 kB.
+
+### 7.23. Kế toán trả kỳ trước khóa và lưu nguồn công bất biến
+
+- Migrate bằng `npm run db:deploy`, build và khởi động lại API. Migration
+  `20261021120000_attendance_period_lock` cấp `attendance.lock` cho KT; các migration
+  kế tiếp bổ sung guard nguồn, hiệu lực nhân sự/tham số, bất biến kỳ và một LOCK/kỳ.
+- Vào `#/attendance` → chọn địa điểm/kỳ → **Khóa kỳ công**. Chỉ KT có
+  `attendance.read` được mở rà soát; thiếu `attendance.lock` chỉ đọc. KT cần đủ
+  phạm vi hiện tại, toàn khoảng kỳ, từng nhân sự/ngày công/ngày nguồn và lịch sử.
+  Loại trừ hoặc thiếu một phần quyền trả 404 cho toàn bản, không lọc bớt nguồn.
+  Bộ lọc đơn vị/nhân viên không thu hẹp quyết định toàn kỳ.
+- **Trả kỳ về Mở để bổ sung** chỉ áp dụng kỳ Đã chốt, bắt buộc lý do. Giữ mọi
+  chốt xưởng cũ; QĐ phải trả riêng xưởng cần sửa. AD bổ sung/xử lý và xác nhận đủ
+  nguồn, TT xác nhận lại phần đổi, QĐ chốt lại. Xưởng không đổi giữ xác nhận/hash.
+- Chỉ khóa kỳ Đã chốt khi mọi xưởng/tổ liên quan khớp nguồn hiện hành, hết cửa
+  sổ thu log, không còn nguồn chờ xử lý/hồ sơ chờ duyệt/điều kiện chặn. Cảnh báo
+  phải được KT xác nhận đã rà soát. Kỳ trước đã tồn tại cùng loại/phạm vi phải
+  Đã khóa; không có kỳ trước thì ghi nhận kỳ khởi tạo, không tạo kỳ giả.
+- LOCK/RETURN gửi revision của `business_period` và hash nguồn đã rà soát.
+  Giao dịch Serializable khóa chung với đường ghi nguồn/phân quyền; kiểm tra lại
+  gate, ghi sự kiện, trạng thái và audit nguyên tử. Token cũ/cạnh tranh trả 409;
+  modal giữ lỗi, yêu cầu đóng và rà soát lại, không tự gửi bằng token mới.
+- LOCK lưu `schemaVersion: 1`, kỳ/phạm vi, tổng hợp, các xưởng/tổ, công từng
+  nhân viên/ngày, OT duyệt/thực tế/đủ điều kiện/ngày-đêm, nghỉ, giải trình và
+  toàn bộ căn cứ TT (raw/rules/phiên bản/manifest quyền). Hash là SHA-256 của
+  payload JSON canonical đã chuẩn hóa đúng như lưu; actor/thời điểm ở metadata.
+  Sau khóa, review đọc snapshot lưu sẵn, không dựng lại nguồn bằng dữ liệu sống.
+- **Xem nguồn công đã khóa** và **Xem bản lưu** hiển thị công/OT và người,
+  thời điểm, lý do/phiên bản. UUID/hash/JSON chỉ ở Chi tiết kỹ thuật đóng mặc định.
+  Ledger cấm UPDATE/DELETE/TRUNCATE và chỉ một LOCK mỗi kỳ; kỳ Đã khóa không
+  được mở lại, sửa định danh/revision hay xóa. Không có endpoint unlock.
+- Raw muộn vẫn được giữ và phân tuyến LATE; không tính lại công/OT hoặc ghi đè
+  phân tuyến đã đóng băng, kể cả chạy xử lý xưởng khác trong cùng cơ sở. Kỳ Đã chốt
+  có nguồn mới bị chặn khóa; kỳ Đã khóa giữ nguyên hash/bản nguồn. Điều chỉnh
+  nghiệp vụ sau khóa không được sửa snapshot này. Đây chưa phải engine tính lương.
+- API: `GET /api/attendance/period-locks/review?periodId=…`,
+  `POST /api/attendance/period-locks`, `POST /api/attendance/period-locks/return`.
+  Kiểm chứng riêng: `npm run verify:period-lock` (PostgreSQL cách ly + HTTP thật).
+
+Browser local đã chạy KT trả kỳ có validation lý do → QĐ trả một xưởng → AD
+bổ sung raw/xử lý → TT tái xác nhận → QĐ tự chốt lại kỳ. Xưởng còn lại giữ hash.
+Đã tạo xung đột 409 ngay trong modal khóa, không tạo LOCK ngoài ý muốn; sau rà
+soát lại khóa thành công, đọc nguồn và bản lưu revision 6. Nhập raw sau khóa
+giữ nguyên 2 công/960 phút và toàn snapshot/hash. Desktop/390px không tràn trang;
+bảng cuộn bằng bàn phím. Axe không phát hiện vi phạm tự động trên hai drawer đã
+kiểm tra; drawer nguồn có mục tương phản bị che cần đánh giá thủ công. Không phải
+chứng nhận UAT toàn R1; fixture cách ly được dọn sau smoke.
+
+Hồi quy cuối: **175/175** toàn backend, **7/7** bộ `period-lock`; typecheck
+và build cả hai workspace đạt. Fixture cũ được sắp xếp để không mở lại LOCKED;
+vẫn kiểm chứng khóa nguồn ca qua đêm/qua năm. Thử sửa/xóa/truncate ledger, chèn
+LOCK thay thế, đổi revision và mở khóa SQL đều bị chặn.
+Migration đã deploy demo chính qua `20261021170000`. KT mở
+GL-CC-2026-10-BN: 62 nhân sự, 1 công/480 phút, OT 180/290/170 phút; nút khóa
+bị chặn vì kỳ còn Mở, nguồn/xác nhận chưa đủ và cửa sổ thu nhận chưa hết.
+Không chốt hoặc sửa dữ liệu công demo; axe 0 vi phạm tự động trên tab KT này.

@@ -10,5 +10,9 @@ import { CorrectionsService } from "./corrections.service";
 import { LeaveAccessService } from "../leave/leave-access.service";
 import { TeamConfirmationController } from "./team-confirmation.controller";
 import { TeamConfirmationService } from "./team-confirmation.service";
-@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController, CorrectionsController, TeamConfirmationController], providers: [AttendanceService, CorrectionsService, TeamConfirmationService, LeaveAccessService, ScopeService], exports: [AttendanceService] })
+import { WorkshopClosureController } from "./workshop-closure.controller";
+import { WorkshopClosureService } from "./workshop-closure.service";
+import { AttendancePeriodLockController } from "./period-lock.controller";
+import { AttendancePeriodLockService } from "./period-lock.service";
+@Module({ imports: [AuthModule, AuditModule, SettingsModule], controllers: [AttendanceController, CorrectionsController, TeamConfirmationController, WorkshopClosureController, AttendancePeriodLockController], providers: [AttendanceService, CorrectionsService, TeamConfirmationService, WorkshopClosureService, AttendancePeriodLockService, LeaveAccessService, ScopeService], exports: [AttendanceService] })
 export class AttendanceModule {}

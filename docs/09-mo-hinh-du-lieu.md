@@ -40,7 +40,28 @@ hash nguồn thu) và `attendance_team_confirmation` (bảng vật lý triển k
 người/thời điểm/ghi chú). Mỗi bảng unique theo kỳ + tổ + revision; trigger bảo vệ
 thứ tự phiên bản, kỳ OPEN và cấm sửa/xóa/truncate. Trạng thái WAITING/CONFIRMED/STALE
 được suy từ nguồn hiện tại, không ghi đè snapshot cũ. Xác nhận tổ không chuyển
-kỳ sang CLOSED/LOCKED và chưa tạo bảng công xưởng/nguồn lương đã khóa.
+kỳ sang CLOSED/LOCKED và không tạo nguồn lương đã khóa.
+
+**Hiện thực chốt công phân xưởng local:** migration `20261020120000_workshop_closure`
+thêm `attendance_workshop_closure`, unique theo kỳ + xưởng + revision. Mỗi sự kiện
+CLOSE/RETURN lưu hash nguồn, actor, thời điểm, ghi chú/lý do và snapshot JSON bất
+biến; cấm UPDATE/DELETE/TRUNCATE. WAITING/CLOSED/STALE/RETURNED được suy từ sự kiện
+mới nhất và căn cứ công hiện hành. CLOSE không phải LOCKED; chỉ khi tất cả xưởng
+liên quan được chốt hợp lệ thì kỳ ATTENDANCE chuyển OPEN → CLOSED trong cùng giao
+dịch. Đây là nhật ký chốt xưởng, không phải toàn bộ thực thể bảng công/lương cuối
+cùng của bước KT. Trigger bảo vệ cả nguồn cũ và mới khi đổi ngày/đơn vị; raw log
+vẫn được nhập bổ sung nhưng không tính lại dữ liệu xưởng đang chốt hoặc kỳ đã đóng.
+Hợp đồng tại [20 §7.22](20-tech-stack-va-moi-truong-phat-trien.md#722-chốt-công-phân-xưởng).
+
+**Hiện thực KT khóa nguồn công local:** `attendance_period_lock_event` lưu sự
+kiện RETURN/LOCK, revision kỳ, hash, actor/thời điểm/ghi chú và snapshot JSON.
+Unique kỳ + revision, partial unique một LOCK/kỳ; cấm sửa/xóa/truncate. RETURN
+giữ trạng thái trước/tổng hợp/hash và lý do, không xóa chốt xưởng. LOCK lưu đầy đủ
+công từng nhân viên/ngày, OT/nghỉ/giải trình, rules và nguồn TT cùng manifest quyền.
+Hash SHA-256 áp dụng trên đúng payload JSON canonical đã lưu. Kỳ LOCKED bất biến
+toàn hàng, không mở lại hay xóa; đọc nguồn khóa từ snapshot sau khi kiểm tra lại
+quyền hiện tại/ngày nguồn, không tính lại bằng dữ liệu sống. Migrations
+`20261021120000` đến `20261021170000`; hợp đồng tại [20 §7.23](20-tech-stack-va-moi-truong-phat-trien.md#723-kế-toán-trả-kỳ-trước-khóa-và-lưu-nguồn-công-bất-biến).
 
 ---
 

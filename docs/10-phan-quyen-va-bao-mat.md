@@ -65,8 +65,17 @@ có `attendance.confirm` được xác nhận; chỉ AD có `attendance.import` 
 cứ đủ nguồn. Kiểm tra quyền/phân công/loại trừ hiện tại, mọi ngày công và ngày
 nguồn qua đêm; một phần nguồn không đọc được thì từ chối toàn tổ, không xác nhận
 trên tập bị lọc. Ghi trong transaction serializable, kiểm tra hash và revision,
-audit cùng giao dịch. QĐ/KT chỉ xem trong phạm vi ở bước này; chưa có chốt/khóa.
+audit cùng giao dịch. QĐ/KT chỉ đọc ở bước xác nhận tổ; chốt xưởng và khóa kỳ có quyền riêng.
 Hợp đồng tại [20 §7.20](20-tech-stack-va-moi-truong-phat-trien.md#720-xác-nhận-công-tổ).
+
+**Quyền API KT khóa kỳ local:** KT + `attendance.read` đọc rà soát toàn kỳ và
+nguồn đã khóa; LOCK/RETURN cần thêm `attendance.lock` (migration/seed chỉ cấp
+cho KT). AD/TT/QĐ không được thực hiện quyết định KT. Kiểm tra toàn phạm vi
+kỳ, phân công/loại trừ hiện tại, từng ngày công/ngày nguồn và manifest bản lưu.
+Thiếu một phần quyền trả 404 cho toàn bản, không lộ tập bị lọc hay lịch sử.
+Ghi Serializable có khóa nguồn/phân quyền; revision/hash cũ trả 409. Sự kiện
+append-only, chỉ một LOCK mỗi kỳ; không có mở khóa kể cả qua cập nhật SQL trực
+tiếp. Raw muộn không đổi nguồn đã khóa. Hợp đồng tại [20 §7.23](20-tech-stack-va-moi-truong-phat-trien.md#723-kế-toán-trả-kỳ-trước-khóa-và-lưu-nguồn-công-bất-biến).
 
 ### 1.2. Trục phạm vi dữ liệu
 

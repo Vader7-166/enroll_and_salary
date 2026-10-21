@@ -211,25 +211,6 @@ test('Attendance corrections: isolated PostgreSQL and real HTTP', { timeout: 180
       assert.equal((await request('/attendance/corrections/' + evidenceCorrection.id + '/evidence/' + evidence.id, remoteScopeCookie)).status, 404, 'an out-of-scope user cannot discover protected correction evidence');
     });
 
-    await t.test('rejects locked target, locked overnight source, and leaves failed incident bulk atomic', async () => {
-      const sourceLock = await db.businessPeriod.create({ data: { code: 'COR-SOURCE-LOCK', scopeOrgUnitId: company.id, periodType: 'ATTENDANCE', dateFrom: new Date('2026-10-11'), dateTo: new Date('2026-10-11'), cutoffDay: 25, cutoffPolicyId: period.cutoffPolicyId, status: 'LOCKED' } });
-      const atomic = correctionPayload(period.id, people.MAIN.id, team.id, {
-        reason: 'Biên bản atomic COR-ATOMIC', incidentReference: 'INC-COR-ATOMIC',
-        items: [
-          correctionPayload(period.id, people.MAIN.id, team.id).items[0],
-          { employeeId: people.NIGHT.id, orgUnitId: team.id, workDate, intervals: [{ startAt: '2026-10-10T22:00:00+07:00', endAt: '2026-10-11T06:00:00+07:00' }], excuseLateEarly: false },
-        ],
-      });
-      const denied = await create(tt, atomic);
-      assert.equal(denied.status, 409, 'a locked source calendar date rejects the whole request');
-      const atomicRows = (await ok('/attendance/corrections?periodId=' + period.id + '&pageSize=100', tt)).items.filter(item => item.reason === atomic.reason);
-      assert.equal(atomicRows.length, 0, 'atomic failure persists no partial correction');
-      await db.businessPeriod.update({ where: { id: sourceLock.id }, data: { status: 'OPEN' } });
-      await db.businessPeriod.update({ where: { id: period.id }, data: { status: 'CLOSED' } });
-      assert.equal((await create(tt, correctionPayload(period.id, people.MAIN.id, team.id, { reason: 'Biên bản mục tiêu đóng' }))).status, 409, 'closed target rejects writes');
-      await db.businessPeriod.update({ where: { id: period.id }, data: { status: 'OPEN' } });
-    });
-
     await t.test('return/edit/resubmit/reject remains non-applying', async () => {
       const created = (await create(tt, correctionPayload(period.id, people.SECOND.id, team.id, { reason: 'Biên bản bị trả COR-RETURN' }))).body.correction;
       const pending = (await submit(created)).body.correction;
@@ -306,6 +287,24 @@ test('Attendance corrections: isolated PostgreSQL and real HTTP', { timeout: 180
       assert.equal(edited.status, 201, JSON.stringify(edited.body));
       const resubmitted = (await submit(edited.body.correction)).body.correction;
       assert.equal((await request('/attendance/corrections/' + resubmitted.id + '/approve', qd, { revision: resubmitted.revision })).status, 201, 'edited source snapshot may be resubmitted and approved');
+    });
+
+    await t.test('rejects locked target, locked overnight source, and leaves failed incident bulk atomic', async () => {
+      const sourceLock = await db.businessPeriod.create({ data: { code: 'COR-SOURCE-LOCK', scopeOrgUnitId: company.id, periodType: 'ATTENDANCE', dateFrom: new Date('2026-10-11'), dateTo: new Date('2026-10-11'), cutoffDay: 25, cutoffPolicyId: period.cutoffPolicyId, status: 'LOCKED' } });
+      const atomic = correctionPayload(period.id, people.MAIN.id, team.id, {
+        reason: 'Biên bản atomic COR-ATOMIC', incidentReference: 'INC-COR-ATOMIC',
+        items: [
+          correctionPayload(period.id, people.MAIN.id, team.id).items[0],
+          { employeeId: people.NIGHT.id, orgUnitId: team.id, workDate, intervals: [{ startAt: '2026-10-10T22:00:00+07:00', endAt: '2026-10-11T06:00:00+07:00' }], excuseLateEarly: false },
+        ],
+      });
+      const denied = await create(tt, atomic);
+      assert.equal(denied.status, 409, 'a locked source calendar date rejects the whole request');
+      const atomicRows = (await ok('/attendance/corrections?periodId=' + period.id + '&pageSize=100', tt)).items.filter(item => item.reason === atomic.reason);
+      assert.equal(atomicRows.length, 0, 'atomic failure persists no partial correction');
+      await db.businessPeriod.update({ where: { id: period.id }, data: { status: "CLOSED" } });
+      assert.equal((await create(tt, correctionPayload(period.id, people.MAIN.id, team.id, { reason: 'Biên bản mục tiêu đóng' }))).status, 409, 'closed target rejects writes');
+      await db.businessPeriod.update({ where: { id: period.id }, data: { status: 'OPEN' } });
     });
   } finally {
     if (server && server.exitCode === null) { server.kill(); await new Promise(done => server.once('exit', done)); }

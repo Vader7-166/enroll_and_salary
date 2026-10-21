@@ -36,7 +36,7 @@
 ---
 
 > [!IMPORTANT]
-> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt, đăng ký/duyệt và đối chiếu OT thực tế, giải trình/điều chỉnh công có kiểm duyệt; **chưa có tiền OT, engine tính lương, chốt công hoặc AI**. Tên dự án và đặc tả R1 thể hiện phạm vi mục tiêu, không phải tuyên bố đã hoàn thành toàn bộ sản phẩm hoặc sẵn sàng vận hành thực tế.
+> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt, đăng ký/duyệt và đối chiếu OT thực tế, giải trình/điều chỉnh công có kiểm duyệt, nghỉ/quỹ phép, TT xác nhận, QĐ chốt xưởng và KT trả/khóa nguồn công bất biến; **chưa có tiền OT, engine tính lương hoặc AI**. Đặc tả R1 là phạm vi mục tiêu, không phải tuyên bố sẵn sàng vận hành toàn sản phẩm.
 
 <a id="tong-quan"></a>
 ## Tổng quan
@@ -59,7 +59,7 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Xác thực & phân quyền | Đăng nhập/đăng xuất; Admin tạo/sửa tài khoản, quyền/loại trừ có hiệu lực, khóa/mở khóa, reset/đổi mật khẩu, lịch sử/hạn đổi và thu hồi phiên; kiểm tra vai trò, cây đơn vị và audit |
 | Hồ sơ nhân sự | Tìm kiếm, lọc, xem chi tiết và tạo nhân sự trong phạm vi được cấp |
 | Hợp đồng & điều chuyển | Hợp đồng, phụ lục mã hóa; lịch sử và điều chuyển theo ngày hiệu lực |
-| Thiết lập & kỳ công | Tham số/chính sách theo phiên bản và hiệu lực; tạo, mở kỳ công |
+| Thiết lập & kỳ công | Tham số/chính sách hiệu lực; AD tạo/mở kỳ, KT trả trước khóa và khóa nguồn bất biến theo thứ tự kỳ |
 | Ca & phân ca | Danh mục ca, lịch theo tổ/người/ngày; Tổ trưởng gửi, Quản đốc duyệt hoặc trả lại; lịch sử phiên bản |
 | Nhập dữ liệu chấm công | CSV/TXT/XLSX, cấu hình cột, kiểm tra từng dòng, chống nhập trùng; lịch sử và nguồn dữ liệu |
 | Xử lý chấm công | Ghép vào–ra theo lịch đã duyệt, ca qua ngày, nghỉ giữa ca, thiếu quẹt, đi muộn/về sớm |
@@ -69,9 +69,11 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Giải trình & điều chỉnh | TT lập/gửi lý do và bằng chứng, QĐ duyệt/trả lại/từ chối; sự cố nhiều người, snapshot trước/sau, tính lại công/OT không sửa lượt quẹt gốc |
 | Loại nghỉ & quỹ phép | Danh mục/chính sách hiệu lực; KT tính/chuyển/ứng/điều chỉnh; TT lập/gửi/duyệt một cấp; USE/REFUND bất biến, lịch lễ và ký hiệu nghỉ trên công, truy vết nguồn và chạy lại không mất hiệu lực |
 | Xác nhận công tổ | Rà soát công/OT/nghỉ/giải trình, AD xác nhận đủ nguồn bằng file/chứng từ và khoảng bao phủ; TT xác nhận theo hash nguồn, lịch sử bất biến và phát hiện nguồn đổi |
+| Chốt công phân xưởng | QĐ rà soát toàn bộ tổ và đối soát chéo, chốt/trả có lý do; bản lưu bất biến, bảo vệ nguồn, tự CLOSED khi mọi xưởng hợp lệ, không tự LOCKED |
+| Khóa nguồn công | KT rà soát toàn kỳ, trả có lý do hoặc khóa không đảo ngược; lưu công/OT/nghỉ/giải trình và căn cứ, hash/lịch sử bất biến; đọc snapshot, không tính lại sau khóa |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
-**Chưa triển khai:** tiền OT, chế độ BHXH và thanh toán phép khi nghỉ việc, QĐ chốt công xưởng, KT khóa công và API chốt/khóa kỳ, tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Các nội dung chưa triển khai không được xem là chức năng đang hoạt động.
+**Chưa triển khai:** tiền OT, chế độ BHXH và thanh toán phép khi nghỉ việc, engine tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Nguồn công đã khóa chưa phải bảng lương hoặc kết quả thanh toán.
 
 ### Nguyên tắc xử lý chấm công
 
@@ -208,7 +210,7 @@ Seed mặc định tạo bộ **2.200 hồ sơ nhân sự mô phỏng** theo cơ
 | Tài khoản | Vai trò | Phạm vi chính |
 |---|---|---|
 | `tt.bn` | Tổ trưởng | Tổ SMT-1 Bắc Ninh; đọc nhân sự/công, lập/sửa/gửi lịch và đề nghị OT |
-| `qd.bn` | Quản đốc | Phân xưởng SMT Bắc Ninh; đọc công, duyệt/trả lại lịch và duyệt/trả lại/từ chối OT |
+| `qd.bn` | Quản đốc | Phân xưởng SMT Bắc Ninh; đọc công, duyệt/trả lại lịch và OT, chốt/trả lại công xưởng khi kỳ đang mở |
 | `kt.bn` | Kế toán cơ sở | Nhân sự, hợp đồng, điều chuyển và đọc công tại Bắc Ninh |
 | `kt.all` | Kế toán công ty | Phạm vi toàn công ty, có áp dụng danh sách loại trừ |
 | `ad.demo` | Admin | Tài khoản, tổ chức, thiết lập, kỳ công, danh mục ca; nhập/xử lý và xem công, không đọc hồ sơ nhân sự/lương |
@@ -296,6 +298,10 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `POST` | `/api/leave/requests/preview`, `/api/leave/requests` | Kiểm tra đơn mới / lưu nháp; TT có quyền leave.request |
 | `POST` | `/api/leave/requests/:id/update`, `/api/leave/requests/:id/submit` | Sửa nháp/đơn trả lại và gửi với revision; kiểm tra lại lịch, loại nghỉ, chứng từ, quỹ và kỳ chốt/khóa |
 | `POST` | `/api/leave/requests/:id/approve`, `/:id/return`, `/:id/reject`, `/:id/cancel` dưới cùng nhóm | TT duyệt một cấp; revision/scope/chống tự xử lý; duyệt và hủy đã duyệt ghi USE/REFUND cùng cập nhật công nguyên tử |
+| `GET` | `/api/attendance/workshop-closures/workshops`, `/review` | Xưởng thuộc kỳ/phạm vi; tổng hợp tổ, điều kiện chốt, cảnh báo và lịch sử bất biến |
+| `POST` | `/api/attendance/workshop-closures`, `/api/attendance/workshop-closures/return` | QĐ chốt theo revision/hash hoặc trả lại có lý do khi kỳ OPEN |
+| `GET` | `/api/attendance/period-locks/review?periodId=…` | KT rà soát toàn kỳ hoặc đọc nguồn/sự kiện đã khóa, kiểm tra lại quyền toàn bộ nguồn |
+| `POST` | `/api/attendance/period-locks`, `/api/attendance/period-locks/return` | KT khóa bất biến hoặc trả kỳ trước khóa theo revision/hash; không có unlock |
 
 Kiểm tra nhanh khi API đang chạy:
 
@@ -321,6 +327,9 @@ npm run verify:overtime-actual
 npm run verify:accounts
 npm run verify:corrections
 npm run verify:leave
+npm run verify:team-confirmation
+npm run verify:workshop-closure
+npm run verify:period-lock
 ```
 
 Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi chạy HTTP server thật và dọn database đã tạo. Tài khoản kết nối cần quyền tạo/xóa database; không trỏ bộ kiểm chứng vào môi trường vận hành. Chạy lần lượt, không chạy đồng thời với compiler dev/watch.
@@ -338,14 +347,20 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | `verify:leave` | Danh mục/chính sách có hiệu lực, quyền theo khoảng, tính quỹ/0 tháng/thâm niên, idempotency/revision, chuyển/hết hạn/ứng phép, ledger và seed bất biến | 20/20 |
 | `verify:leave-requests` | Vòng đời/quyền/ca đêm; USE/REFUND theo nguồn/hạn; 5 ngày có 1 lễ chỉ trừ 4; nửa ca và quẹt chiều; chạy lại; chờ kỳ mở; hủy riêng một nguồn; tranh số dư và kỳ chốt | 19/19 |
 | `verify:team-confirmation` | Đủ nguồn AD, ca đêm, quyền TT, cảnh báo, snapshot bất biến, cạnh tranh, loại trừ/ngày nguồn, nguồn đổi và kỳ đóng/khóa | 8/8 |
+| `verify:workshop-closure` | Tổng hợp nhiều tổ, trần OT năm/ngày hiệu lực, quyền/phạm vi/loại trừ, cạnh tranh, bất biến, chặn ghi, trả lại, raw muộn và tự chốt kỳ | 6/6 |
+| `verify:period-lock` | Quyền KT/phạm vi/loại trừ, CLOSED→OPEN, thứ tự kỳ, hash nguồn đầy đủ, cạnh tranh, bất biến SQL/HTTP, nguồn đổi/raw muộn và giữ xưởng không đổi | 7/7 |
 
-Hồi quy toàn backend sau xác nhận công tổ đạt **162/162**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
+Hồi quy toàn backend sau khóa nguồn công đạt **175/175**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
 
 Browser đã chạy AD tạo loại nghỉ/chính sách và phiên bản kế tiếp; KT tính quỹ, điều chỉnh, ứng trước và xem ledger. Drawer desktop/390px không tràn trang; cuộn bảng bằng bàn phím hoạt động, axe không phát hiện lỗi tự động trên các drawer đã kiểm tra (vẫn có mục cần đánh giá thủ công). Đây là kết quả local, **không phải CI hoặc chứng nhận UAT toàn R1**. Xem [20 §7.16](docs/20-tech-stack-va-moi-truong-phat-trien.md#716-loại-nghỉ-chính-sách-và-quỹ-phép-năm).
 
 **Đơn nghỉ:** vào `#/leave` → **Đơn nghỉ**, đăng nhập `tt.bn` → lập/lưu nháp → gửi → duyệt một cấp, trả lại, từ chối hoặc hủy. Duyệt ghi USE khi loại nghỉ trừ quỹ, ngày lễ L không trừ phép năm; hủy đã duyệt hoàn đúng nguồn/hạn và tính lại công. Drawer hiện số bút toán, ngày công và trạng thái chờ kỳ mở/xử lý; bảng công có ký hiệu, thời lượng và nguồn đơn/phiên bản/lịch lễ. Browser đã chạy BN00004 ca đêm 18/10, 120 phút/0,25 ngày, duyệt → xem quỹ/công → hủy; giữ 480 phút làm thực tế, báo trùng giờ làm/nghỉ rồi gỡ riêng ảnh hưởng đơn. Desktop/390px có 0 lỗi axe tự động trên drawer đã kiểm tra, còn mục cần đánh giá thủ công. Xem [20 §7.19](docs/20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
 
-**Xác nhận công tổ:** vào `#/attendance` → chọn địa điểm/kỳ → **Xác nhận tổ** → chọn tổ. AD đối chiếu cửa sổ thu log, lô tệp/chứng từ và ghi **Xác nhận đủ nguồn**; TT rà soát công, OT, nghỉ, giải trình và cảnh báo rồi xác nhận theo hash hiện hành. Lưu người, thời điểm, revision và snapshot bất biến; nguồn đổi chuyển **Đã lỗi thời**, giữ lịch sử và yêu cầu rà soát lại. Browser đã chạy AD → TT revision 1 → tải lại còn lịch sử → đổi căn cứ nguồn → lỗi thời → TT revision 2; hồ sơ giải trình nháp hiện lý do/chứng từ và chặn xác nhận, QĐ chỉ đọc. Desktop/390px không tràn trang, dropdown mở và các bề mặt đã audit có 0 lỗi axe tự động (còn mục cần đánh giá thủ công). Xem [20 §7.20](docs/20-tech-stack-va-moi-truong-phat-trien.md#720-xác-nhận-công-tổ). Chưa triển khai QĐ chốt phân xưởng/KT khóa kỳ.
+**Xác nhận công tổ:** vào `#/attendance` → chọn địa điểm/kỳ → **Xác nhận tổ** → chọn tổ. AD đối chiếu cửa sổ thu log, lô tệp/chứng từ và ghi **Xác nhận đủ nguồn**; TT rà soát công, OT, nghỉ, giải trình và cảnh báo rồi xác nhận theo hash hiện hành. Lưu người, thời điểm, revision và snapshot bất biến; nguồn đổi chuyển **Đã lỗi thời**, giữ lịch sử và yêu cầu rà soát lại. QĐ chỉ đọc trên màn hình xác nhận tổ; quyết định chốt thuộc màn hình riêng bên dưới. Xem [20 §7.20](docs/20-tech-stack-va-moi-truong-phat-trien.md#720-xác-nhận-công-tổ).
+
+**QĐ chốt công phân xưởng:** vào `#/attendance` → chọn địa điểm/kỳ → **Chốt phân xưởng**. Rà soát toàn bộ tổ, công/OT/nghỉ/giải trình/cảnh báo; chỉ QĐ đủ quyền/phạm vi được chốt hoặc trả lại xưởng có lý do. Giữ bản lưu và bảo vệ nguồn; mọi xưởng hợp lệ thì tự chuyển kỳ Đã chốt, không tự khóa. Xem [20 §7.22](docs/20-tech-stack-va-moi-truong-phat-trien.md#722-chốt-công-phân-xưởng).
+
+**KT khóa nguồn công:** vào `#/attendance` → chọn địa điểm/kỳ → **Khóa kỳ công**. KT có `attendance.lock` được trả kỳ Đã chốt về Mở với lý do, hoặc rà soát và khóa nguồn toàn kỳ không đảo ngược. Giữ chốt xưởng cũ khi trả; nguồn đổi cần TT xác nhận và QĐ chốt lại. Bản khóa lưu công từng người/ngày, OT/nghỉ/giải trình/căn cứ, hash và lịch sử; raw muộn không đổi snapshot. Xem nguồn/bản lưu chỉ đọc, không có mở khóa. Xem [20 §7.23](docs/20-tech-stack-va-moi-truong-phat-trien.md#723-kế-toán-trả-kỳ-trước-khóa-và-lưu-nguồn-công-bất-biến).
 
 **Giao diện nghiệp vụ:** xác nhận tổ hiển thị việc cần xử lý, người phụ trách, nhân viên/ngày công và liên kết tra cứu; UUID, hash, mã lỗi và dữ liệu gốc nằm trong mục **Chi tiết kỹ thuật** mặc định đóng. Chi tiết ngày công/lượt quẹt hiện tên tệp và dòng nguồn; OT có bảng quy tắc và liên kết công/lượt quẹt/giải trình. Quỹ phép có bảng cách tính theo tháng và tên nghiệp vụ sổ quỹ. Thiết lập dùng tên tham số, tên cơ sở/vùng và trường số/ngày/văn bản/danh sách ngày nghỉ; JSON chỉ thuộc thiết lập nâng cao. Kỳ công dùng Đang mở/Chưa mở/Đã chốt/Đã khóa; lịch sử OT dùng Bản lưu lịch sử/Phiên bản. Lỗi lưu hiện ngay trong biểu mẫu bằng tiếng Việt, giữ thông điệp gốc trong phần kỹ thuật. Xem [20 §7.21](docs/20-tech-stack-va-moi-truong-phat-trien.md#721-chuẩn-hóa-giao-diện-nghiệp-vụ).
 

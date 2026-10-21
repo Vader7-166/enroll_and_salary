@@ -161,15 +161,15 @@ test('Actual OT reconciliation on isolated PostgreSQL and HTTP', { timeout: 1500
       assert.equal(batch.summary.inserted, 1);
       assert.deepEqual(await db.overtimeActual.findUnique({ where: { id: night.id } }), before);
       await db.businessPeriod.update({ where: { id: october.id }, data: { status: 'OPEN' } });
-      const ancestor = await db.businessPeriod.create({ data: { code: 'ACT-ANCESTOR', scopeOrgUnitId: company.id, periodType: 'ATTENDANCE', dateFrom: new Date('2026-09-26'), dateTo: new Date('2026-10-25'), cutoffDay: 25, cutoffPolicyId: october.cutoffPolicyId, status: 'LOCKED' } });
-      await assert.rejects(db.overtimeActual.delete({ where: { id: night.id } }), /PERIOD_STATE_CONFLICT/);
-      await ok('/attendance/process', ad, { siteId: site.id, referencePeriodId: october.id });
-      assert.deepEqual(await db.overtimeActual.findUnique({ where: { id: night.id } }), before);
-      await db.businessPeriod.update({ where: { id: ancestor.id }, data: { status: 'OPEN' } });
       await ok('/attendance/process', ad, { siteId: site.id, referencePeriodId: october.id });
       const after = await ok('/attendance/overtime-actuals/' + night.id, tt);
       assert.equal(after.actual.eligibleMinutes, 120); assert.equal(after.actual.actualMinutes, 135);
       assert.equal(after.punches.some(p => p.punchedAt === '2026-10-01T01:15:00.000Z'), true);
+      const lockedBefore = await db.overtimeActual.findUniqueOrThrow({ where: { id: night.id } });
+      const ancestor = await db.businessPeriod.create({ data: { code: "ACT-ANCESTOR", scopeOrgUnitId: company.id, periodType: "ATTENDANCE", dateFrom: new Date("2026-09-26"), dateTo: new Date("2026-10-25"), cutoffDay: 25, cutoffPolicyId: october.cutoffPolicyId, status: "LOCKED" } });
+      await assert.rejects(db.overtimeActual.delete({ where: { id: night.id } }), /PERIOD_STATE_CONFLICT/);
+      await ok('/attendance/process', ad, { siteId: site.id, referencePeriodId: october.id });
+      assert.deepEqual(await db.overtimeActual.findUnique({ where: { id: night.id } }), lockedBefore);
     });
     await t.test("End-calendar-day locks and exclusions protect a cross-year business-date result", async () => {
       const before = await db.overtimeActual.findUnique({ where: { id: year.id } });
@@ -177,7 +177,6 @@ test('Actual OT reconciliation on isolated PostgreSQL and HTTP', { timeout: 1500
       await assert.rejects(db.overtimeActual.update({ where: { id: year.id }, data: { flags: ["CHANGED"] } }), /PERIOD_STATE_CONFLICT/);
       await upload([line("YEAR", "2027-01-01", "01:05:00", "OUT")], january.id);
       assert.deepEqual(await db.overtimeActual.findUnique({ where: { id: year.id } }), before);
-      await db.businessPeriod.update({ where: { id: lock.id }, data: { status: "OPEN" } });
       await db.employeeExclusion.create({ data: { userAccountId: author.id, employeeId: people.YEAR.id, effectiveFrom: new Date("2027-01-01"), effectiveTo: new Date("2027-01-01") } });
       assert.equal((await request("/attendance/overtime-actuals/" + year.id, tt)).status, 404);
       assert.equal((await ok("/attendance/overtime-actuals?periodId=" + january.id + "&search=ACT-YEAR", tt)).total, 0);

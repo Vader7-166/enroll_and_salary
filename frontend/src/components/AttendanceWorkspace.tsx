@@ -12,6 +12,8 @@ import { attendanceApi } from "../api/attendance";
 import { AttendanceCorrectionsPanel } from "./AttendanceCorrectionsPanel";
 import { OvertimeActualPanel } from "./OvertimeActualPanel";
 import { AttendanceTeamConfirmationPanel } from "./AttendanceTeamConfirmationPanel";
+import { AttendanceWorkshopClosurePanel } from "./AttendanceWorkshopClosurePanel";
+import { AttendancePeriodLockPanel } from "./AttendancePeriodLockPanel";
 import type { AttendancePeriod, AttendanceProfile, Batch, DailyRow, ImportMapping, RawPunchState, RawRow } from "../api/attendance";
 import { TechnicalDetails } from "./TechnicalDetails";
 const { Title, Text, Paragraph } = Typography;
@@ -138,6 +140,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
   const [tab, setTab] = useState("board");
   const [siteId, setSiteId] = useState<string>();
   const [periodId, setPeriodId] = useState<string>();
+  const [requestedWorkshopId, setRequestedWorkshopId] = useState<string>();
   const [orgUnitId, setOrgUnitId] = useState<string>();
   const [search, setSearch] = useState("");
   const [boardPage, setBoardPage] = useState(1);
@@ -153,6 +156,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
   const [selectedRaw, setSelectedRaw] = useState<RawRow>();
   const [focusCorrectionId, setFocusCorrectionId] = useState<string>();
   const canImport = user.roles.includes("AD") && user.permissions.includes("attendance.import");
+  const canReviewPeriod = user.roles.includes("KT") && user.permissions.includes("attendance.read");
   const context = useQuery({ queryKey: ["attendance-context"], queryFn: attendanceApi.context });
   const selectedSite = context.data?.sites.find((site) => site.id === siteId);
   const sitePeriods = useMemo(() => selectedSite ? context.data?.periods.filter((period) => selectedSite.periodIds.includes(period.id)) ?? [] : [], [context.data?.periods, selectedSite]);
@@ -188,8 +192,8 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
       void client.invalidateQueries({ queryKey: ["attendance-overtime-actual"] });
     },
   });
-  const chooseSite = (value: string) => { setSiteId(value); setPeriodId(undefined); setProfileId(undefined); setOrgUnitId(undefined); setFile(undefined); setLastBatch(undefined); setBoardPage(1); setHistoryPage(1); setPunchPage(1); };
-  const choosePeriod = (value: string) => { setPeriodId(value); setBoardPage(1); setFocusCorrectionId(undefined); setSelectedDay(undefined); };
+  const chooseSite = (value: string) => { setSiteId(value); setPeriodId(undefined); setRequestedWorkshopId(undefined); setProfileId(undefined); setOrgUnitId(undefined); setFile(undefined); setLastBatch(undefined); setBoardPage(1); setHistoryPage(1); setPunchPage(1); };
+  const choosePeriod = (value: string) => { setPeriodId(value); setRequestedWorkshopId(undefined); setBoardPage(1); setFocusCorrectionId(undefined); setSelectedDay(undefined); };
   const navigateSource = (target: "daily" | "raw" | "overtime" | "corrections", employeeCode?: string, sourceId?: string) => {
     setSelectedDay(undefined); setSelectedRaw(undefined); setSelectedBatch(undefined);
     setSearch(employeeCode ?? ""); setOrgUnitId(undefined); setBoardPage(1); setPunchPage(1); setPunchState(undefined);
@@ -224,12 +228,14 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
     <div className="filter-panel attendance-filters">
       <div><Text strong>Địa điểm</Text><Select aria-label="Địa điểm" value={siteId} onChange={chooseSite} placeholder="Chọn địa điểm" options={context.data.sites.map(site => ({ value: site.id, label: `${site.code} · ${site.name}` }))} /></div>
       <div><Text strong>Kỳ tham chiếu</Text><Select aria-label="Kỳ tham chiếu" value={periodId} onChange={choosePeriod} disabled={!siteId} placeholder="Chọn kỳ công" options={sitePeriods.map(period => ({ value: period.id, label: period.code }))} /></div>
-      <div><Text strong>Đơn vị</Text><Select aria-label="Đơn vị" value={orgUnitId} disabled={!siteId} onChange={value => { setOrgUnitId(value); setBoardPage(1); }} allowClear placeholder="Tất cả đơn vị" options={context.data.units.filter(unit => unit.siteId === siteId).map(unit => ({ value: unit.id, label: `${unit.code} · ${unit.name}` }))} /></div>
-      <div><Text strong>Tìm nhân viên</Text><Input aria-label="Tìm nhân viên" value={search} onChange={event => { setSearch(event.target.value); setBoardPage(1); }} placeholder="Mã hoặc họ tên" /></div>
+      {tab !== "workshop-closure" && tab !== "period-lock" && <><div><Text strong>Đơn vị</Text><Select aria-label="Đơn vị" value={orgUnitId} disabled={!siteId} onChange={value => { setOrgUnitId(value); setBoardPage(1); }} allowClear placeholder="Tất cả đơn vị" options={context.data.units.filter(unit => unit.siteId === siteId).map(unit => ({ value: unit.id, label: `${unit.code} · ${unit.name}` }))} /></div>
+      <div><Text strong>Tìm nhân viên</Text><Input aria-label="Tìm nhân viên" value={search} onChange={event => { setSearch(event.target.value); setBoardPage(1); }} placeholder="Mã hoặc họ tên" /></div></>}
     </div>
     {!siteId || !periodId ? <Alert type="info" showIcon message="Chọn địa điểm và kỳ tham chiếu để xem bảng công." /> : <>
       <Tabs activeKey={tab} onChange={setTab} items={[
         { key: "board", label: "Bảng công" }, { key: "exceptions", label: "Ngoại lệ" }, { key: "overtime-actual", label: "OT thực tế" }, { key: "corrections", label: "Giải trình" }, { key: "team-confirmation", label: "Xác nhận tổ" },
+        { key: "workshop-closure", label: "Chốt phân xưởng" },
+        ...(canReviewPeriod ? [{ key: "period-lock", label: "Khóa kỳ công" }] : []),
         ...(canImport ? [{ key: "import", label: "Nhập tệp" }, { key: "history", label: "Lịch sử nhập" }, { key: "punches", label: "Lượt quẹt gốc" }] : []),
       ]} />
       {(tab === "board" || tab === "exceptions") && <>
@@ -247,6 +253,8 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
       </>}
       {tab === "corrections" && <AttendanceCorrectionsPanel user={user} periodId={periodId} orgUnitId={orgUnitId} search={search} focusCorrectionId={focusCorrectionId} onFocusHandled={() => setFocusCorrectionId(undefined)} />}
       {tab === "team-confirmation" && <AttendanceTeamConfirmationPanel user={user} periodId={periodId} onNavigate={navigateSource} />}
+      {tab === "workshop-closure" && <AttendanceWorkshopClosurePanel key={`${periodId}:${requestedWorkshopId ?? ""}`} user={user} periodId={periodId} initialWorkshopId={requestedWorkshopId} onNavigate={navigateSource} />}
+      {tab === "period-lock" && canReviewPeriod && <AttendancePeriodLockPanel key={periodId} user={user} periodId={periodId} onReviewWorkshop={id => { setRequestedWorkshopId(id); setTab("workshop-closure"); }} />}
       {tab === "import" && canImport && <div className="attendance-import">
         <Space wrap>
           <Upload beforeUpload={() => false} maxCount={1} accept=".csv,.txt,.xlsx" fileList={file ? [{ uid: file.name, name: file.name }] : []} onChange={({ file: chosen }) => setFile(chosen.originFileObj ?? (chosen instanceof File ? chosen : undefined))} onRemove={() => { setFile(undefined); return true; }}><Button icon={<UploadOutlined />}>Chọn tệp quẹt</Button></Upload>

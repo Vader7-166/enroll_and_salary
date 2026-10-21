@@ -170,6 +170,7 @@ export class SettingsService {
     assertParameterValue(dto.paramCode, dto.value);
     const value: Prisma.InputJsonValue = dto.value;
     return this.prisma.$transaction(async (db) => {
+      await db.$queryRaw`SELECT pg_advisory_xact_lock(8210472)::text AS lock`;
       await db.$queryRaw`SELECT pg_advisory_xact_lock(8210473)::text AS lock`;
       await this.managementScope(user, db);
       await this.assertScopeKeyExists(dto.scopeKey, db);
@@ -252,6 +253,7 @@ export class SettingsService {
     const effectiveTo = dto.effectiveTo ? parseDate(dto.effectiveTo, "Ngày hết hiệu lực") : null;
     if (effectiveTo && effectiveTo < effectiveFrom) throw new BadRequestException("Ngày hết hiệu lực phải từ ngày hiệu lực trở đi.");
     return this.prisma.$transaction(async (db) => {
+      await db.$queryRaw`SELECT pg_advisory_xact_lock(8210472)::text AS lock`;
       await db.$queryRaw`SELECT pg_advisory_xact_lock(8210474)::text AS lock`;
       await this.managementScope(user, db);
       const scope = await this.periodScope(user, "period.manage", effectiveFrom, db);

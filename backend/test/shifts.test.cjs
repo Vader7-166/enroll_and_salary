@@ -170,20 +170,6 @@ test('Shift scheduling on isolated PostgreSQL and HTTP API', { timeout: 120000 }
       const result = await request('/employees/' + fixtures.TRANSFER.id + '/transfers', kt, { toOrgUnitId: other.id, effectiveFrom: '2026-11-30', decisionDate: '2026-11-29', decisionNumber: 'SHIFT-BLOCK-TRANSFER', reason: 'Không được làm sai lịch đã gửi' });
       assert.equal(result.status, 409, JSON.stringify(result)); assert.match(result.body.message, /lịch ca/);
     });
-    await t.test('Ancestor frozen period blocks schedule; overnight ownership stays with start date', async () => {
-      const draft = (await ok('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-02-20']))).plan;
-      let pending = (await ok('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-02-21']))).plan;
-      pending = (await ok('/shifts/plans/' + pending.id + '/submit', tt, { revision: pending.revision })).plan;
-      const period = (await ok('/periods', ad, { code: 'SHIFT-LOCK', scopeOrgUnitId: site.id, month: '2027-02', dateFrom: '2027-02-01', dateTo: '2027-02-25' })).period;
-      await db.businessPeriod.update({ where: { id: period.id }, data: { status: 'LOCKED' } });
-      assert.equal((await request('/shifts/plans/' + draft.id + '/update', tt, { ...payload(fixtures.LOCK.id, ['2027-01-28']), revision: draft.revision })).status, 409);
-      assert.equal((await request('/shifts/plans/' + draft.id + '/cancel', tt, { revision: draft.revision, reason: 'Kỳ đã khóa' })).status, 409);
-      assert.equal((await request('/shifts/plans/' + pending.id + '/return', qd, { revision: pending.revision, reason: 'Kỳ đã khóa' })).status, 409);
-      assert.equal((await ok('/shifts/plans/' + draft.id, tt)).plan.entries[0].workDate, '2027-02-20');
-      assert.equal((await request('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-02-25'], c.id))).status, 409);
-      assert.equal((await request('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-01-31'], c.id))).status, 201);
-      await db.businessPeriod.update({ where: { id: period.id }, data: { status: 'OPEN' } });
-    });
     await t.test('Removed employees in historical snapshots retain current scope protection after transfer', async () => {
       let historical = (await ok('/shifts/plans', tt, payload(fixtures.RACE.id, ['2026-11-22']))).plan;
       historical = (await ok('/shifts/plans/' + historical.id + '/update', tt, { ...payload(fixtures.MEMBER.id, ['2026-11-22']), revision: historical.revision })).plan;
@@ -199,6 +185,19 @@ test('Shift scheduling on isolated PostgreSQL and HTTP API', { timeout: 120000 }
       await ok('/shifts/plans', tt, payload(fixtures.POLICY.id, ['2026-12-01'], c.id));
       assert.equal((await request('/shifts/plans', tt, payload(fixtures.POLICY.id, ['2026-12-02'], evening.id))).status, 409);
       assert.equal((await request('/shifts/plans', tt, payload(fixtures.POLICY.id, ['2026-12-02'], c.id))).status, 201);
+    });
+    await t.test('Ancestor frozen period blocks schedule; overnight ownership stays with start date', async () => {
+      const draft = (await ok('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-02-20']))).plan;
+      let pending = (await ok('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-02-21']))).plan;
+      pending = (await ok('/shifts/plans/' + pending.id + '/submit', tt, { revision: pending.revision })).plan;
+      const period = (await ok('/periods', ad, { code: 'SHIFT-LOCK', scopeOrgUnitId: site.id, month: '2027-02', dateFrom: '2027-02-01', dateTo: '2027-02-25' })).period;
+      await db.businessPeriod.update({ where: { id: period.id }, data: { status: 'LOCKED' } });
+      assert.equal((await request('/shifts/plans/' + draft.id + '/update', tt, { ...payload(fixtures.LOCK.id, ['2027-01-28']), revision: draft.revision })).status, 409);
+      assert.equal((await request('/shifts/plans/' + draft.id + '/cancel', tt, { revision: draft.revision, reason: 'Kỳ đã khóa' })).status, 409);
+      assert.equal((await request('/shifts/plans/' + pending.id + '/return', qd, { revision: pending.revision, reason: 'Kỳ đã khóa' })).status, 409);
+      assert.equal((await ok('/shifts/plans/' + draft.id, tt)).plan.entries[0].workDate, '2027-02-20');
+      assert.equal((await request('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-02-25'], c.id))).status, 409);
+      assert.equal((await request('/shifts/plans', tt, payload(fixtures.LOCK.id, ['2027-01-31'], c.id))).status, 201);
     });
   } finally {
     if (server && server.exitCode === null) { const stopped = new Promise(r => server.once('exit', r)); server.kill(); await stopped; }

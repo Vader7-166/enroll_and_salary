@@ -21,6 +21,10 @@ export class ApiErrorFilter implements ExceptionFilter {
       response.status(status).json({ code: typeof details.code === 'string' ? details.code : codes[status] ?? 'REQUEST_FAILED', message });
       return;
     }
+    if ((error instanceof Prisma.PrismaClientKnownRequestError || error instanceof Prisma.PrismaClientUnknownRequestError) && error.message.includes("WORKSHOP_CLOSED_RETURN_REQUIRED")) {
+      response.status(409).json({ code: "WORKSHOP_RETURN_REQUIRED", message: "Phân xưởng đã chốt. Quản đốc phải trả lại xưởng trước khi thay đổi nguồn công." });
+      return;
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const employeeCode = error.meta?.modelName === "Employee";
       response.status(409).json({ code: employeeCode ? "EMPLOYEE_CODE_EXISTS" : "CONFLICT", message: employeeCode ? "Mã nhân viên đã tồn tại." : "Mã hoặc bản ghi đã tồn tại. Kiểm tra dữ liệu và tải lại." });

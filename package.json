@@ -33,7 +33,9 @@
     "verify:corrections": "npm run build --workspace backend && node --test backend/test/attendance-corrections.test.cjs",
     "verify:leave": "npm run build --workspace backend && node --test --test-concurrency=1 backend/test/leave-fund-engine.test.cjs backend/test/leave.test.cjs",
     "verify:leave-requests": "npm run build --workspace backend && node --test backend/test/leave-requests.test.cjs",
-    "verify:team-confirmation": "npm run build --workspace backend && node --test backend/test/team-confirmation.test.cjs"
+    "verify:team-confirmation": "npm run build --workspace backend && node --test backend/test/team-confirmation.test.cjs",
+    "verify:workshop-closure": "npm run build --workspace backend && node --test backend/test/workshop-closure.test.cjs",
+    "verify:period-lock": "npm run build --workspace backend && node --test backend/test/period-lock.test.cjs"
   },
   "devDependencies": {
     "concurrently": "10.0.6"

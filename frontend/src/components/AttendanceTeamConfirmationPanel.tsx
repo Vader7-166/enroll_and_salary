@@ -177,6 +177,21 @@ function EvidenceTables({ review, onNavigate }: { review: TeamConfirmationReview
   </div>;
 }
 
+export function TeamConfirmationEvidence({ review, onNavigate }: { review: TeamConfirmationReview; onNavigate?: (target: TeamConfirmationNavigationTarget, employeeCode?: string, sourceId?: string) => void }) {
+  return <div className="team-confirmation-stack">
+    <div className="team-confirmation-columns">
+      <section className="team-confirmation-card"><Title level={3}>Việc cần xử lý của tổ</Title>{issues(review.blockers, "error", "Không còn điều kiện chặn.", review, onNavigate)}</section>
+      <section className="team-confirmation-card"><Title level={3}>Cảnh báo của tổ</Title>{issues(review.warnings, "warning", "Không có cảnh báo.", review, onNavigate)}</section>
+    </div>
+    <Descriptions size="small" bordered column={1} items={[
+      { key: "collection", label: "Thu nhận dữ liệu đến", children: vietnamTime(review.collection.until) },
+      { key: "coverage", label: "Căn cứ đủ nguồn", children: review.coverage ? <><Tag color={review.coverage.valid ? "success" : "warning"}>{review.coverage.valid ? "Đủ nguồn" : "Cần xác nhận lại"}</Tag>{review.coverage.reference}<br />{review.coverage.actor.displayName} · {vietnamTime(review.coverage.createdAt)}</> : "Admin chưa xác nhận đủ nguồn" },
+      { key: "files", label: "Tệp nguồn", children: review.collection.batches.map(batch => <div key={batch.id}>{batch.fileName} · {batch.totalRows} dòng</div>) },
+    ]} />
+    <EvidenceTables review={review} onNavigate={onNavigate} />
+  </div>;
+}
+
 export function AttendanceTeamConfirmationPanel({ user, periodId, onNavigate }: { user: AuthUser; periodId: string; onNavigate?: (target: "daily" | "raw" | "overtime" | "corrections", employeeCode?: string, sourceId?: string) => void }) {
   const client = useQueryClient();
   const [modal, contextHolder] = Modal.useModal();

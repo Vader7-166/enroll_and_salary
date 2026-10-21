@@ -81,6 +81,7 @@ model OrgUnit {
   leavePolicies LeavePolicy[]
   sourceCoverage AttendanceSourceCoverage[]
   teamConfirmations AttendanceTeamConfirmation[]
+  workshopClosures AttendanceWorkshopClosure[]
   @@map("org_unit")
 }
 
@@ -211,6 +212,8 @@ model UserAccount {
   leaveRequestHistory LeaveRequestHistory[]
   sourceCoverage AttendanceSourceCoverage[]
   teamConfirmations AttendanceTeamConfirmation[]
+  workshopClosures AttendanceWorkshopClosure[]
+  periodLockEvents AttendancePeriodLockEvent[]
   @@map("user_account")
 }
 
@@ -306,6 +309,16 @@ enum BusinessPeriodStatus {
   LOCKED
 }
 
+enum AttendanceWorkshopClosureAction {
+  CLOSE
+  RETURN
+}
+
+enum AttendancePeriodLockAction {
+  RETURN
+  LOCK
+}
+
 model LegalParameter {
   id                    String           @id @default(uuid()) @db.Uuid
   paramCode             String           @map("param_code") @db.VarChar(80)
@@ -362,6 +375,8 @@ model BusinessPeriod {
   correctionItems AttendanceCorrectionItem[]
   sourceCoverage AttendanceSourceCoverage[]
   teamConfirmations AttendanceTeamConfirmation[]
+  workshopClosures AttendanceWorkshopClosure[]
+  periodLockEvents AttendancePeriodLockEvent[]
   @@unique([code])
   @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
   @@map("business_period")
@@ -1007,6 +1022,42 @@ model AttendanceSourceCoverage {
   actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   @@unique([periodId, teamOrgUnitId, revision])
   @@map("attendance_source_coverage")
+}
+
+model AttendanceWorkshopClosure {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  workshopOrgUnitId String @map("workshop_org_unit_id") @db.Uuid
+  revision Int
+  action AttendanceWorkshopClosureAction
+  sourceHash String @map("source_hash") @db.Char(64)
+  note String @db.VarChar(2000)
+  snapshot Json
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshopOrgUnit OrgUnit @relation(fields: [workshopOrgUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, workshopOrgUnitId, revision])
+  @@index([periodId, workshopOrgUnitId, revision])
+  @@map("attendance_workshop_closure")
+}
+
+model AttendancePeriodLockEvent {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  revision Int
+  action AttendancePeriodLockAction
+  sourceHash String @map("source_hash") @db.Char(64)
+  note String @db.VarChar(2000)
+  snapshot Json
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, revision])
+  @@index([periodId, revision])
+  @@map("attendance_period_lock_event")
 }
 
 model AttendanceTeamConfirmation {

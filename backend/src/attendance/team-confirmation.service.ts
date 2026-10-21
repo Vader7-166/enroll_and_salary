@@ -5,7 +5,7 @@ import { AuditService } from "../audit/audit.service";
 import { businessDate } from "../auth/business-date";
 import type { AuthUser } from "../auth/auth.types";
 import { PrismaService } from "../database/prisma.service";
-import { LeaveAccessService } from "../leave/leave-access.service";
+import { LeaveAccessService, type LeaveScope } from "../leave/leave-access.service";
 import { effectiveAt } from "../organization/scope.service";
 import { AttendanceService } from "./attendance.service";
 import { computeOvertimeAttendance } from "./overtime-actual-engine";
@@ -69,18 +69,30 @@ export class TeamConfirmationService {
     return {items};
   }
   async review(user:AuthUser,q:TeamReviewQuery) {return this.prisma.$transaction(db=>this.build(db,user,q,"attendance.read"),{isolationLevel:"RepeatableRead",timeout:90000});}
-  private async build(db:Db,user:AuthUser,q:TeamReviewQuery,permission:string) {
+  async build(db:Db,user:AuthUser,q:TeamReviewQuery,permission:string) { return this.buildEvidence(db,user,q,permission); }
+  // Internal period transition check only; its evidence is never returned through a route.
+  async buildPeriodEvidence(db:Db,q:TeamReviewQuery) { return this.buildEvidence(db,null,q,"attendance.read"); }
+  private async buildEvidence(db:Db,user:AuthUser|null,q:TeamReviewQuery,permission:string) {
     const period=await db.businessPeriod.findUnique({where:{id:q.periodId}});
     if(!period||period.periodType!=="ATTENDANCE") throw new NotFoundException("Không tìm thấy kỳ công.");
     const from=period.dateFrom,to=period.dateTo;
-    const scopes=new Map<string,Awaited<ReturnType<LeaveAccessService["scoped"]>>>();
-    const scoped=async(d:Date)=>{const k=key(d);let s=scopes.get(k);if(!s){s=await this.access.scoped(user,permission,db,d);scopes.set(k,s);}return s;};
-    const current=await scoped(businessDate());
+    const scopes=new Map<string,LeaveScope>();
+    const scoped=async(d:Date)=>{
+      const k=key(d); const cached=scopes.get(k); if(cached)return cached;
+      if(user){const result=await this.access.scoped(user,permission,db,d);scopes.set(k,result);return result;}
+      const versions=await db.orgUnitVersion.findMany({where:effectiveAt(d),include:{orgUnit:true,site:true}});
+      const allowed=new Set<string>(),pending=[period.scopeOrgUnitId];
+      const children=new Map<string,string[]>();
+      for(const version of versions)if(version.parentId){const list=children.get(version.parentId)??[];list.push(version.orgUnitId);children.set(version.parentId,list);}
+      while(pending.length){const id=pending.pop()!;if(allowed.has(id))continue;allowed.add(id);pending.push(...(children.get(id)??[]));}
+      const result={allowed,versions:versions.filter(v=>allowed.has(v.orgUnitId))};scopes.set(k,result);return result;
+    };
+    const current=await scoped(user?businessDate():to);
     const team=current.versions.find(v=>v.orgUnitId===q.teamOrgUnitId&&v.type==="TEAM");
     if(!team?.siteId) throw new NotFoundException("Không tìm thấy tổ trong phạm vi.");
     const overlaps={effectiveFrom:{lte:to},OR:[{effectiveTo:null},{effectiveTo:{gte:from}}]};
     const [people,schedules,overtime,days,actuals,leaves,corrections,history,coverages,tree,periods]=await Promise.all([
-      db.employee.findMany({where:{assignments:{some:{orgUnitId:team.orgUnitId,isPrimary:true,...overlaps}}},include:{assignments:{where:{isPrimary:true},orderBy:{effectiveFrom:"asc"}},exclusions:{where:{userAccountId:user.id}}},orderBy:{id:"asc"}}),
+      db.employee.findMany({where:{assignments:{some:{orgUnitId:team.orgUnitId,isPrimary:true,...overlaps}}},include:{assignments:{where:{isPrimary:true},orderBy:{effectiveFrom:"asc"}},exclusions:{where:{userAccountId:{in:user?[user.id]:[]}}}},orderBy:{id:"asc"}}),
       db.shiftSchedule.findMany({where:{plan:{teamOrgUnitId:team.orgUnitId},workDate:{gte:shift(from,-1),lte:shift(to,1)}},include:{plan:true,shift:true},orderBy:[{workDate:"asc"},{id:"asc"}]}),
       db.overtimeRequest.findMany({where:{teamOrgUnitId:team.orgUnitId,workDate:{gte:shift(from,-1),lte:shift(to,1)}},include:{members:{orderBy:{employeeId:"asc"}}},orderBy:{id:"asc"}}),
       db.dailyAttendance.findMany({where:{orgUnitId:team.orgUnitId,workDate:{gte:from,lte:to}},include:{checkIn:true,checkOut:true},orderBy:{scheduleId:"asc"}}),
@@ -115,9 +127,13 @@ export class TeamConfirmationService {
     const assertItems=async(items:AccessItem[])=>{
       for(const item of items) {
         let person=byPerson.get(item.employeeId);
-        if(!person){const p=await db.employee.findUnique({where:{id:item.employeeId},include:{assignments:{where:{isPrimary:true},orderBy:{effectiveFrom:"asc"}},exclusions:{where:{userAccountId:user.id}}}});if(!p)throw new NotFoundException("Không đủ phạm vi để rà soát toàn tổ.");person=p;byPerson.set(p.id,p);}
+        if(!person){
+          const p=await db.employee.findUnique({where:{id:item.employeeId},include:{assignments:{where:{isPrimary:true},orderBy:{effectiveFrom:"asc"}},exclusions:{where:{userAccountId:{in:user?[user.id]:[]}}}}});
+          if(!p)throw new NotFoundException("Không đủ phạm vi để rà soát toàn tổ.");
+          person=p;byPerson.set(p.id,p);
+        }
         const now=businessDate(),visibleDate=person.status==="TERMINATED"&&person.terminationDate?person.terminationDate:now;
-        if(!person.assignments.some(a=>active(a,visibleDate)&&current.allowed.has(a.orgUnitId))||person.exclusions.some(x=>active(x,now))) throw new NotFoundException("Không đủ phạm vi hiện tại để rà soát toàn tổ, không xác nhận phần dữ liệu bị lọc.");
+        if(user&&(!person.assignments.some(a=>active(a,visibleDate)&&current.allowed.has(a.orgUnitId))||person.exclusions.some(x=>active(x,now)))) throw new NotFoundException("Không đủ phạm vi hiện tại để rà soát toàn tổ, không xác nhận phần dữ liệu bị lọc.");
         for(const text of [item.workDate,...item.sourceDates]) {
           const d=new Date(text+"T00:00:00Z"),s=await scoped(d);
           if(!s.allowed.has(item.orgUnitId)||!person.assignments.some(a=>a.orgUnitId===item.orgUnitId&&active(a,d))||person.exclusions.some(x=>active(x,d))) throw new NotFoundException("Không đủ phạm vi tại ngày công/ngày nguồn để rà soát toàn tổ.");
@@ -206,8 +222,9 @@ export class TeamConfirmationService {
     const coverageValid=Boolean(coverage&&coverage.sourceHash===collectionHash&&coverage.coveredFrom<=collectionFrom&&coverage.coveredUntil>=collectionUntil&&rawBatchIds.every(id=>coverage.batchIds.includes(id)));
     if(!coverageValid)block("SOURCE_COVERAGE_MISSING",coverage?"Căn cứ đủ nguồn của AD đã lỗi thời; cần xác nhận lại nguồn.":"AD chưa xác nhận đủ nguồn theo file/chứng từ và khoảng bao phủ.");
     const data={period:{id:period.id,code:period.code,status:period.status,revision:period.revision,dateFrom:key(from),dateTo:key(to)},team:{id:team.orgUnitId,code:team.orgUnit.code,name:team.name,siteId:team.siteId},roster,schedules:scheduleSources,raw:rawSources,processing:relevantRaw.map(r=>({id:r.id,state:r.processing?.state??"WAITING",scheduleId:r.processing?.scheduleId??null,workDate:r.processing?.workDate?key(r.processing.workDate):null,periodId:r.processing?.periodId??null,reason:r.processing?.reason??null})),days:rows,overtime:otRows,requests,leaves:leaves.map(l=>({id:l.id,employeeId:l.employeeId,status:l.status,revision:l.revision,snapshot:l.snapshot})),corrections:corrections.map(c=>({id:c.id,status:c.status,revision:c.revision,kind:c.kind,reason:c.reason,evidenceReference:c.evidenceReference,incidentReference:c.incidentReference,appliedOrder:c.appliedOrder?.toString()??null,items:c.items,evidence:c.evidence})),rules:[...rules],coverageId:coverage?.id??null,collectionHash};
-    const sourceHash=hash(data),latest=history[0];
-    const state=latest?(latest.sourceHash===sourceHash&&!blockers.length?"CONFIRMED":"STALE"):"WAITING";
+    const sourceHash=hash({...data,period:{id:data.period.id,code:data.period.code,dateFrom:data.period.dateFrom,dateTo:data.period.dateTo}}),latest=history[0];
+    const sourceBlockers=blockers.filter(blocker=>!["PERIOD_NOT_OPEN","PERIOD_FROZEN"].includes(blocker.code));
+    const state=latest?(latest.sourceHash===sourceHash&&!sourceBlockers.length?"CONFIRMED":"STALE"):"WAITING";
     const summary={employees:people.length,scheduledDays:targetSchedules.length,processedDays:rows.filter(r=>r.status!=="UNPROCESSED").length,workedMinutes:rows.reduce((n,r)=>n+r.workedMinutes,0),workUnits:rows.reduce((n,r)=>n+Number(r.workUnits),0),leaveMinutes:rows.reduce((n,r)=>n+r.leave.minutes,0),approvedLeaveRequests:leaves.filter(l=>l.status==="APPROVED").length,overtimeApprovedMinutes:otRows.reduce((n,r)=>n+r.approvedMinutes,0),overtimeActualMinutes:otRows.reduce((n,r)=>n+r.actualMinutes,0),overtimeEligibleMinutes:otRows.reduce((n,r)=>n+r.eligibleMinutes,0),blockers:blockers.length,warnings:warnings.length};
     return { period: data.period, corrections: data.corrections, team:data.team,sourceHash,revision:latest?.revision??0,state,canConfirm:!blockers.length&&state!=="CONFIRMED",summary,blockers,warnings,days:rows,overtime:otRows,leaves:data.leaves.map(l=>({id:l.id,employeeId:l.employeeId,status:l.status,revision:l.revision})),collection:{from:collectionFrom.toISOString(),until:collectionUntil.toISOString(),sourceHash:collectionHash,requiredBatchIds:rawBatchIds,batches},coverage:coverage?{id:coverage.id,revision:coverage.revision,valid:coverageValid,sourceHash:coverage.sourceHash,coveredFrom:coverage.coveredFrom.toISOString(),coveredUntil:coverage.coveredUntil.toISOString(),reference:coverage.reference,reason:coverage.reason,batchIds:coverage.batchIds,actor:coverage.actor,createdAt:coverage.createdAt.toISOString()}:null,history:history.map(h=>({id:h.id,revision:h.revision,sourceHash:h.sourceHash,actor:h.actor,confirmedAt:h.confirmedAt.toISOString(),note:h.note,current:h.id===latest.id&&state==="CONFIRMED"})),snapshot:{...data,summary,accessItems} };
   }

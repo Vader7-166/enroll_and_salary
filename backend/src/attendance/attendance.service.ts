@@ -240,7 +240,7 @@ export class AttendanceService {
     const employeeFilter = targets.length ? { employeeId: { in: [...new Set(targets.map(i => i.employeeId))] } } : {};
     const rangeFrom = new Date(key(shifted(from, -1)) + "T00:00:00+07:00"), rangeTo = new Date(key(shifted(to, 3)) + "T00:00:00+07:00");
     const [raw, candidates, overtime, previousActuals] = await Promise.all([
-      db.rawPunch.findMany({ where: { siteId, ...employeeFilter, OR: [{ punchedAt: { gte: rangeFrom, lte: rangeTo } }, ...(onlyIds ? [{ id: { in: [...onlyIds] } }] : [])] }, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] }),
+      db.rawPunch.findMany({ where: { siteId, ...employeeFilter, OR: [{ punchedAt: { gte: rangeFrom, lte: rangeTo } }, ...(onlyIds ? [{ id: { in: [...onlyIds] } }] : [])] }, include: { processing: { include: { period: { select: { status: true } }, schedule: { select: { workDate: true, plan: { select: { teamOrgUnitId: true } } } } } } }, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] }),
       db.shiftSchedule.findMany({ where: { ...employeeFilter, plan: { status: "APPROVED" }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { plan: true, shift: true } }),
       db.overtimeRequest.findMany({ where: { ...(targets.length ? { members: { some: employeeFilter } } : {}), workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { members: targets.length ? { where: employeeFilter } : true } }),
       db.overtimeActual.findMany({ where: { ...employeeFilter, workDate: { gte: from, lte: to } }, select: { employeeId: true, orgUnitId: true, workDate: true } }),
@@ -261,6 +261,9 @@ export class AttendanceService {
     // Period ancestry must include parents outside the actor's writable scope.
     const hierarchy = await db.orgUnitVersion.findMany({ where: { effectiveFrom: { lte: shifted(to, 3) }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: shifted(from, -1) } }] }, select: { orgUnitId: true, parentId: true, effectiveFrom: true, effectiveTo: true } });
     const periodParents = (unit: string, day: Date) => ancestors(unit, atDate(hierarchy, day));
+    const workshopHistory = await db.attendanceWorkshopClosure.findMany({where:{periodId:{in:allTargetPeriods.map(period=>period.id)}},orderBy:{revision:"desc"},select:{periodId:true,workshopOrgUnitId:true,action:true}});
+    const closedWorkshops = new Map<string, boolean>();
+    for(const entry of workshopHistory){const id=entry.periodId+":"+entry.workshopOrgUnitId;if(!closedWorkshops.has(id))closedWorkshops.set(id,entry.action==="CLOSE");}
     const targetPeriod = async (unit: string, day: Date) => {
       const parents = periodParents(unit, day);
       return allTargetPeriods.filter(p => p.dateFrom <= day && p.dateTo >= day && parents.includes(p.scopeOrgUnitId)).sort((a, b) => parents.indexOf(a.scopeOrgUnitId) - parents.indexOf(b.scopeOrgUnitId))[0] ?? null;
@@ -268,6 +271,7 @@ export class AttendanceService {
     const blocked = async (unit: string, dates: Date[]) => {
       for (const day of dates) { const parents = periodParents(unit, day);
         if (allTargetPeriods.some(p => p.dateFrom <= day && p.dateTo >= day && parents.includes(p.scopeOrgUnitId) && ["CLOSED", "LOCKED"].includes(p.status))) return true;
+        if(allTargetPeriods.some(period=>period.dateFrom<=day&&period.dateTo>=day&&parents.some(parent=>closedWorkshops.get(period.id+":"+parent))))return true;
       }
       return false;
     };
@@ -380,17 +384,31 @@ export class AttendanceService {
         SELECT id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,effective_check_in_at,effective_check_out_at,adjustment_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,leave,rules,processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,schedule_id uuid,employee_id uuid,org_unit_id uuid,period_id uuid,work_date date,check_in_id uuid,check_out_id uuid,effective_check_in_at timestamptz,effective_check_out_at timestamptz,adjustment_id uuid,status text,flags text[],worked_minutes numeric,day_minutes numeric,night_minutes numeric,late_minutes int,early_minutes int,absent boolean,work_units numeric,segments jsonb,leave jsonb,rules jsonb,processed_at timestamptz)
        ON CONFLICT (schedule_id) DO UPDATE SET period_id=EXCLUDED.period_id,check_in_id=EXCLUDED.check_in_id,check_out_id=EXCLUDED.check_out_id,effective_check_in_at=EXCLUDED.effective_check_in_at,effective_check_out_at=EXCLUDED.effective_check_out_at,adjustment_id=EXCLUDED.adjustment_id,status=EXCLUDED.status,flags=EXCLUDED.flags,worked_minutes=EXCLUDED.worked_minutes,day_minutes=EXCLUDED.day_minutes,night_minutes=EXCLUDED.night_minutes,late_minutes=EXCLUDED.late_minutes,early_minutes=EXCLUDED.early_minutes,absent=EXCLUDED.absent,work_units=EXCLUDED.work_units,segments=EXCLUDED.segments,leave=EXCLUDED.leave,rules=EXCLUDED.rules,processed_at=EXCLUDED.processed_at`;
     }
+    const previousProcessing = new Map(selectedRaw.filter(row => row.processing).map(row => [row.id, row.processing!]));
+    const preservedProcessing = new Set<string>();
+    for (const row of selectedRaw) {
+      const previous = row.processing;
+      if (!previous) continue;
+      if (previous.period && ["CLOSED", "LOCKED"].includes(previous.period.status) || previous.schedule && await blocked(previous.schedule.plan.teamOrgUnitId, [previous.schedule.workDate, localDate(row.punchedAt)])) preservedProcessing.add(row.id);
+    }
     const states = result.punches.map(p => {
       const s = p.scheduleId ? scheduleById.get(p.scheduleId) : null;
       const route = actualRoutes.get(p.punchId);
       const period = (p.scheduleId ? schedulePeriods.get(p.scheduleId) : route?.period) ?? null;
       const frozen = p.scheduleId ? frozenSchedules.has(p.scheduleId) : route?.frozen;
+      const previous = previousProcessing.get(p.punchId);
+      // Reprocessing another open source must not rewrite evidence already frozen elsewhere.
+      if (previous && (preservedProcessing.has(p.punchId) || frozen || period?.status === "CLOSED" || period?.status === "LOCKED")) {
+        preservedProcessing.add(p.punchId);
+        return { punch_id: p.punchId, schedule_id: previous.scheduleId, period_id: previous.periodId, work_date: previous.workDate ? key(previous.workDate) : null, state: previous.state, reason: previous.reason, processed_at: previous.processedAt.toISOString() };
+      }
       const state = !s && !route ? p.status === "AMBIGUOUS" ? "AMBIGUOUS" : "UNMATCHED" : !period ? "WAITING" : period.status === "LOCKED" || frozen ? "LATE" : period.status !== "OPEN" ? "WAITING" : p.status === "MATCHED" ? "PROCESSED" : p.status;
       const reason = (s || route) && !period ? "MISSING_OR_OUTSIDE_REFERENCE_PERIOD" : period?.status === "LOCKED" ? "PERIOD_LOCKED" : period && period.status !== "OPEN" ? "PERIOD_" + period.status : frozen ? "ANCESTOR_PERIOD_CLOSED_OR_LOCKED" : p.reason;
       return { punch_id: p.punchId, schedule_id: s?.id ?? null, period_id: period?.id ?? null, work_date: s?.workDate ?? route?.workDate ?? null, state, reason, processed_at: now.toISOString() };
     });
-    for (let offset = 0; offset < states.length; offset += 500) {
-      const rows = JSON.stringify(states.slice(offset, offset + 500));
+    const writableStates = states.filter(state => !preservedProcessing.has(state.punch_id));
+    for (let offset = 0; offset < writableStates.length; offset += 500) {
+      const rows = JSON.stringify(writableStates.slice(offset, offset + 500));
       await db.$executeRaw`INSERT INTO punch_processing (punch_id,schedule_id,period_id,work_date,state,reason,processed_at) SELECT punch_id,schedule_id,period_id,work_date,state,reason,processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(punch_id uuid,schedule_id uuid,period_id uuid,work_date date,state text,reason text,processed_at timestamptz)
       ON CONFLICT (punch_id) DO UPDATE SET schedule_id=EXCLUDED.schedule_id,period_id=EXCLUDED.period_id,work_date=EXCLUDED.work_date,state=EXCLUDED.state,reason=EXCLUDED.reason,processed_at=EXCLUDED.processed_at`;
     }
