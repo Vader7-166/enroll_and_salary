@@ -356,11 +356,14 @@ bảng riêng.
 ---
 
 ## 8. G7 — Tính lương và thưởng
+ 
+ **Đã triển khai local — Task 2.1:** hai bảng cấu phần/phiên bản dưới đây; chưa có cơ cấu/công thức, đơn giá, phương án nhân viên hay engine lương. Phiên bản kế tiếp chỉ có hiệu lực tương lai; đóng bản trước trong cùng giao dịch, giữ nội dung, người tạo và căn cứ. PostgreSQL chặn sửa/xóa/truncate lịch sử và khoảng chồng. Chi tiết [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực).
 
 | Bảng | Trường chính | Ghi chú |
 |---|---|---|
 | `salary_structure` | `code` · `name` · `effective_from` / `effective_to` | Cơ cấu lương (7.1) |
-| `salary_component` *(phụ trợ)* | `code` · `name` · `component_type` (`EARNING` / `DEDUCTION` / `EMPLOYER_COST`) · `is_insurable` · `is_taxable` · `is_prorated` · `is_ot_base` · `display_order` | 3 cờ độc lập (BR-37) |
+ | `salary_component` *(phụ trợ)* | `org_unit_id` · `code` · `revision` | Định danh ổn định, mã duy nhất trong công ty/cơ sở; không sửa/xóa |
+ | `salary_component_version` *(phụ trợ)* | `component_id` · `name` · `component_type` (`EARNING` / `DEDUCTION` / `EMPLOYER_COST`) · `active` · `is_insurable` · `tax_classification` (`TAXABLE` / `NON_TAXABLE` / `CONDITIONAL`) · `is_prorated` · `is_ot_base` · `display_order` · `status` · `classification_basis` · `decision_reference` · `reason` · `effective_from/to` · `created_by_id/at` | Phân loại độc lập (BR-37); khoảng hiệu lực không chồng, nội dung bất biến |
 | `component_formula` | `salary_structure_id` · `salary_component_id` · `expression` (tham chiếu mã tham số) · `depends_on` · `version` · `effective_from` / `effective_to` | Không phụ thuộc vòng |
 | `employee_salary` *(phụ trợ)* | `employee_id` · `salary_component_id` · `amount` (🔒) · `effective_from` / `effective_to` · `salary_decision_id` | Tăng lương giữa kỳ → engine tách hai đoạn đơn giá |
 | `employee_pay_plan` *(phụ trợ)* | `employee_id` · `salary_structure_id` · `pay_mode` · `combination_rule_version` · `effective_from/to` · `decision_reference` | Không chồng phương án hiệu lực; khoản thay thế/cộng thêm tường minh, đủ thời gian/sản phẩm/khoán/hoa hồng/3P |

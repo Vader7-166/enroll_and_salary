@@ -76,6 +76,8 @@ Thiếu một phần quyền trả 404 cho toàn bản, không lộ tập bị l
 Ghi Serializable có khóa nguồn/phân quyền; revision/hash cũ trả 409. Sự kiện
 append-only, chỉ một LOCK mỗi kỳ; không có mở khóa kể cả qua cập nhật SQL trực
 tiếp. Raw muộn không đổi nguồn đã khóa. Hợp đồng tại [20 §7.23](20-tech-stack-va-moi-truong-phat-trien.md#723-kế-toán-trả-kỳ-trước-khóa-và-lưu-nguồn-công-bất-biến).
+ 
+ **Quyền API cấu phần lương local:** chỉ KT với `payroll.components.read` được đọc; tạo và thêm phiên bản cần `payroll.components.manage`. AD/TT/QĐ không có quyền này. Phạm vi công ty/cơ sở theo cây đơn vị có hiệu lực; đọc giao phạm vi hiện tại với ngày xem, KT cơ sở được đọc cấu phần công ty/cơ sở tổ tiên nhưng không sửa cấu phần ngoài phạm vi. Ghi phải đủ quyền trên toàn khoảng hiệu lực, kể cả phần khoảng cũ bị đóng khi có bản kế tiếp. Revision cũ trả 409; không có API sửa/xóa phiên bản. Audit và thay đổi dữ liệu cùng giao dịch Serializable, không cấp truy cập lương nhân viên qua danh mục. Xem [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực).
 
 ### 1.2. Trục phạm vi dữ liệu
 

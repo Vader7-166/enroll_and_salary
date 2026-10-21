@@ -1333,3 +1333,51 @@ Migration đã deploy demo chính qua `20261021170000`. KT mở
 GL-CC-2026-10-BN: 62 nhân sự, 1 công/480 phút, OT 180/290/170 phút; nút khóa
 bị chặn vì kỳ còn Mở, nguồn/xác nhận chưa đủ và cửa sổ thu nhận chưa hết.
 Không chốt hoặc sửa dữ liệu công demo; axe 0 vi phạm tự động trên tab KT này.
+ 
+ ### 7.24. Danh mục cấu phần lương và phiên bản hiệu lực
+ 
+ Task 2.1 đã có database, HTTP API và giao diện KT; không phải engine tính lương.
+ - Deploy migration `20261021180000_salary_components` bằng `npm run db:deploy`,
+   build và khởi động lại API. Migration/seed cấp `payroll.components.read` và
+   `payroll.components.manage` cho KT; AD/TT/QĐ không được quản lý danh mục này.
+ - Đăng nhập KT → **Cấu phần lương** (`#/salary-components`). Lọc đơn vị,
+   **Ngày xem hiệu lực**, mã/tên; không tự lấy bản mới nhất thay bản có hiệu lực.
+   KT cơ sở đọc được cấu phần công ty/cơ sở tổ tiên, chỉ ghi trong phạm vi được cấp.
+   KT chỉ đọc vẫn xem lịch sử nhưng không thấy nút tạo hay phiên bản kế tiếp.
+ - **Tạo cấu phần**: mã duy nhất tại công ty/cơ sở, tên, loại thu nhập/khấu trừ/
+   chi phí doanh nghiệp, cho phép sử dụng và thứ tự hiển thị. BH, phân loại thuế
+   (chịu/không chịu/theo điều kiện-hạn mức), căn cứ OT và theo công độc lập;
+   không suy ra cờ này từ cờ khác. Bắt buộc căn cứ phân loại, quyết định/chứng từ,
+   lý do, ngày hiệu lực và nguồn mô phỏng/đã xác nhận. Phân loại không thay thế
+   việc xác nhận chính sách hoặc tính thuế theo điều kiện, chưa phát sinh tiền.
+ - **Phiên bản kế tiếp**: chỉ từ ngày mai (ngày Việt Nam), sau bản mới nhất.
+   Nếu có giao khoảng thì đóng bản trước ở ngày liền trước bản mới; nội dung
+   phân loại cũ không đổi. Có thể dùng bản mới tắt **Cho phép sử dụng**, không xóa.
+   **Lịch sử** hiện phân loại, khoảng hiệu lực, căn cứ/quyết định/lý do và người,
+   thời điểm tạo. PostgreSQL chặn khoảng chồng, sửa nội dung, xóa/truncate lịch sử.
+ - Đọc kiểm tra phạm vi hiện tại và ngày xem; ghi kiểm tra toàn khoảng hiệu lực
+   và phần hiệu lực cũ bị đóng. Giao dịch Serializable, audit nguyên tử; revision
+   cũ hoặc thao tác cạnh tranh trả 409. UI giữ dữ liệu chưa lưu, khóa gửi lại và
+   cho tải lại danh mục thay vì ghi đè phiên bản người khác.
+ - API: `GET /api/salary-components/context`, `GET /api/salary-components` và
+   `GET /api/salary-components/:id` nhận `orgUnitId`, `asOf`, `search` khi phù hợp;
+   `POST /api/salary-components`, `POST /api/salary-components/:id/versions`
+   (thêm `revision`). Không có endpoint sửa/xóa bản đã lưu.
+ - Kiểm chứng: `npm run verify:salary-components` đạt **9/9** trên HTTP/PostgreSQL
+   cách ly; hồi quy toàn backend đạt **184/184**. Đã chạy browser tạo cấu phần,
+   phiên bản, lịch sử, đổi ngày xem, tranh phiên bản 409 và KT chỉ đọc.
+   Desktop/390px không tràn trang; bảng cuộn ngang bằng bàn phím. Axe không
+   phát hiện vi phạm tự động trên các bề mặt đã kiểm tra, vẫn có mục ARIA của
+   Select đóng và tương phản khi bị che cần đánh giá thủ công; không phải UAT R1.
+ 
+ Chưa triển khai cơ cấu/công thức, đơn giá, phương án nhân viên, đầu vào nguồn
+ sản phẩm/khoán/thưởng hoặc engine lương. Cấu phần được tạo trong fixture smoke
+ không được đưa vào dữ liệu demo chính.
+ 
+ Bàn giao demo chính: đã deploy đủ 23 migration, không còn migration chờ;
+ typecheck và build hai workspace đạt. KT `kt.all` mở danh mục trống và form
+ tạo thật ở `http://127.0.0.1:5173/#/salary-components`, GET context/danh mục
+ trả 200, không có lỗi runtime; không tạo cấu phần smoke vào demo chính.
+ Form 390px không tràn trang; axe 0 vi phạm tự động, còn mục ARIA Select đóng
+ cần đánh giá thủ công. Database/tài khoản/script fixture đã dọn. Build còn
+ cảnh báo chunk UI lớn hơn 500 kB, không chặn chạy.

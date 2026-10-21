@@ -35,7 +35,8 @@
     "verify:leave-requests": "npm run build --workspace backend && node --test backend/test/leave-requests.test.cjs",
     "verify:team-confirmation": "npm run build --workspace backend && node --test backend/test/team-confirmation.test.cjs",
     "verify:workshop-closure": "npm run build --workspace backend && node --test backend/test/workshop-closure.test.cjs",
-    "verify:period-lock": "npm run build --workspace backend && node --test backend/test/period-lock.test.cjs"
+    "verify:period-lock": "npm run build --workspace backend && node --test backend/test/period-lock.test.cjs",
+    "verify:salary-components": "npm run build --workspace backend && node --test backend/test/salary-components.test.cjs"
   },
   "devDependencies": {
     "concurrently": "10.0.6"

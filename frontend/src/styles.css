@@ -295,3 +295,33 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
 @media (max-width: 767px) {
   .period-lock-actions > .ant-btn { width: 100%; }
 }
+
+.salary-components-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.salary-component-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.salary-component-heading .ant-typography { margin-bottom: 4px; }
+.salary-component-heading > .ant-btn { flex: none; }
+.salary-component-filters { display: grid; grid-template-columns: minmax(240px, 1.3fr) minmax(170px, .7fr) minmax(220px, 1fr) auto; gap: 12px; padding: 16px; background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius); }
+.salary-component-filters .ant-form-item { margin: 0; min-width: 0; }
+.salary-component-filters .ant-select { width: 100%; }
+.salary-component-secondary { color: var(--secondary); }
+.salary-components-workspace .ant-table-wrapper { min-width: 0; }
+.salary-component-editor .ant-drawer-body { display: grid; align-content: start; gap: 16px; }
+.salary-component-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.salary-component-form-grid > .ant-form-item { min-width: 0; }
+.salary-component-number { width: 100%; }
+.salary-component-classification { margin: 0 0 24px; padding: 12px 16px 0; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--canvas); }
+.salary-component-classification legend { width: auto; margin: 0; padding-inline: 6px; color: var(--text); font-size: 14px; font-weight: 600; }
+.salary-component-classification .ant-form-item { margin-bottom: 12px; }
+.salary-component-history .ant-descriptions { margin-top: 16px; }
+.salary-component-history .ant-descriptions-item-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+.salary-component-version { padding-block: 20px; border-bottom: 1px solid var(--divider); }
+.salary-component-version h2.ant-typography { margin: 0 0 8px; font-size: 18px; }
+@media (max-width: 1199px) { .salary-component-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) {
+  .salary-component-heading { flex-direction: column; gap: 12px; align-items: stretch; }
+  .salary-component-heading > .ant-btn { width: 100%; }
+  .salary-component-filters, .salary-component-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .salary-component-editor .ant-drawer-body, .salary-component-history .ant-drawer-body { padding: 16px; }
+  .salary-component-editor .ant-alert { flex-wrap: wrap; }
+  .salary-component-editor .ant-alert-action { flex-basis: 100%; margin-inline-start: 0; margin-top: 12px; }
+}

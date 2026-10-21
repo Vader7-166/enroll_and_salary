@@ -82,6 +82,7 @@ model OrgUnit {
   sourceCoverage AttendanceSourceCoverage[]
   teamConfirmations AttendanceTeamConfirmation[]
   workshopClosures AttendanceWorkshopClosure[]
+  salaryComponents SalaryComponent[]
   @@map("org_unit")
 }
 
@@ -214,6 +215,7 @@ model UserAccount {
   teamConfirmations AttendanceTeamConfirmation[]
   workshopClosures AttendanceWorkshopClosure[]
   periodLockEvents AttendancePeriodLockEvent[]
+  salaryComponentVersions SalaryComponentVersion[]
   @@map("user_account")
 }
 
@@ -1075,4 +1077,52 @@ model AttendanceTeamConfirmation {
   actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   @@unique([periodId, teamOrgUnitId, revision])
   @@map("attendance_team_confirmation")
+}
+
+enum SalaryComponentType {
+  EARNING
+  DEDUCTION
+  EMPLOYER_COST
+}
+
+enum SalaryTaxClassification {
+  TAXABLE
+  NON_TAXABLE
+  CONDITIONAL
+}
+
+model SalaryComponent {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  code String @db.VarChar(32)
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions SalaryComponentVersion[]
+  @@unique([orgUnitId, code])
+  @@map("salary_component")
+}
+
+model SalaryComponentVersion {
+  id String @id @default(uuid()) @db.Uuid
+  componentId String @map("component_id") @db.Uuid
+  name String @db.VarChar(150)
+  componentType SalaryComponentType @map("component_type")
+  active Boolean
+  isInsurable Boolean @map("is_insurable")
+  taxClassification SalaryTaxClassification @map("tax_classification")
+  isOtBase Boolean @map("is_ot_base")
+  isProrated Boolean @map("is_prorated")
+  displayOrder Int @map("display_order")
+  status PolicyStatus
+  classificationBasis String @map("classification_basis") @db.VarChar(2000)
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  component SalaryComponent @relation(fields: [componentId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@unique([componentId, effectiveFrom])
+  @@map("salary_component_version")
 }
