@@ -1370,14 +1370,80 @@ Không chốt hoặc sửa dữ liệu công demo; axe 0 vi phạm tự động 
    phát hiện vi phạm tự động trên các bề mặt đã kiểm tra, vẫn có mục ARIA của
    Select đóng và tương phản khi bị che cần đánh giá thủ công; không phải UAT R1.
  
- Chưa triển khai cơ cấu/công thức, đơn giá, phương án nhân viên, đầu vào nguồn
- sản phẩm/khoán/thưởng hoặc engine lương. Cấu phần được tạo trong fixture smoke
- không được đưa vào dữ liệu demo chính.
+Đơn giá/công thức và chạy thử đã bổ sung ở §7.25. Chưa có cơ cấu/phương án lương
+nhân viên, nhập nguồn sản phẩm/khoán/thưởng hoặc engine bảng lương. Cấu phần
+kiểm chứng vẫn nằm trong fixture cách ly, không đưa vào dữ liệu demo chính.
  
- Bàn giao demo chính: đã deploy đủ 23 migration, không còn migration chờ;
+Bàn giao Task 2.1 (trước Task 2.2): đã deploy đủ 23 migration, không còn migration chờ;
  typecheck và build hai workspace đạt. KT `kt.all` mở danh mục trống và form
  tạo thật ở `http://127.0.0.1:5173/#/salary-components`, GET context/danh mục
  trả 200, không có lỗi runtime; không tạo cấu phần smoke vào demo chính.
  Form 390px không tràn trang; axe 0 vi phạm tự động, còn mục ARIA Select đóng
  cần đánh giá thủ công. Database/tài khoản/script fixture đã dọn. Build còn
  cảnh báo chunk UI lớn hơn 500 kB, không chặn chạy.
+
+
+### 7.25. Đơn giá, công thức và chạy thử theo phiên bản (Task 2.2)
+
+Đã triển khai cấu hình và mô phỏng, **chưa tính bảng lương nhân viên, BH/thuế
+hoặc tiền OT**; chưa có phương án lương nhân viên hay nhập nguồn sản phẩm/khoán.
+
+- Migration: `20261021200000_payroll_configuration`; chạy `npm run db:deploy`.
+  Demo chính đã áp dụng đủ 24 migration. Không seed giá/công thức kiểm chứng vào demo.
+- KT mở `http://127.0.0.1:5173/#/payroll-configuration`. Hai tab **Đơn giá** /
+  **Công thức** có lọc mã/tên, đơn vị và ngày hiệu lực; lịch sử giữ căn cứ,
+  quyết định, lý do, người/thời điểm tạo. Giá trị tiền truyền API bằng chuỗi Decimal.
+- Loại giá: MONTHLY, DAILY, HOURLY, PRODUCT, PIECEWORK, COMMISSION, P1/P2/P3.
+  PRODUCT bắt buộc mã sản phẩm; PIECEWORK có mã sản phẩm hoặc công đoạn; hoa hồng là % từ 0–100.
+  Giá NUMERIC(26,6), không âm; đơn vị mang ngữ nghĩa nghiệp vụ, không tự quy đổi.
+- Công thức gắn cấu phần lương đang hoạt động. Mọi biến phải được khai báo và dùng;
+  mỗi biến có ký hiệu, nguồn INPUT/PARAMETER/PRICE/FORMULA, mã tham chiếu,
+  đơn vị và biên min/max nếu cần. Dữ liệu mẫu bắt buộc có giá trị tường minh;
+  thiếu khác 0, không mặc định bằng 0 và không nhận dữ liệu thừa/khác đơn vị.
+- Biểu thức dữ liệu, không chạy JavaScript/eval: số, biến, ngoặc, phép toán
+  `+ - * /`, so sánh `< <= > >= == !=`, MIN/MAX/ABS/IF/ROUND.
+  IF chỉ tính nhánh được chọn; chia 0, số vượt miền, tên/hàm lạ và biểu thức
+  quá phức tạp bị từ chối. Decimal tính độc lập với cấu hình Decimal toàn tiến trình.
+- Khai báo làm tròn NONE/HALF_UP/HALF_EVEN/DOWN/UP/FLOOR/CEIL và 0–6 chữ số.
+  NONE giữ độ chính xác trung gian, không âm thầm cắt 6 chữ số; các chế độ khác
+  áp dụng ở đầu ra từng công thức. Vết giữ giá trị thô, giá trị sau chính sách,
+  biểu thức, thứ tự topo, phiên bản nguồn và giá trị từng biến.
+- Tra nguồn theo **đơn vị đích và ngày áp dụng**: cơ sở ưu tiên bản riêng rồi
+  công ty. Bản riêng chưa bắt đầu không che nguồn công ty trong quá khứ;
+  sau khi bắt đầu, ngừng áp dụng/hết hạn/khoảng trống không tự rơi về giá công ty.
+  Tham số pháp lý WORK_DATE/ALL ưu tiên SITE → REGION → GLOBAL; công ty dùng GLOBAL.
+- Tạo phiên bản kế tiếp chỉ từ tương lai, đóng bản trước tại ngày liền trước,
+  không sửa nội dung đã lưu. PostgreSQL chặn xóa/truncate/sửa lịch sử/khoảng chồng.
+  Ghi kiểm tra đồ thị tại các mốc hiệu lực bị ảnh hưởng, kể cả cơ sở kế thừa:
+  vòng phụ thuộc, nguồn/cấu phần hết hạn và đổi đơn vị bị từ chối nguyên tử.
+- Chỉ KT với `payroll.components.read` được đọc/chạy thử; ghi còn cần
+  `payroll.components.manage`. Đọc nguồn tổ tiên không cấp quyền sửa tổ tiên;
+  kiểm tra quyền trên cả khoảng hiệu lực. Revision cũ trả 409, giữ biểu mẫu
+  chưa lưu và khóa nút Lưu cho đến khi tải lại có xác nhận bỏ thay đổi.
+- API: GET `/api/payroll-configuration/context`, GET `/api/payroll-configuration`
+  (kind/orgUnitId/asOf/search), GET `/api/payroll-configuration/:id` (asOf),
+  POST `/api/payroll-configuration`, POST `/api/payroll-configuration/:id/versions`
+  (revision); không có PUT/PATCH/DELETE. GET `/api/payroll-configuration/preview-context`
+  nhận orgUnitId/asOf/formulaCode, trả thứ tự và dữ liệu mẫu cần nhập.
+  POST `/api/payroll-configuration/preview` nhận cùng lựa chọn và
+  `inputs: [{ code, unit, value }]`, chỉ mô phỏng, không ghi kết quả lương.
+- Kiểm chứng: `npm run verify:payroll-configuration` đạt **20/20**, gồm HTTP thật
+  trên PostgreSQL cách ly và bộ tính; kiểm tra quyền, cạnh tranh revision,
+  bất biến SQL, lịch sử, ngày sai, kế thừa/nguồn hết hạn, chu kỳ tương lai,
+  đơn vị/biên, dữ liệu thiếu/0, lazy IF và độ chính xác NONE.
+- Smoke UI: tạo giá tháng 12.000.000 VND/tháng và công thức
+  `LUONG_THANG * NGAY_CONG / NGAY_CHUAN` tại công ty; chạy ở Bắc Ninh với
+  20/26 ngày, HALF_UP/0 → **9.230.769 VND**, có vết nguồn công ty và giá trị thô.
+  Thêm phiên bản tương lai giữ bản cũ; cạnh tranh từ phiên KT khác trả 409,
+  giữ nội dung chưa lưu và vô hiệu hóa Lưu. Desktop/390px đọc được toàn vết,
+  không tràn trang; axe 0 vi phạm tự động trên bề mặt đã kiểm tra, vẫn còn
+  mục cần đánh giá thủ công. Đây không phải UAT R1; chunk UI >500 kB còn cảnh báo.
+
+Bàn giao Task 2.2: hồi quy toàn backend **204/204**. Demo chính tại
+`http://127.0.0.1:5173/#/payroll-configuration` đăng nhập KT `kt.all`, context
+và danh mục trả 200; form tạo 390px không tràn trang, axe 0 vi phạm tự động
+(còn ARIA Select đóng cần đánh giá thủ công), không có lỗi runtime. Chỉ mở
+form trên demo chính, không đưa dữ liệu smoke từ fixture vào database demo.
+Database, tài khoản và script fixture đã dọn; API và website demo chính tiếp tục chạy.
+Typecheck hai workspace, build và kiểm tra nhất quán đặc tả đạt.
+

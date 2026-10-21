@@ -446,6 +446,15 @@ thức có phiên bản gắn khoảng hiệu lực.
 
 Biểu thức chỉ dùng tập hàm giới hạn, **không có vòng lặp, không truy cập I/O**.
 
+Bộ tính công thức local (Task 2.2) chỉ nhận số thập phân, biến viết hoa,
+`+ - * /`, dấu ngoặc, so sánh `< <= > >= == !=` và `MIN`, `MAX`, `ABS`,
+`IF`, `ROUND`. `IF` chỉ tính nhánh được chọn; không gọi hàm hệ thống, truy cập
+thuộc tính, gán biến hay chạy mã JavaScript. Mỗi biến khai báo nguồn, mã tham
+chiếu, đơn vị và miền min/max nếu có; dữ liệu thiếu không tự biến thành 0.
+Số đầu vào dùng chuỗi thập phân, không ép float hoặc ký pháp khoa học.
+Biểu thức tối đa 2.000 ký tự, 32 biến, 256 nút và 32 cấp lồng; kết quả tối đa
+30 chữ số phần nguyên. Đây là phép chạy thử, không sinh bảng lương.
+
 ### BR-40 · Các tình huống tính lương bắt buộc xử lý được 🔵
 
 | Tình huống | Quy tắc |
@@ -464,6 +473,13 @@ Cấu hình hai chiều: **làm tròn ở bước nào** và **đến hàng nào
 rồi cộng ≠ cộng rồi làm tròn; chênh lệch này phải giải thích được với người lao động.
 
 Mọi số tiền dùng kiểu **decimal**, tuyệt đối không dùng float.
+
+Trong cấu hình công thức local, mỗi phiên bản ghi rõ chế độ `NONE`, `HALF_UP`,
+`HALF_EVEN`, `DOWN`, `UP`, `FLOOR` hoặc `CEIL` và 0–6 chữ số thập phân cho
+kết quả cấu phần. `NONE` giữ kết quả Decimal chưa làm tròn. Hàm
+`ROUND(giá_trị, hàng)` là bước làm tròn nửa lên tường minh bên trong biểu thức;
+`hàng` nguyên từ -6 đến 6 (âm là hàng chục/trăm…). Không làm tròn ngầm mỗi
+phép cộng/nhân; phải phân biệt vết giá trị thô với giá trị sau chính sách.
 
 ### BR-42 · Điều chỉnh sau khóa kỳ ghi vào kỳ đang mở 🔵
 

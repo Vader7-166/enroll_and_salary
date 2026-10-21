@@ -21,6 +21,7 @@ const fieldLabels: Record<string, string> = {
   reviewed: "Xác nhận đã rà soát", acknowledgeWarnings: "Xác nhận đã đọc cảnh báo", batchIds: "Lô dữ liệu", title: "Tiêu đề", items: "Danh sách chi tiết", members: "Danh sách nhân sự",
   componentType: "Loại khoản", active: "Cho phép sử dụng", isInsurable: "Tính đóng bảo hiểm", taxClassification: "Phân loại thuế",
   isOtBase: "Tính vào căn cứ OT", isProrated: "Phân bổ theo công", displayOrder: "Thứ tự hiển thị", classificationBasis: "Căn cứ phân loại", decisionReference: "Quyết định / chứng từ", asOf: "Ngày xem hiệu lực", status: "Trạng thái",
+  kind: "Loại cấu hình", priceType: "Loại đơn giá", amount: "Giá trị đơn giá", productCode: "Mã sản phẩm", operationCode: "Mã công đoạn", componentId: "Cấu phần lương", expression: "Biểu thức", variables: "Biến khai báo", roundingMode: "Chế độ làm tròn", roundingScale: "Số chữ số làm tròn", formulaCode: "Mã công thức",
 };
 function userFacingMessage(status: number, code: string, message: string): string {
   if (code === "AUTH_INVALID") return "Tên đăng nhập hoặc mật khẩu không chính xác.";

@@ -13,8 +13,10 @@ import { AttendanceModule } from "./attendance/attendance.module";
 import { OvertimeModule } from "./overtime/overtime.module";
 import { LeaveModule } from "./leave/leave.module";
 import { SalaryComponentsModule } from "./salary-components/salary-components.module";
+import { PayrollConfigurationModule } from "./payroll-configuration/payroll-configuration.module";
+
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule, OvertimeModule, LeaveModule, SalaryComponentsModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule, OvertimeModule, LeaveModule, SalaryComponentsModule, PayrollConfigurationModule],
   controllers: [HealthController],
 })
 export class AppModule {}

@@ -79,6 +79,8 @@ tiếp. Raw muộn không đổi nguồn đã khóa. Hợp đồng tại [20 §7
  
  **Quyền API cấu phần lương local:** chỉ KT với `payroll.components.read` được đọc; tạo và thêm phiên bản cần `payroll.components.manage`. AD/TT/QĐ không có quyền này. Phạm vi công ty/cơ sở theo cây đơn vị có hiệu lực; đọc giao phạm vi hiện tại với ngày xem, KT cơ sở được đọc cấu phần công ty/cơ sở tổ tiên nhưng không sửa cấu phần ngoài phạm vi. Ghi phải đủ quyền trên toàn khoảng hiệu lực, kể cả phần khoảng cũ bị đóng khi có bản kế tiếp. Revision cũ trả 409; không có API sửa/xóa phiên bản. Audit và thay đổi dữ liệu cùng giao dịch Serializable, không cấp truy cập lương nhân viên qua danh mục. Xem [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực).
 
+**Đơn giá/công thức local (Task 2.2):** dùng cùng quyền KT `payroll.components.read/manage` và phạm vi có hiệu lực như cấu phần. Chạy thử chỉ đọc, không truy cập lương cá nhân hoặc ghi bảng lương. Tra nguồn công ty/cơ sở và tham số pháp lý theo ngày đích; không dùng quyền đọc tổ tiên để ghi lên tổ tiên. Thay cấu hình kiểm tra mọi cơ sở phụ thuộc và mốc hiệu lực bị ảnh hưởng trong giao dịch; chu kỳ/nguồn thiếu/khác đơn vị không để lại phiên bản hay audit ghi dở. Hợp đồng tại [20 §7.25](20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22).
+
 ### 1.2. Trục phạm vi dữ liệu
 
 Phạm vi lưu trong bản ghi phân quyền (tài khoản, vai trò, **đơn vị phạm vi**, hiệu lực — lớp

@@ -66,7 +66,7 @@ export class SalaryComponentsService {
     return { allowed, visible, versions };
   }
 
-  private async readScopes(user: AuthUser, asOf: Date, db: Db) {
+  async readScopes(user: AuthUser, asOf: Date, db: Db) {
     const current = await this.scope(user, "payroll.components.read", businessDate(), db);
     const dated = dateText(asOf) === dateText(businessDate()) ? current : await this.scope(user, "payroll.components.read", asOf, db);
     const visible = new Set([...current.visible].filter(id => dated.visible.has(id)));
@@ -74,7 +74,7 @@ export class SalaryComponentsService {
     return { current, dated, visible, management };
   }
 
-  private async assertWritable(user: AuthUser, id: string, from: Date, to: Date, db: Db) {
+  async assertWritable(user: AuthUser, id: string, from: Date, to: Date, db: Db) {
     const overlap = { effectiveFrom: { lte: to }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }] };
     const [roleChanges, orgChanges] = await Promise.all([
       db.roleAssignment.findMany({ where: { userAccountId: user.id, ...overlap }, select: { effectiveFrom: true, effectiveTo: true } }),

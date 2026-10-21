@@ -44,9 +44,10 @@ import { OvertimeWorkspace } from "./components/OvertimeWorkspace";
 import { ForcedPasswordChange, PasswordChangeDialog } from "./components/PasswordChange";
 import { LeaveWorkspace } from "./components/LeaveWorkspace";
 import { SalaryComponentsWorkspace } from "./components/SalaryComponentsWorkspace";
+import { PayrollConfigurationWorkspace } from "./components/PayrollConfigurationWorkspace";
 const { Header, Sider, Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
-type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "health";
+type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "health";
 const routeTitles: Record<Route, string> = {
   employees: "Nhân sự",
   accounts: "Tài khoản",
@@ -59,6 +60,7 @@ const routeTitles: Record<Route, string> = {
   overtime: "Tăng ca (OT)",
   leave: "Nghỉ & quỹ phép",
   "salary-components": "Cấu phần lương",
+  "payroll-configuration": "Đơn giá & công thức",
 };
 
 function currentRoute(user: AuthUser): Route {
@@ -69,7 +71,7 @@ function currentRoute(user: AuthUser): Route {
         : route === "attendance" ? user.permissions.includes("attendance.read")
         : route === "overtime" ? user.permissions.includes("overtime.read")
           : route === "leave" ? (user.permissions.includes("leave.read") || user.permissions.includes("leave.balance.read"))
-          : route === "salary-components" ? user.roles.includes("KT") && user.permissions.includes("payroll.components.read")
+          : route === "salary-components" || route === "payroll-configuration" ? user.roles.includes("KT") && user.permissions.includes("payroll.components.read")
           : route === "accounts" ? user.permissions.includes("accounts.manage")
             : route === "settings" ? user.permissions.includes("settings.manage")
               : route === "periods" ? user.permissions.includes("period.read")
@@ -201,6 +203,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     overtimeRead ? { key: "overtime", icon: <CalendarOutlined />, label: "Tăng ca (OT)" } : null,
     leaveRead ? { key: "leave", icon: <CalendarOutlined />, label: "Nghỉ & quỹ phép" } : null,
     user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "salary-components", icon: <BankOutlined />, label: "Cấu phần lương" } : null,
+    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "payroll-configuration", icon: <BankOutlined />, label: "Đơn giá & công thức" } : null,
     { key: "organization", icon: <ApartmentOutlined />, label: "Tổ chức" },
     { key: "health", icon: <AuditOutlined />, label: "Hệ thống" },
   ].filter(Boolean) as { key: Route; icon: React.ReactNode; label: string }[];
@@ -244,6 +247,8 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       <LeaveWorkspace user={user} />
     ) : route === "salary-components" ? (
       <SalaryComponentsWorkspace user={user} />
+    ) : route === "payroll-configuration" ? (
+      <PayrollConfigurationWorkspace user={user} />
     ) : route === "organization" ? (
       <OrganizationPage />
     ) : (

@@ -83,6 +83,7 @@ model OrgUnit {
   teamConfirmations AttendanceTeamConfirmation[]
   workshopClosures AttendanceWorkshopClosure[]
   salaryComponents SalaryComponent[]
+  payrollConfigurations PayrollConfiguration[]
   @@map("org_unit")
 }
 
@@ -216,6 +217,7 @@ model UserAccount {
   workshopClosures AttendanceWorkshopClosure[]
   periodLockEvents AttendancePeriodLockEvent[]
   salaryComponentVersions SalaryComponentVersion[]
+  payrollConfigurationVersions PayrollConfigurationVersion[]
   @@map("user_account")
 }
 
@@ -1091,6 +1093,72 @@ enum SalaryTaxClassification {
   CONDITIONAL
 }
 
+enum PayrollConfigurationKind {
+  PRICE
+  FORMULA
+}
+enum PayrollPriceType {
+  MONTHLY
+  DAILY
+  HOURLY
+  PRODUCT
+  PIECEWORK
+  COMMISSION
+  P1
+  P2
+  P3
+}
+enum FormulaRoundingMode {
+  NONE
+  HALF_UP
+  HALF_EVEN
+  DOWN
+  UP
+  FLOOR
+  CEIL
+}
+
+model PayrollConfiguration {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  kind PayrollConfigurationKind
+  code String @db.VarChar(80)
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions PayrollConfigurationVersion[]
+  @@unique([orgUnitId, kind, code])
+  @@map("payroll_configuration")
+}
+
+model PayrollConfigurationVersion {
+  id String @id @default(uuid()) @db.Uuid
+  configurationId String @map("configuration_id") @db.Uuid
+  name String @db.VarChar(150)
+  unit String @db.VarChar(32)
+  active Boolean
+  status PolicyStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  priceType PayrollPriceType? @map("price_type")
+  amount Decimal? @db.Decimal(26, 6)
+  productCode String? @map("product_code") @db.VarChar(80)
+  operationCode String? @map("operation_code") @db.VarChar(80)
+  componentId String? @map("component_id") @db.Uuid
+  expression String? @db.VarChar(2000)
+  variables Json?
+  roundingMode FormulaRoundingMode? @map("rounding_mode")
+  roundingScale Int? @map("rounding_scale")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  configuration PayrollConfiguration @relation(fields: [configurationId], references: [id])
+  component SalaryComponent? @relation(fields: [componentId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@unique([configurationId, effectiveFrom])
+  @@index([componentId])
+  @@map("payroll_configuration_version")
+}
 model SalaryComponent {
   id String @id @default(uuid()) @db.Uuid
   orgUnitId String @map("org_unit_id") @db.Uuid
@@ -1098,6 +1166,7 @@ model SalaryComponent {
   revision Int @default(1)
   orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
   versions SalaryComponentVersion[]
+  payrollConfigurationVersions PayrollConfigurationVersion[]
   @@unique([orgUnitId, code])
   @@map("salary_component")
 }
