@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { FormulaRoundingMode, PayrollConfigurationKind, PayrollPriceType, PolicyStatus, Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
+import { createHash } from "node:crypto";
+import { canonicalJson } from "../audit/audit.service";
 import type { AuthUser } from "../auth/auth.types";
 import { businessDate } from "../auth/business-date";
 import { AuditService } from "../audit/audit.service";
@@ -32,11 +34,8 @@ type Version = Prisma.PayrollConfigurationVersionGetPayload<{
 type PreviewResult = {
     versionId: string;
     rawValue: string;
+    value: string;
     [key: string]: unknown;
-};
-type PreviewHeader = {
-    id: string;
-    code: string;
 };
 type PreviewTrace = {
     symbol: string;
@@ -45,6 +44,39 @@ type PreviewTrace = {
     unit: string;
     value: string;
     versionId?: string;
+};
+type BindingDependency = {
+    source: "FORMULA" | "PRICE" | "PARAMETER";
+    code: string;
+    sourceId: string;
+    versionId: string;
+    unit: string;
+    active: boolean;
+    status: string | null;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    metadata: Record<string, unknown>;
+};
+type ParameterBinding = {
+    id: string;
+    paramCode: string;
+    scopeKey: string;
+    subjectType: string;
+    applicationBasis: string;
+    value: Prisma.JsonValue;
+    unit: string;
+    effectiveFrom: Date;
+    effectiveTo: Date | null;
+};
+type ResolvedSource = {
+    header: Header;
+    version: Version;
+};
+type ResolvedSources = {
+    headers: Header[];
+    resolve: (kind: PayrollConfigurationKind, requestedCode: string) => ResolvedSource;
+    component: (id: string) => void;
+    parameter: (reference: string) => { value: Decimal; unit: string; id: string; row: ParameterBinding };
 };
 type Header = Prisma.PayrollConfigurationGetPayload<{
     include: typeof INCLUDE;
@@ -148,7 +180,7 @@ export class PayrollConfigurationService {
             throw new BadRequestException("Không xác định được công ty chủ quản.");
         return { target, company, rows, byId };
     }
-    private async sources(db: Db, orgUnitId: string, at: Date) {
+    private async sources(db: Db, orgUnitId: string, at: Date): Promise<ResolvedSources> {
         const { target, company } = await this.targetScopes(orgUnitId, at, db);
         const scopeIds = target.orgUnitId === company.orgUnitId ? [company.orgUnitId] : [target.orgUnitId, company.orgUnitId];
         const site = target.siteId ? await db.site.findUnique({ where: { id: target.siteId } }) : null;
@@ -183,7 +215,7 @@ export class PayrollConfigurationService {
                 if (!row) throw new BadRequestException("Không tìm thấy tham số pháp lý " + reference + " theo ngày làm việc.");
                 const raw = typeof row.value === "string" ? row.value : typeof row.value === "number" ? String(row.value) : null;
                 if (raw === null) throw new BadRequestException("Tham số " + reference + " không phải giá trị số.");
-                return { value: decimal(raw, "Tham số " + reference), unit: row.unit, id: row.id };
+                return { value: decimal(raw, "Tham số " + reference), unit: row.unit, id: row.id, row };
             },
         };
     }
@@ -243,6 +275,123 @@ export class PayrollConfigurationService {
             return { item };
         });
     }
+    async employeePlanCatalogue(db: Db, orgUnitId: string, at: Date) {
+        const { target, company } = await this.targetScopes(orgUnitId, at, db);
+        const sources = await this.sources(db, orgUnitId, at);
+        const rows = await db.salaryComponent.findMany({
+            where: { orgUnitId: { in: [target.orgUnitId, company.orgUnitId] } },
+            include: { versions: { where: { active: true, ...effectiveAt(at) } } },
+            orderBy: { code: "asc" },
+        });
+        const components = rows.flatMap(row => row.versions.map(version => ({ id: row.id, code: row.code, name: version.name, componentType: version.componentType })));
+        const componentIds = new Set(components.map(row => row.id));
+        const formulae = sources.headers.flatMap(header => {
+            const version = active(header.versions, at);
+            return header.kind === "FORMULA" && version?.active && version.unit === "VND" && componentIds.has(version.componentId!)
+                ? [{ code: header.code, name: version.name, componentId: version.componentId! }] : [];
+        });
+        return { components, formulae };
+    }
+    async assertComponentBinding(db: Db, orgUnitId: string, at: Date, componentId: string) {
+        (await this.sources(db, orgUnitId, at)).component(componentId);
+    }
+    private async componentBinding(db: Db, at: Date, componentId: string, requireConfirmed: boolean, sources: ResolvedSources) {
+        sources.component(componentId);
+        const version = await db.salaryComponentVersion.findFirst({
+            where: { componentId, ...effectiveAt(at) },
+            select: { id: true, componentId: true, name: true, componentType: true, active: true, status: true, effectiveFrom: true, effectiveTo: true },
+        });
+        if (!version?.active || (requireConfirmed && version.status === "SIMULATION"))
+            throw new BadRequestException("Cấu phần lương không có hiệu lực hoặc không đủ trạng thái xác nhận.");
+        return {
+            componentId: version.componentId,
+            versionId: version.id,
+            name: version.name,
+            componentType: version.componentType,
+            unit: "VND",
+            active: version.active,
+            status: version.status,
+            effectiveFrom: dateText(version.effectiveFrom),
+            effectiveTo: version.effectiveTo ? dateText(version.effectiveTo) : null,
+        };
+    }
+    async resolveInputComponent(db: Db, siteOrgUnitId: string, at: Date, componentId: string, requireConfirmed: boolean) {
+        const sources = await this.sources(db, siteOrgUnitId, at);
+        return this.componentBinding(db, at, componentId, requireConfirmed, sources);
+    }
+    async bindingBoundaries(db: Db, siteOrgUnitId: string, from: Date, to: Date): Promise<Date[]> {
+        if (to < from) throw new BadRequestException("Khoảng ngày ràng buộc không hợp lệ.");
+        await this.targetScopes(siteOrgUnitId, from, db);
+        await this.targetScopes(siteOrgUnitId, to, db);
+        const overlap = { effectiveFrom: { lte: to }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }] };
+        const [organizations, configurations, components, parameters] = await Promise.all([
+            db.orgUnitVersion.findMany({ where: overlap, select: { effectiveFrom: true, effectiveTo: true } }),
+            db.payrollConfigurationVersion.findMany({ where: overlap, select: { effectiveFrom: true, effectiveTo: true } }),
+            db.salaryComponentVersion.findMany({ where: overlap, select: { effectiveFrom: true, effectiveTo: true } }),
+            db.legalParameter.findMany({ where: overlap, select: { effectiveFrom: true, effectiveTo: true } }),
+        ]);
+        const boundaries = new Map<string, Date>([[dateText(from), from], [dateText(to), to]]);
+        for (const row of [...organizations, ...configurations, ...components, ...parameters]) {
+            if (row.effectiveFrom >= from && row.effectiveFrom <= to) boundaries.set(dateText(row.effectiveFrom), row.effectiveFrom);
+            if (row.effectiveTo) {
+                const after = new Date(row.effectiveTo.getTime() + DAY);
+                if (after >= from && after <= to) boundaries.set(dateText(after), after);
+            }
+        }
+        return [...boundaries.values()].sort((a, b) => a.getTime() - b.getTime());
+    }
+    /** Reuses the dated configuration resolver for employee-plan formula bindings. */
+    private async assertFormulaBindingWithSources(db: Db, at: Date, sources: ResolvedSources, formulaCode: string, componentId: string, requireConfirmed: boolean, validateClosure: boolean): Promise<string[]> {
+        const visited = new Set<string>();
+        const codes = new Set<string>();
+        const visit = async (source: ResolvedSource): Promise<void> => {
+            if (visited.has(source.version.id)) return;
+            visited.add(source.version.id);
+            if (requireConfirmed && source.version.status === "SIMULATION") throw new BadRequestException("Kế hoạch đã xác nhận không được phụ thuộc cấu hình mô phỏng.");
+            if (source.header.kind !== "FORMULA") return;
+            codes.add(source.header.code);
+            await this.componentBinding(db, at, source.version.componentId!, requireConfirmed, sources);
+            for (const variable of this.storedVariables(source.version.variables)) {
+                if (variable.source === "INPUT") continue;
+                if (variable.source === "PARAMETER") { sources.parameter(variable.reference); continue; }
+                await visit(sources.resolve(variable.source, variable.reference));
+            }
+        };
+        const root = sources.resolve("FORMULA", formulaCode);
+        if (root.version.componentId !== componentId) throw new BadRequestException("Công thức không được gắn với cấu phần của dòng phương án.");
+        if (root.version.unit !== "VND") throw new BadRequestException("Công thức chi trả phải có đơn vị đầu ra VND.");
+        await visit(root);
+        if (validateClosure) this.closure(sources, formulaCode, null);
+        return [...codes];
+    }
+    async assertFormulaBinding(db: Db, orgUnitId: string, at: Date, formulaCode: string, componentId: string, requireConfirmed: boolean): Promise<string[]> {
+        const sources = await this.sources(db, orgUnitId, at);
+        return this.assertFormulaBindingWithSources(db, at, sources, formulaCode, componentId, requireConfirmed, true);
+    }
+    /** Resolves the dated formula closure used by configuration preview into a pinned payroll input snapshot. */
+    async resolveInputBinding(db: Db, orgUnitId: string, at: Date, formulaCode: string, componentId: string, inputs: Array<{ code: string; unit: string; value: string }>, requireConfirmed: boolean) {
+        const sources = await this.sources(db, orgUnitId, at);
+        await this.assertFormulaBindingWithSources(db, at, sources, formulaCode, componentId, requireConfirmed, false);
+        const component = await this.componentBinding(db, at, componentId, requireConfirmed, sources);
+        const supplied = new Map<string, { unit: string; value: Decimal }>();
+        for (const row of inputs) {
+            if (supplied.has(row.code)) throw new BadRequestException("Dữ liệu nhập không được trùng mã.");
+            supplied.set(row.code, { unit: row.unit.trim(), value: decimal(row.value, "Dữ liệu " + row.code) });
+        }
+        const closure = this.closure(sources, formulaCode, supplied);
+        for (const key of supplied.keys()) if (!closure.inputs.has(key)) throw new BadRequestException("Dữ liệu " + key + " không được công thức sử dụng.");
+        const inputRows = [...closure.inputs].map(([code, row]) => ({ code, ...row }));
+        const dependencies = closure.dependencies;
+        return {
+            formulaCode,
+            component,
+            inputs: inputRows,
+            results: closure.results,
+            dependencies,
+            inputHash: createHash("sha256").update(canonicalJson(inputs)).digest("hex"),
+            bindingHash: createHash("sha256").update(canonicalJson({ formulaCode, component, inputs: inputRows, dependencies })).digest("hex"),
+        };
+    }
     createVersion(user: AuthUser, id: string, dto: CreatePayrollConfigurationVersionDto, ipAddress?: string) {
         const { from, to } = this.range(dto);
         if (from <= businessDate()) throw new BadRequestException("Phiên bản kế tiếp phải hiệu lực từ ngày mai trở đi.");
@@ -262,16 +411,46 @@ export class PayrollConfigurationService {
             return { item };
         });
     }
-    private closure(sources: Awaited<ReturnType<PayrollConfigurationService["sources"]>>, formulaCode: string, input: Map<string, { unit: string; value: Decimal }> | null) {
+    private closure(sources: ResolvedSources, formulaCode: string, input: Map<string, { unit: string; value: Decimal }> | null) {
         const root = sources.resolve("FORMULA", formulaCode);
         const inputs = new Map<string, { unit: string; min?: string; max?: string }>();
         const visiting = new Set<string>();
         const computed = new Map<string, Decimal>();
+        const dependencies = new Map<string, BindingDependency>();
         const order: string[] = [], results: PreviewResult[] = [];
-        const resolve = (header: PreviewHeader, version: Version): Decimal => {
+        const rememberConfiguration = (source: "FORMULA" | "PRICE", header: Header, version: Version) => {
+            dependencies.set(`${source}:${version.id}`, {
+                source,
+                code: header.code,
+                sourceId: header.id,
+                versionId: version.id,
+                unit: version.unit,
+                active: version.active,
+                status: version.status,
+                effectiveFrom: dateText(version.effectiveFrom),
+                effectiveTo: version.effectiveTo ? dateText(version.effectiveTo) : null,
+                metadata: {
+                    configurationId: header.id,
+                    kind: header.kind,
+                    orgUnitId: header.orgUnitId,
+                    name: version.name,
+                    priceType: version.priceType,
+                    amount: version.amount?.toFixed() ?? null,
+                    productCode: version.productCode,
+                    operationCode: version.operationCode,
+                    componentId: version.componentId,
+                    expression: version.expression,
+                    variables: version.variables,
+                    roundingMode: version.roundingMode,
+                    roundingScale: version.roundingScale,
+                },
+            });
+        };
+        const resolve = (header: Header, version: Version): Decimal => {
             if (visiting.has(version.id)) throw new BadRequestException("Phát hiện vòng phụ thuộc công thức.");
             const previous = computed.get(version.id);
             if (previous) return previous;
+            rememberConfiguration("FORMULA", header, version);
             sources.component(version.componentId!);
             visiting.add(version.id);
             const vars = this.storedVariables(version.variables);
@@ -297,10 +476,28 @@ export class PayrollConfigurationService {
                     if (parameter.unit !== variable.unit) throw new BadRequestException("Đơn vị tham số " + variable.reference + " không khớp.");
                     value = parameter.value;
                     versionId = parameter.id;
+                    dependencies.set(`PARAMETER:${parameter.id}`, {
+                        source: "PARAMETER",
+                        code: parameter.row.paramCode,
+                        sourceId: parameter.id,
+                        versionId: parameter.id,
+                        unit: parameter.unit,
+                        active: true,
+                        status: null,
+                        effectiveFrom: dateText(parameter.row.effectiveFrom),
+                        effectiveTo: parameter.row.effectiveTo ? dateText(parameter.row.effectiveTo) : null,
+                        metadata: {
+                            scopeKey: parameter.row.scopeKey,
+                            subjectType: parameter.row.subjectType,
+                            applicationBasis: parameter.row.applicationBasis,
+                            value: text(parameter.value),
+                        },
+                    });
                 } else {
                     const source = sources.resolve(variable.source, variable.reference);
                     if (source.version.unit !== variable.unit) throw new BadRequestException("Đơn vị nguồn " + variable.reference + " không khớp.");
                     versionId = source.version.id;
+                    if (variable.source === "PRICE") rememberConfiguration("PRICE", source.header, source.version);
                     value = variable.source === "PRICE" ? new Decimal(source.version.amount!.toString()) : resolve(source.header, source.version);
                     if (!input && variable.source === "FORMULA") continue;
                 }
@@ -317,7 +514,7 @@ export class PayrollConfigurationService {
             return rounded;
         };
         resolve(root.header, root.version);
-        return { order, results, inputs };
+        return { order, results, inputs, dependencies: [...dependencies.values()].sort((left, right) => left.source.localeCompare(right.source) || left.sourceId.localeCompare(right.sourceId)) };
     }
     previewContext(user: AuthUser, query: PreviewContextQueryDto) {
         const at = date(query.asOf);

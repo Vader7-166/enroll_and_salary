@@ -6,5 +6,5 @@ import { SalaryComponentsModule } from "../salary-components/salary-components.m
 import { PayrollConfigurationController } from "./payroll-configuration.controller";
 import { PayrollConfigurationService } from "./payroll-configuration.service";
 
-@Module({ imports: [AuthModule, DatabaseModule, AuditModule, SalaryComponentsModule], controllers: [PayrollConfigurationController], providers: [PayrollConfigurationService] })
+@Module({ imports: [AuthModule, DatabaseModule, AuditModule, SalaryComponentsModule], controllers: [PayrollConfigurationController], providers: [PayrollConfigurationService], exports: [PayrollConfigurationService] })
 export class PayrollConfigurationModule {}

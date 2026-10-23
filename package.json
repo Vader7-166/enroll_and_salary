@@ -37,7 +37,11 @@
     "verify:workshop-closure": "npm run build --workspace backend && node --test backend/test/workshop-closure.test.cjs",
     "verify:period-lock": "npm run build --workspace backend && node --test backend/test/period-lock.test.cjs",
     "verify:salary-components": "npm run build --workspace backend && node --test backend/test/salary-components.test.cjs",
-    "verify:payroll-configuration": "npm run build --workspace backend && node --test backend/test/payroll-formula-engine.test.cjs backend/test/payroll-configuration.test.cjs"
+    "verify:payroll-configuration": "npm run build --workspace backend && node --test backend/test/payroll-formula-engine.test.cjs backend/test/payroll-configuration.test.cjs",
+    "verify:employee-pay-plans": "npm run build --workspace backend && node --test backend/test/employee-pay-plans.test.cjs",
+    "verify:payroll-inputs": "npm run build --workspace backend && node --test backend/test/payroll-inputs.test.cjs",
+    "demo:payroll": "node scripts/seed-payroll-demo.cjs",
+    "demo:payroll:verify": "node scripts/seed-payroll-demo.cjs --verify-only"
   },
   "devDependencies": {
     "concurrently": "10.0.6"

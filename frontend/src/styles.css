@@ -355,3 +355,93 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
   .salary-component-editor .ant-alert { flex-wrap: wrap; }
   .salary-component-editor .ant-alert-action { flex-basis: 100%; margin-inline-start: 0; margin-top: 12px; }
 }
+
+.employee-pay-plans-workspace { display: grid; gap: 16px; min-width: 0; }
+.employee-pay-plans-workspace .page-heading { align-items: flex-start; }
+.pay-plan-filters { grid-template-columns: minmax(160px, 0.7fr) minmax(200px, 1fr) minmax(240px, 1.5fr); align-items: end; }
+.pay-plan-filters .workspace-filter { display: grid; gap: 4px; min-width: 0; }
+.pay-plan-filters .workspace-search { display: flex; gap: 8px; min-width: 0; }
+.employee-pay-plans-workspace .ant-table-wrapper { min-width: 0; }
+.pay-plan-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.pay-plan-editor-grid > .ant-form-item { min-width: 0; }
+.pay-plan-employee-card { margin: 4px 0 0; }
+.pay-plan-lines-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.pay-plan-lines-heading .ant-typography { margin-bottom: 4px; }
+.pay-plan-rule { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--canvas); }
+.pay-plan-rule-heading { display: flex; align-items: center; justify-content: space-between; min-height: 32px; margin-bottom: 4px; }
+.pay-plan-rule .ant-form-item { min-width: 0; }
+.pay-plan-line-summary { display: grid; gap: 3px; padding: 10px 12px; border-left: 3px solid var(--brand); background: var(--canvas); overflow-wrap: anywhere; }
+.pay-plan-line-summary > span { color: var(--secondary); font-size: 12px; }
+.pay-plan-history-version { display: grid; gap: 10px; padding-bottom: 20px; border-bottom: 1px solid var(--divider); }
+.pay-plan-history-version:last-child { padding-bottom: 0; border-bottom: 0; }
+.pay-plan-history-version h3.ant-typography { margin: 0; font-size: 18px; }
+.employee-pay-plan-editor .ant-drawer-body, .employee-pay-plan-history .ant-drawer-body { min-width: 0; }
+@media (max-width: 1024px) {
+  .pay-plan-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pay-plan-filters .workspace-search { grid-column: 1 / -1; }
+}
+@media (max-width: 767px) {
+  .employee-pay-plans-workspace .page-heading { flex-direction: column; gap: 12px; align-items: stretch; }
+  .employee-pay-plans-workspace .page-heading > .ant-btn { width: 100%; }
+  .pay-plan-filters { grid-template-columns: minmax(0, 1fr); }
+  .pay-plan-editor-grid { grid-template-columns: minmax(0, 1fr); }
+  .pay-plan-lines-heading { display: block; }
+  .pay-plan-rule { padding: 12px; }
+  .employee-pay-plan-editor .ant-drawer-body, .employee-pay-plan-history .ant-drawer-body { padding: 16px; }
+  .employee-pay-plan-editor .ant-alert { flex-wrap: wrap; }
+  .employee-pay-plan-editor .ant-alert-action { flex-basis: 100%; margin-inline-start: 0; margin-top: 12px; }
+}
+
+/* Payroll input reception */
+.payroll-inputs-workspace { display: grid; gap: 16px; min-width: 0; }
+.payroll-inputs-workspace > .ant-alert { margin-bottom: 0; }
+.payroll-input-filters { grid-template-columns: minmax(220px, 1fr) minmax(180px, .75fr) minmax(260px, 1.4fr) auto; align-items: end; }
+.payroll-input-filters .workspace-filter { display: grid; min-width: 0; gap: 4px; }
+.payroll-input-filters .workspace-search { display: grid; min-width: 0; gap: 4px; }
+.payroll-input-filters .ant-select { width: 100%; }
+.payroll-input-list-table { min-width: 0; }
+.payroll-input-issue-count { color: #a61d24; }
+.payroll-input-import { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 16px; }
+.payroll-input-import > div { display: grid; min-width: min(100%, 380px); gap: 4px; }
+.payroll-input-import h3.ant-typography { margin: 0; font-size: 16px; }
+.payroll-input-editor .ant-drawer-body, .payroll-input-detail .ant-drawer-body { min-width: 0; }
+.payroll-input-editor .ant-drawer-header-title, .payroll-input-detail .ant-drawer-header-title { min-width: 0; }
+.payroll-input-editor .ant-drawer-title, .payroll-input-detail .ant-drawer-title { overflow-wrap: anywhere; }
+.payroll-input-editor .ant-space-vertical { min-width: 0; }
+.payroll-input-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.payroll-input-form-grid > .ant-form-item { min-width: 0; overflow-wrap: anywhere; }
+.payroll-input-form-grid .ant-select { width: 100%; }
+.payroll-input-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.payroll-input-section-heading .ant-typography { margin-bottom: 4px; }
+.payroll-input-line, .payroll-team-allocation { display: grid; min-width: 0; gap: 8px; padding: 16px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--canvas); }
+.payroll-input-line-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; }
+.payroll-input-mode-fields { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider); }
+.payroll-input-context-note { display: grid; align-content: center; min-height: 48px; padding: 8px 12px; border-left: 3px solid var(--primary); color: var(--secondary); background: #f7faff; font-size: 12px; overflow-wrap: anywhere; }
+.payroll-input-optional-fields { margin-top: 8px; }
+.payroll-input-issues { display: grid; gap: 8px; margin: 0; padding: 12px 12px 12px 32px; border: 1px solid #ffccc7; border-radius: var(--radius); background: #fff2f0; }
+.payroll-input-issues li { overflow-wrap: anywhere; }
+.payroll-input-lines-table { min-width: 0; }
+.payroll-evidence-upload { margin-bottom: 12px; }
+.payroll-hash { display: inline-block; max-width: 100%; overflow-wrap: anywhere; word-break: break-all; }
+@media (max-width: 1199px) {
+  .payroll-input-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .payroll-input-filters .workspace-search { grid-column: 1 / -1; }
+}
+@media (max-width: 767px) {
+  .payroll-inputs-workspace .page-heading { flex-direction: column; gap: 12px; align-items: stretch; }
+  .payroll-inputs-workspace .page-heading > .ant-space { width: 100%; }
+  .payroll-inputs-workspace .page-heading > .ant-space .ant-btn { flex: 1; }
+  .payroll-input-filters, .payroll-input-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .payroll-input-filters .workspace-search { grid-column: auto; }
+  .payroll-input-import { align-items: stretch; flex-direction: column; padding: 12px; }
+  .payroll-input-import > .ant-space { width: 100%; }
+  .payroll-input-import > .ant-space .ant-btn { width: 100%; }
+  .payroll-input-section-heading { display: block; }
+  .payroll-input-line, .payroll-team-allocation { padding: 12px; }
+  .payroll-input-editor .ant-drawer-body, .payroll-input-detail .ant-drawer-body { padding: 16px; }
+  .payroll-input-editor .ant-drawer-header, .payroll-input-detail .ant-drawer-header { flex-direction: column; align-items: stretch; gap: 12px; }
+  .payroll-input-editor .ant-drawer-header-title, .payroll-input-detail .ant-drawer-header-title { flex: none; }
+  .payroll-input-editor .ant-drawer-extra, .payroll-input-detail .ant-drawer-extra { margin-inline-start: 0; }
+  .payroll-input-editor .ant-alert { flex-wrap: wrap; }
+  .payroll-input-editor .ant-alert-action { flex-basis: 100%; margin-inline-start: 0; margin-top: 12px; }
+}

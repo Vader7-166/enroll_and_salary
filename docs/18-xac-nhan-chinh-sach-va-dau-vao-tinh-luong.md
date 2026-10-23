@@ -93,6 +93,12 @@ hoặc “Q2 chờ chốt” trong đó không còn là yêu cầu hiện hành.
 thống sản xuất. TT/QĐ chuẩn bị và xác nhận dữ liệu sản xuất/KPI ngoài hệ thống; **KT** tiếp
 nhận/nhập và kiểm tra trong phân hệ 7 theo quyền hiện có. Không tự cấp TT/QĐ quyền sửa lương.
 
+**Trạng thái local:** Task 1 đã triển khai tiếp nhận/xác nhận tại `#/payroll-inputs`,
+API `/api/payroll-inputs`; hướng dẫn và bằng chứng tại [20 §7.28](20-tech-stack-va-moi-truong-phat-trien.md#728-tiếp-nhận-và-xác-nhận-đầu-vào-lương-task-1).
+Kỳ nhận dùng `PayrollPeriod` riêng với kỳ công; chỉ nguồn CONFIRMED hoạt động được
+đọc cho consumer. Chưa có engine/bảng lương nháp, duyệt/khóa bảng lương hoặc AI;
+không xem xác nhận nguồn là đã trả lương hay tự đặt lại bảng lương chưa tồn tại.
+
 ### 4.1. Thông tin chung của mỗi lô/dòng
 
 | Nhóm | Dữ liệu bắt buộc |

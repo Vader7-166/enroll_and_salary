@@ -1370,9 +1370,9 @@ Không chốt hoặc sửa dữ liệu công demo; axe 0 vi phạm tự động 
    phát hiện vi phạm tự động trên các bề mặt đã kiểm tra, vẫn có mục ARIA của
    Select đóng và tương phản khi bị che cần đánh giá thủ công; không phải UAT R1.
  
-Đơn giá/công thức và chạy thử đã bổ sung ở §7.25. Chưa có cơ cấu/phương án lương
-nhân viên, nhập nguồn sản phẩm/khoán/thưởng hoặc engine bảng lương. Cấu phần
-kiểm chứng vẫn nằm trong fixture cách ly, không đưa vào dữ liệu demo chính.
+Đơn giá/công thức và chạy thử đã bổ sung ở §7.25; phương án lương nhân viên ở
+§7.27. Chưa nhập nguồn sản phẩm/khoán/thưởng hoặc có engine bảng lương. Fixture
+kiểm chứng cách ly; bộ dữ liệu thực hành demo chính được mô tả riêng tại §7.26.
  
 Bàn giao Task 2.1 (trước Task 2.2): đã deploy đủ 23 migration, không còn migration chờ;
  typecheck và build hai workspace đạt. KT `kt.all` mở danh mục trống và form
@@ -1386,7 +1386,7 @@ Bàn giao Task 2.1 (trước Task 2.2): đã deploy đủ 23 migration, không c
 ### 7.25. Đơn giá, công thức và chạy thử theo phiên bản (Task 2.2)
 
 Đã triển khai cấu hình và mô phỏng, **chưa tính bảng lương nhân viên, BH/thuế
-hoặc tiền OT**; chưa có phương án lương nhân viên hay nhập nguồn sản phẩm/khoán.
+hoặc tiền OT**. Phương án nhân viên được bổ sung ở §7.27; chưa nhập nguồn sản phẩm/khoán.
 
 - Migration: `20261021200000_payroll_configuration`; chạy `npm run db:deploy`.
   Demo chính đã áp dụng đủ 24 migration. Không seed giá/công thức kiểm chứng vào demo.
@@ -1446,4 +1446,307 @@ và danh mục trả 200; form tạo 390px không tràn trang, axe 0 vi phạm t
 form trên demo chính, không đưa dữ liệu smoke từ fixture vào database demo.
 Database, tài khoản và script fixture đã dọn; API và website demo chính tiếp tục chạy.
 Typecheck hai workspace, build và kiểm tra nhất quán đặc tả đạt.
+
+
+### 7.26. Dữ liệu thực hành cấu phần, đơn giá và công thức
+
+Đã bổ sung **trực tiếp vào demo chính**, không còn chỉ là fixture kiểm chứng:
+**16 cấu phần, 32 đơn giá, 17 công thức**, cùng **3 phiên bản kế tiếp**.
+Bộ dữ liệu `MP-LUONG-2026-10` mô phỏng doanh nghiệp điện tử đang có trong
+hệ thống: trụ sở Hà Nội, nhà máy Bắc Ninh, Hà Nam và Nghệ An. Mã `MP_` giúp
+lọc nhanh; tên khoản, đơn vị, mã sản phẩm/công đoạn và căn cứ đều có nội dung.
+Đây là giả định thực hành, không phải số liệu lương thật hay chính sách pháp lý
+đã phê duyệt. Các cờ BH/thuế/OT chỉ minh họa phân loại độc lập ở Task 2.1.
+
+#### Nạp lại hoặc kiểm tra
+
+Khởi động PostgreSQL và backend bằng quy trình local bình thường, sau đó:
+
+```powershell
+npm run demo:payroll
+npm run demo:payroll:verify
+```
+
+- Nguồn dữ liệu: `backend/prisma/payroll-demo-data.cjs`.
+  Lệnh nạp: `scripts/seed-payroll-demo.cjs`; chỉ cho database local `hrtp_demo`,
+  dùng tài khoản KT `kt.all` trong `.local/demo-accounts.json` hoặc file
+  `DEMO_ACCOUNTS_FILE` đã cấu hình. Không reset mật khẩu và không in bí mật.
+- Mọi bản ghi/phiên bản được tạo qua API nghiệp vụ nên giữ kiểm tra quyền,
+  nguồn, đồ thị, khoảng hiệu lực và audit bình thường; không ghi SQL để bỏ guard.
+- Chỉ thêm mã còn thiếu. Trước khi ghi, kiểm tra mọi mã dự định nạp;
+  nếu đụng dữ liệu không mang căn cứ của bộ này thì dừng, không ghi đè.
+  Không cập nhật/xóa bản đã có hoặc đặt lại thay đổi người dùng.
+- Các bản đầu có hiệu lực từ **01/10/2026**. Phiên bản kế tiếp lấy ngày đầu
+  tháng tiếp theo tại lần nạp đầu; lần nạp ngày 21/10/2026 đã tạo **01/11/2026**.
+  Nạp lại không thay ngày này, không nối thêm phiên bản. Nếu lỗi giữa chừng,
+  các API đã thành công được giữ; chạy lại tiếp tục các mã còn thiếu, không phải
+  một giao dịch cho toàn bộ dataset. Nếu người dùng đã thêm bản khác trước
+  phiên bản dự kiến thì lệnh dừng thay vì sửa hay chen lịch sử.
+- Lệnh verify-only không nạp cấu hình, chỉ đăng nhập, đọc và chạy các ví dụ.
+  Không ghi nhân sự, hợp đồng, công/OT, nguồn công đã khóa hoặc bảng lương.
+  Nếu đã tự thay chính sách demo thì kết quả đối chiếu có thể khác; không dùng
+  lệnh nạp để reset chính sách. Nạp dữ liệu này là bước riêng, không chạy lại
+  toàn bộ `db:seed` trên dữ liệu đang thao tác.
+
+#### Thực hành Task 2.1
+
+KT → **Cấu phần lương** → tìm `MP_` hoặc mã cụ thể:
+
+- Nhóm thu nhập: lương thời gian, sản phẩm, khoán, phụ cấp tổ trưởng, ăn ca,
+  đi lại, chuyên cần, năng suất, hoa hồng và 3P.
+- `MP_TRU_TAM_UNG`: khoản **Khấu trừ**; `MP_DAO_TAO`: **Chi phí doanh nghiệp**.
+- `MP_PC_DIEN_THOAI_CU`: **Ngừng áp dụng**, để thử trạng thái không hoạt động.
+- `MP_PC_MOI_TRUONG`: ba cấu phần riêng theo ba nhà máy, để thử phạm vi.
+- `MP_PC_TO_TRUONG` → **Lịch sử**: bản 01/10–31/10 có căn cứ OT;
+  bản từ 01/11 bỏ căn cứ OT nhưng vẫn có đóng BH và phân bổ công.
+  Đổi **Ngày xem hiệu lực** giữa 21/10 và 01/11 để đối chiếu; cả hai mang
+  nhãn Mô phỏng, không kết luận đây là phân loại hợp pháp của khoản thực tế.
+
+#### Thực hành Task 2.2
+
+KT → **Đơn giá & công thức**. Tab Đơn giá có đủ tháng/ngày/giờ/sản phẩm/khoán/
+hoa hồng/P1/P2/P3; bo mạch `PCB_CTRL_A1`, công đoạn `HAN_LO_100` (100 bo/lô).
+Mức tháng công nhân: công ty 6,5 triệu; Bắc Ninh 6,8 triệu; Hà Nam 6,5 triệu;
+Nghệ An 6,2 triệu. Mức chuyên viên Hà Nội 14,5 triệu. Giá sản phẩm tại ba
+nhà máy lần lượt 1.350/1.200/1.100 VND; suất ăn 30.000/28.000/25.000 VND.
+Không tự cộng các phương thức này thành lương một người. Task 2.3 (§7.27) cho KT
+chọn nguồn chính/bổ sung/không áp dụng; bộ mẫu không tự gán phương án hay nguồn nghiệm thu thật.
+
+Ở **Chạy thử công thức đã lưu**, chọn đơn vị/ngày/công thức rồi nhập giá trị.
+Danh sách công thức có cuộn; bảng dưới dùng ngày **21/10/2026**, trừ dòng ghi rõ:
+
+| Đơn vị | Công thức | Dữ liệu nhập | Kết quả VND |
+|---|---|---|---:|
+| Bắc Ninh | `MP_LUONG_CN` | NGAY_CONG=22, NGAY_CHUAN=26 | 5.753.846 |
+| Hà Nam | `MP_LUONG_CN` | NGAY_CONG=22, NGAY_CHUAN=26 | 5.500.000 |
+| Nghệ An | `MP_LUONG_CN` | NGAY_CONG=22, NGAY_CHUAN=26 | 5.246.154 |
+| Hà Nội | `MP_LUONG_NV` | NGAY_CONG=22, NGAY_CHUAN=26 | 12.269.231 |
+| Bắc Ninh | `MP_LUONG_NGAY` | SO_NGAY=12 | 3.360.000 |
+| Bắc Ninh | `MP_LUONG_GIO` | SO_GIO=176 (giờ thông thường, không phải OT) | 7.040.000 |
+| Bắc Ninh | `MP_LUONG_SAN_PHAM` | SL_DAT=3200 | 4.320.000 |
+| Bắc Ninh | `MP_LUONG_KHOAN` | SO_LO=12 | 2.160.000 |
+| Bắc Ninh | `MP_AN_CA` | SO_SUAT=22 | 660.000 |
+| Bắc Ninh | `MP_DI_LAI` | NGAY_CONG=22, NGAY_CHUAN=26 | 253.846 |
+| Bắc Ninh | `MP_PC_TO_TRUONG` | NGAY_CONG=22, NGAY_CHUAN=26 | 1.015.385 |
+| Bắc Ninh | `MP_CHUYEN_CAN` | NGAY_CONG=26, NGAY_CHUAN=26 | 500.000 |
+| Bắc Ninh | `MP_CHUYEN_CAN` | NGAY_CONG=25, NGAY_CHUAN=26 | 0 |
+| Hà Nội | `MP_HOA_HONG` | DOANH_SO=180000000 | 2.700.000 |
+| Bắc Ninh | `MP_LUONG_3P` | NGAY_CONG=22, NGAY_CHUAN=26, KPI=90 | 12.007.692 |
+| Bắc Ninh | `MP_THUONG_NANG_SUAT` | SL_DAT=3200 | 129.600 |
+| Bắc Ninh | `MP_THUONG_NANG_SUAT` | SL_DAT=50000 | 800.000 (chạm trần) |
+| Bắc Ninh | `MP_TRU_TAM_UNG` | TAM_UNG_DA_XAC_NHAN=2000000 | 2.000.000 |
+| Bắc Ninh | `MP_PC_MOI_TRUONG` | NGAY_CONG=22, NGAY_CHUAN=26 | 423.077 |
+| Bắc Ninh, 01/11 | `MP_LUONG_CN` | NGAY_CONG=22, NGAY_CHUAN=26; mức mới 7,1 triệu | 6.007.692 |
+| Hà Nội, 01/11 | `MP_AN_CA` | SO_SUAT=22; kế thừa suất ăn công ty mới 27.000 | 594.000 |
+
+- Công thức thưởng năng suất tham chiếu **công thức lương sản phẩm**, sau đó
+  lấy 3% và chặn trần 800.000. Vết phải có thứ tự `MP_LUONG_SAN_PHAM` →
+  `MP_THUONG_NANG_SUAT`, giá nhà máy 1.350, sản lượng 3.200, lương sản phẩm
+  4.320.000 và thưởng 129.600; có phiên bản nguồn cho cả hai tầng.
+- Thử NGAY_CONG=0, NGAY_CHUAN=26: trả 0. Bỏ trống NGAY_CONG: không được tự
+  hiểu là 0. NGAY_CHUAN=0 hoặc SL_DAT=-1 phải bị từ chối.
+- Ngày xem cũ vẫn dùng bản cũ sau khi nạp bản tương lai; giá riêng nhà máy
+  không bị thay bởi giá công ty. Toàn bộ công thức mẫu làm tròn HALF_UP/0.
+
+Kiểm chứng đã chạy: **32/32** ví dụ qua HTTP thật, gồm giá riêng/kế thừa,
+3P, điều kiện chuyên cần, biên 0/thiếu/âm, trần và chuỗi phụ thuộc; kỳ vọng
+là số đối chiếu cố định, không tính lại bằng chính engine để tự khẳng định.
+Nạp lại: **0 tạo mới, 65 giữ nguyên, 0 phiên bản mới**. Verify-only cũng 32/32.
+Browser đã mở danh mục 16 cấu phần, đọc hai bản phụ cấp tổ trưởng và chạy
+thưởng năng suất tại Bắc Ninh đúng 4.320.000 → 129.600 trên desktop/390px;
+không tràn trang, không có lỗi runtime. Không thay đổi mã ứng dụng hay engine lương.
+KT cơ sở `kt.bn` đã đọc đúng 14 cấu phần, 22 đơn giá và 15 công thức thuộc
+công ty/Bắc Ninh; không lộ cấu hình riêng Hà Nội, Hà Nam hoặc Nghệ An.
+
+### 7.27. Phương án lương nhân viên (Task 2.3)
+
+Đã triển khai API/PostgreSQL và website KT tại `#/employee-pay-plans`, tên menu
+**Kế hoạch trả lương**. Migration `20261022090000_employee_pay_plans`;
+`npm run db:deploy` áp dụng vào database hiện hành. Đây là cấu hình áp dụng cho
+nhân viên, **không phải engine tính lương, nhập sản lượng hoặc xác nhận nghiệm thu**.
+
+#### Quy tắc và lịch sử
+
+- Mỗi nhân viên có một định danh phương án và nhiều phiên bản không chồng ngày
+  (hai đầu khoảng đều bao gồm). Bản đầu không trước ngày vào làm; bản tiếp theo
+  từ ngày mai theo Việt Nam và sau bản mới nhất. Nếu chồng, đóng bản trước tại
+  ngày liền trước bản mới; nếu có khoảng gián đoạn, không kéo dài bản cũ để lấp.
+- Hỗ trợ tháng/ngày/giờ, sản phẩm, khoán, hoa hồng và 3P. Đúng **một BASE**
+  loại thu nhập khớp hình thức chính; các nguồn chính còn lại không tự cộng vào.
+  Dòng ADDITIONAL dùng phụ cấp/thưởng/hoa hồng có căn cứ, khấu trừ hoặc chi phí
+  doanh nghiệp đúng phân loại cấu phần. NOT_APPLICABLE ghi lý do, không có công thức.
+- Không lặp cấu phần hoặc cùng gốc công thức chi trả. Khoản bổ sung chia sẻ nguồn
+  hoặc dùng một khoản chi trả khác làm căn cứ phải có quyết định riêng; không
+  cấm công thức thưởng năng suất tham chiếu lương sản phẩm khi có quyết định đó.
+- Dòng áp dụng cần công thức đầu ra VND gắn đúng cấu phần. Dùng cùng bộ phân giải
+  của Task 2.2 cho công ty/cơ sở, phiên bản hoạt động, nguồn giá/tham số và phụ thuộc.
+  Kiểm tra mọi mốc bắt đầu và ngày sau hết hạn trong khoảng phương án; thiếu
+  cấu phần/công thức/nguồn không thành 0. Phương án BUSINESS_CONFIRMED không được
+  nâng cấu phần hoặc giá/công thức SIMULATION thành chính sách đã xác nhận.
+- Sản phẩm/khoán có thể cá nhân hoặc theo tổ. Chọn phân bổ tổ cần tham chiếu
+  bảng/quyết định phân bổ; đây mới là khai báo phương thức. Chưa nhận bảng phân bổ
+  thực tế, chưa kiểm tổng nghiệm thu, chưa chia tiền và không giả lập xác nhận lô.
+- Toàn khoảng một phiên bản phải cùng cơ sở; khi chuyển cơ sở, kết thúc phiên bản
+  cũ và thêm bản mới tại ngày điều chuyển. Định danh không cố định cơ sở.
+- KT phải có quyền đọc/ghi tương ứng và phạm vi nhân viên theo phân công chính,
+  cả hiện tại lẫn các ngày trong khoảng; có áp loại trừ. Chỉ trả phiên bản lịch sử
+  đủ quyền toàn khoảng. Danh mục công ty được kế thừa không mở quyền sang cơ sở khác.
+- Ghi Serializable với khóa phân quyền/nguồn và audit nguyên tử. Revision cũ hoặc
+  tranh giao dịch trả 409. Không có sửa/xóa; DB chặn sửa nội dung JSON, đổi định danh,
+  xóa, truncate và chồng hiệu lực. Chỉ đóng hạn khi có bản kế tiếp cùng giao dịch.
+
+#### API
+
+Prefix `/api/employee-pay-plans`, mọi endpoint yêu cầu phiên và vai trò KT.
+Đọc dùng `payroll.components.read`, ghi dùng `payroll.components.manage`.
+
+| Phương thức/đường dẫn | Hợp đồng |
+|---|---|
+| GET `/context` | Ngày Việt Nam, ngày tối thiểu bản tiếp, đơn vị đọc và đơn vị quản lý |
+| GET `/employees` | `asOf`, `orgUnitId`, `search`, `page`, `pageSize`; nhân viên trong phạm vi, cơ sở chính tại ngày chọn |
+| GET `/catalogue` | `employeeId`, `asOf`; cấu phần và công thức VND áp dụng tại cơ sở nhân viên, kế thừa đúng công ty; không có bộ phân giải thứ hai ở frontend |
+| GET `/` | Cùng bộ lọc/ngày/phân trang; phương án và các phiên bản lịch sử được phép đọc |
+| GET `/:id` | `asOf`; chi tiết phương án, bản tại ngày xem và lịch sử được phép đọc |
+| POST `/` | `employeeId`, `name`, `payMode`, `status`, `decisionReference`, `reason`, `effectiveFrom`, `effectiveTo?`, `lines` |
+| POST `/:id/versions` | Cùng nội dung phiên bản, thêm `revision`; không đổi nhân viên |
+
+Dòng `lines`: `componentId`, `role` (BASE/ADDITIONAL/NOT_APPLICABLE),
+`sourceType`, `formulaCode?`, `sourceReference`, `separateDecisionReference?`,
+`allocation` (INDIVIDUAL/CONFIRMED_TEAM_ALLOCATION), `allocationReference?`.
+Mã công thức được phân giải theo ngày hiệu lực, không phải bản chụp tiền đã trả.
+Khi bổ sung engine, phải tiếp tục kiểm nguồn tại ngày tính và khóa nguồn/phiên bản
+trong snapshot bảng lương; phương án không tự thay thế các kiểm soát đó.
+
+#### Thao tác và kiểm chứng
+
+1. KT chọn **Tạo kế hoạch**, ngày bắt đầu và phạm vi, tìm nhân viên.
+2. Điền tên, hình thức chính, nguồn xác nhận, quyết định và lý do.
+3. Thêm từng quy tắc: cấu phần, vai trò, loại nguồn, phương thức phân bổ;
+   chọn công thức VND hoặc ghi lý do không áp dụng. Không nhập JSON/UUID thủ công.
+4. Lưu rồi xem **Lịch sử**. **Phiên bản kế tiếp** tạo quyết định mới, không ghi đè
+   lịch sử. Xung đột 409 giữ nháp, **Tải lại phiên bản** chỉ cập nhật revision;
+   người dùng kiểm ngày/căn cứ rồi lưu lại.
+
+`npm run verify:employee-pay-plans`: **14/14** trên database PostgreSQL cách ly
+và HTTP thật; có quyền/loại trừ, kế thừa công thức, KT chỉ đọc, bảy hình thức,
+cộng trùng, ngày sai/trước vào làm, nguồn thiếu/hết hạn/đổi cấu phần tương lai,
+khoảng gián đoạn, điều chuyển, cạnh tranh và bất biến SQL. Toàn backend
+**218/218** với `node --test --test-concurrency=1 backend/test/*.test.cjs`.
+Browser dùng fixture cách ly: KT Bắc Ninh tạo BASE và NOT_APPLICABLE bằng
+cấu phần/công thức công ty kế thừa; tạo bản tương lai, đọc hạn cũ, gây 409 từ
+cửa sổ khác, tải lại giữ nháp và lưu thành công. Desktop 1440px/390px không
+tràn toàn trang; bảng 1120px cuộn trong vùng riêng; lịch sử có focus/cuộn bàn phím.
+Đã sửa heading/focus theo axe; lịch sử và trang danh sách mobile có **0 lỗi axe
+tự động** trên bề mặt đã kiểm, vẫn có mục cần đánh giá thủ công. Không seed
+phương án UI vào demo chính; bộ MP_ dùng để KT tự khai báo theo người được chọn.
+
+Bàn giao demo chính: đã áp dụng đủ **25 migration**, API và website chạy tại
+`http://127.0.0.1:5173/#/employee-pay-plans`. `kt.all` mở màn hình thành công;
+context, chọn nhân viên Bắc Ninh và danh mục theo người đều HTTP 200, đọc được
+công thức MP_ kế thừa. Health xác nhận PostgreSQL up. Typecheck hai workspace,
+build backend/frontend và kiểm tra nhất quán đặc tả đạt; cảnh báo chunk UI >500 kB
+vẫn còn. Database, tài khoản và script UI cách ly đã dọn, không gán phương án thử
+cho nhân viên demo chính. Đây là bằng chứng local, không thay thế UAT toàn R1.
+
+### 7.28. Tiếp nhận và xác nhận đầu vào lương (Task 1)
+
+KT mở `#/payroll-inputs` — **Đầu vào lương**. Đây là tiếp nhận nguồn để bộ tính
+lương sử dụng, không phải engine bảng lương, duyệt/khóa lương, BH/thuế hoặc AI.
+TT/QĐ xác nhận số liệu sản xuất/KPI ngoài hệ thống; không được cấp quyền sửa lương.
+
+#### Kỳ, quyền và dữ liệu
+
+- `PayrollPeriod` độc lập với kỳ công `BusinessPeriod`: một cơ sở SITE, khoảng ngày
+  không chồng kỳ khác tại cơ sở, ngày chi trả dự kiến lưu riêng, trạng thái OPEN/LOCKED.
+  Task này tạo/list kỳ nhận, không cung cấp thao tác giả duyệt/khóa kỳ lương.
+- Quyền KT `payroll.inputs.read` và `payroll.inputs.manage` được bổ sung qua migration
+  và seed. Kiểm tra phạm vi hiện tại và toàn khoảng nguồn, phân công chính/loại trừ;
+  không trả một phần lô ngoài phạm vi. KT không được ghi nguồn lương của chính mình.
+- Dòng có nhân sự, cấu phần, mã dòng nguồn ổn định, loại nguồn và khoảng ngày.
+  Hỗ trợ TIME, PRODUCT, PIECEWORK, COMMISSION, THREE_P, ALLOWANCE, BONUS,
+  DEDUCTION, EMPLOYER_COST, ADJUSTMENT. Không bắt mọi nhân sự có đủ các hình thức.
+- FORMULA phải khớp phương án, công thức VND/cấu phần, đầy đủ biến/đơn vị/biên.
+  AMOUNT có số tiền decimal, VND, căn cứ rõ và không đồng thời nhận công thức/biến.
+  Không sử dụng số thực nhị phân hoặc ký hiệu số mũ cho giá trị nguồn.
+- MISSING chặn với `PAYROLL_INPUT_MISSING`; không đổi thiếu thành 0. CONFIRMED_ZERO
+  là nguồn được xác nhận bằng 0, không xóa khoản cố định của công thức 3P khi KPI 0.
+  NOT_APPLICABLE chỉ theo dòng không áp dụng của phương án, không mang tiền/công thức.
+- TIME theo công thức phải tham chiếu kỳ công LOCKED có sự kiện/hash khóa phủ ngày
+  và cơ sở. Kỳ công khóa không đồng nghĩa kỳ nhận đầu vào lương bị khóa.
+- Phân bổ tổ sản phẩm/khoán cần tổng nghiệm thu, căn cứ và phần tiền từng người;
+  đúng tổ trong toàn khoảng, mỗi người một dòng/nhóm, tổng phần bằng tổng nghiệm thu.
+  Không chia đều hoặc sao chép toàn bộ tiền tổ cho mỗi thành viên.
+
+#### Vòng đời và truy vết
+
+1. **Tạo kỳ nhận**, sau đó **Nhận đầu vào** bằng biểu mẫu hoặc **Chọn CSV**.
+   CSV lấy từ **Tải mẫu CSV**, UTF-8, tối đa 5 MB/500 dòng nguồn sau nhóm.
+   Một hàng cho một biến; các hàng cùng `sourceLineId` phải cùng metadata và khác
+   mã biến. Parser xử lý BOM/CRLF/quoted; sai cấu trúc từ chối nguyên tệp.
+2. Ghi người chuẩn bị, người/ngày phê chuẩn không ở tương lai; có tham chiếu
+   chứng từ hoặc tải PDF/PNG/JPEG/TXT (tối đa 5 MB/tệp, 10 tệp/lô).
+   Nhập thành công chỉ tạo Nháp. Tải tệp sau kiểm tra đưa lô về Nháp.
+3. **Kiểm tra** theo toàn khoảng hiệu lực: phương án/cấu phần/giá/công thức/
+   tham số đổi giữa khoảng thì phải tách dòng. Bản kiểm tra lưu phiên bản và hash;
+   **Xác nhận nguồn** phân giải lại trong cùng giao dịch, nguồn đổi trả 409 và
+   cần kiểm tra lại. Nguồn mô phỏng không tự nâng thành xác nhận nghiệp vụ.
+4. Nội dung bất biến từ lần nhận đầu. Cùng hệ thống/chứng từ/phiên bản và nội dung
+   chuẩn hóa trả lô đã có, không thêm lịch sử/audit; nội dung khác trả 409.
+   **Lập phiên bản thay thế** giữ/liên kết dòng gốc; bản cũ vẫn hoạt động đến khi
+   xác nhận bản mới thành công, rồi đổi SUPERSEDED nguyên tử.
+5. **Trả lại** bắt buộc lý do, loại nguồn khỏi tập được dùng. Không sửa hoặc kích
+   hoạt lại nguồn trả; lập phiên bản mới. Kỳ khóa không được thay/trả nguồn cũ:
+   lập ADJUSTMENT có căn cứ, cùng nhân sự/cấu phần và liên kết nguồn gốc ở kỳ mở.
+   Chỉ ADJUSTMENT liên kết mới nhận số tiền âm.
+
+Payload, snapshot, số tiền nhóm và nội dung bằng chứng mã hóa bằng `HR_DATA_KEY`.
+Audit chỉ lưu metadata/hash/trạng thái/lý do, không lưu tiền/biến/file giải mã.
+SQL chặn sửa nội dung, xóa/truncate, chuyển trạng thái sai, nguồn hoạt động trùng
+và thay thế không có lịch sử. Mọi quyết định ghi Serializable cùng khóa/audit.
+Biểu mẫu giữ giá trị khi 409; mã/hash/UUID liên kết đặt trong chi tiết kỹ thuật.
+
+#### API
+
+Prefix `/api/payroll-inputs`; mọi endpoint yêu cầu phiên KT và quyền tương ứng.
+
+| Endpoint | Hợp đồng |
+|---|---|
+| GET `/context`, `/periods` | Ngày Việt Nam, đơn vị/phạm vi và kỳ nhận được phép |
+| POST `/periods` | `code`, `siteOrgUnitId`, `dateFrom`, `dateTo`, `expectedPaymentDate?` |
+| GET `/`, `/:id` | Lọc kỳ/trạng thái/tìm kiếm/phân trang; chi tiết, lỗi và lịch sử |
+| POST `/` | Metadata nguồn, `lines`, `teamAllocations?`, liên kết thay thế nếu có |
+| POST `/:id/validate`, `/:id/confirm`, `/:id/return` | `revision`, `reason`; không có endpoint sửa/xóa nội dung |
+| GET `/template`, POST `/import` | Mẫu CSV; multipart `file` + `metadata` JSON do biểu mẫu tạo |
+| POST `/:id/evidence`, GET `/:id/evidence/:evidenceId` | Tải tệp/xuất attachment qua kiểm tra quyền toàn lô |
+| GET `/confirmed?payrollPeriodId=…` | Chỉ dòng CONFIRMED hoạt động, snapshot đã ghim, hash và nhãn nguồn |
+
+Consumer tính lương tương lai phải dùng nguồn CONFIRMED và giữ các phiên bản đã
+ghim trong bảng lương. Hiện chưa có bảng lương nháp để tự đặt lại trạng thái khi
+nguồn đổi; không giả lập thao tác đó bằng bản ghi rỗng.
+
+#### Bằng chứng đã chạy
+
+- `npm run verify:payroll-inputs`: **21/21**, PostgreSQL cách ly/HTTP thật.
+  Có nhập trùng/xung đột, thiếu/0/NA và KPI 0 giữ P1/P2, mọi loại nguồn, công
+  nhập–xử lý–TT xác nhận–QĐ chốt–KT khóa thật, quyền/loại trừ/chính mình,
+  tệp bảo vệ, phân bổ tổ, thay thế/trả, cạnh tranh, đổi giá trong khoảng,
+  phụ thuộc đổi trước xác nhận, bất biến SQL và điều chỉnh vào kỳ mở từ nguồn khóa.
+- Toàn backend **239/239** sau build, gồm hồi quy nền/công/OT/nghỉ/khóa công/
+  cấu phần/công thức/phương án. Typecheck hai workspace và build backend/frontend đạt;
+  cảnh báo chunk UI >500 kB vẫn còn, không che hoặc tăng ngưỡng để bỏ cảnh báo.
+- Browser desktop 1440px và mobile 390px trên API/PostgreSQL cách ly:
+  clone V1→V2, sửa lượng 1200→1100, kiểm tra/xác nhận và V1 chuyển Đã được thay thế;
+  nhập CSV 25 sản phẩm và đọc lại đúng; tải TXT, xem lịch sử bổ sung;
+  nguồn MISSING không xác nhận được, trả có lý do; tạo kỳ nhận từ modal.
+  Cố ý dùng lại phiên bản cũ trả 409 và giữ nguyên lượng 1000/bản nháp.
+  Drawer/trang rộng 390px không tràn ngang; bảng cuộn bằng ArrowRight.
+  Đây là smoke local, không phải UAT toàn R1 hoặc chứng nhận truy cập tự động.
+- Demo chính đã áp dụng **26 migration**. Không seed phương án/lô nguồn thử vào
+  nhân viên demo chính; KT dùng catalogue MP_ và tự khai báo căn cứ theo người/kỳ.
+
+Bàn giao tại `http://127.0.0.1:5173/#/payroll-inputs`: đăng nhập `kt.all`,
+context/kỳ/danh sách đều HTTP 200; health PostgreSQL up. Demo chính chưa có kỳ/lô
+nguồn, không tự tạo tiền thử hoặc gán phương án cho nhân viên. Browser đã đóng;
+database, tài khoản và tệp/script UI cách ly đã dọn. Kiểm tra nhất quán đặc tả đạt,
+không thay thế việc thực hiện UAT.
 

@@ -14,9 +14,11 @@ import { OvertimeModule } from "./overtime/overtime.module";
 import { LeaveModule } from "./leave/leave.module";
 import { SalaryComponentsModule } from "./salary-components/salary-components.module";
 import { PayrollConfigurationModule } from "./payroll-configuration/payroll-configuration.module";
+import { EmployeePayPlansModule } from "./employee-pay-plans/employee-pay-plans.module";
+import { PayrollInputsModule } from "./payroll-inputs/payroll-inputs.module";
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule, OvertimeModule, LeaveModule, SalaryComponentsModule, PayrollConfigurationModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }), DatabaseModule, AuditModule, AuthModule, EmployeesModule, PersonnelModule, SettingsModule, ShiftsModule, AttendanceModule, OvertimeModule, LeaveModule, SalaryComponentsModule, PayrollConfigurationModule, EmployeePayPlansModule, PayrollInputsModule],
   controllers: [HealthController],
 })
 export class AppModule {}

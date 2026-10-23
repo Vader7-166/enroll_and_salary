@@ -81,6 +81,8 @@ tiếp. Raw muộn không đổi nguồn đã khóa. Hợp đồng tại [20 §7
 
 **Đơn giá/công thức local (Task 2.2):** dùng cùng quyền KT `payroll.components.read/manage` và phạm vi có hiệu lực như cấu phần. Chạy thử chỉ đọc, không truy cập lương cá nhân hoặc ghi bảng lương. Tra nguồn công ty/cơ sở và tham số pháp lý theo ngày đích; không dùng quyền đọc tổ tiên để ghi lên tổ tiên. Thay cấu hình kiểm tra mọi cơ sở phụ thuộc và mốc hiệu lực bị ảnh hưởng trong giao dịch; chu kỳ/nguồn thiếu/khác đơn vị không để lại phiên bản hay audit ghi dở. Hợp đồng tại [20 §7.25](20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22).
 
+**Phương án lương nhân viên (Task 2.3):** chỉ KT với `payroll.components.read/manage` tương ứng. Danh mục công ty kế thừa không cấp quyền đọc nhân viên ngoài phạm vi. Danh sách, người chọn, danh mục theo nhân viên và chi tiết đều kiểm tra phân công chính/loại trừ hiện tại và ngày xem. Mỗi phiên bản lịch sử chỉ trả khi đủ quyền trên toàn khoảng của chính phiên bản đó; không dùng phạm vi hiện tại để lộ quyết định ở cơ sở cũ. Ghi kiểm tra toàn khoảng và phần khoảng cũ bị đóng; điều chuyển khác cơ sở phải tách phiên bản. KT chỉ đọc vẫn truy cập được danh sách/lịch sử, không được ghi. Không có API sửa/xóa, audit cùng giao dịch Serializable; PostgreSQL bảo vệ lịch sử và chống chồng. Xem [20 §7.27](20-tech-stack-va-moi-truong-phat-trien.md#727-phương-án-lương-nhân-viên-task-23).
+
 ### 1.2. Trục phạm vi dữ liệu
 
 Phạm vi lưu trong bản ghi phân quyền (tài khoản, vai trò, **đơn vị phạm vi**, hiệu lực — lớp

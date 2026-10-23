@@ -36,7 +36,7 @@
 ---
 
 > [!IMPORTANT]
-> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt, đăng ký/duyệt và đối chiếu OT thực tế, giải trình/điều chỉnh công có kiểm duyệt, nghỉ/quỹ phép, TT xác nhận, QĐ chốt xưởng, KT trả/khóa nguồn công bất biến, cấu phần lương, đơn giá/công thức theo phiên bản và chạy thử Decimal có vết; **chưa có tiền OT, engine tính bảng lương hoặc AI**. Đặc tả R1 là phạm vi mục tiêu, không phải tuyên bố sẵn sàng vận hành toàn sản phẩm.
+> HRTP hiện là **bản demo chạy local với API và PostgreSQL thật**, sử dụng dữ liệu doanh nghiệp mô phỏng. Đã triển khai nhân sự, hợp đồng, phân ca, nhập/ghép lượt quẹt, đăng ký/duyệt và đối chiếu OT thực tế, giải trình/điều chỉnh công có kiểm duyệt, nghỉ/quỹ phép, TT xác nhận, QĐ chốt xưởng, KT trả/khóa nguồn công bất biến, cấu phần lương, đơn giá/công thức theo phiên bản, chạy thử Decimal có vết, phương án lương nhân viên và tiếp nhận/xác nhận đầu vào lương; **chưa có tiền OT, engine tính bảng lương hoặc AI**. Đặc tả R1 là phạm vi mục tiêu, không phải tuyên bố sẵn sàng vận hành toàn sản phẩm.
 
 <a id="tong-quan"></a>
 ## Tổng quan
@@ -73,6 +73,8 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Khóa nguồn công | KT rà soát toàn kỳ, trả có lý do hoặc khóa không đảo ngược; lưu công/OT/nghỉ/giải trình và căn cứ, hash/lịch sử bất biến; đọc snapshot, không tính lại sau khóa |
  | Cấu phần lương | KT quản lý theo công ty/cơ sở, phân loại BH/thuế/OT/theo công độc lập, phiên bản hiệu lực, căn cứ/quyết định, lịch sử bất biến và chống ghi đè |
 | Đơn giá & công thức | KT khai báo giá tháng/ngày/giờ/sản phẩm/khoán/hoa hồng/P1–P3 và công thức Decimal, phiên bản hiệu lực, đồ thị không vòng, chạy thử có vết; chưa tính bảng lương |
+| Phương án lương nhân viên | KT chọn một nguồn lương chính, khoản bổ sung/không áp dụng; gắn cấu phần/công thức/căn cứ và phương thức phân bổ, lịch sử hiệu lực không chồng, kiểm tra phạm vi và chống cộng trùng |
+| Đầu vào lương | KT nhận bằng biểu mẫu/CSV, kiểm phương án và phiên bản nguồn, chứng từ mã hóa, phân bổ tổ, xác nhận/trả/thay thế bất biến, chống trùng và đọc nguồn CONFIRMED |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
 **Chưa triển khai:** tiền OT, chế độ BHXH và thanh toán phép khi nghỉ việc, engine tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Nguồn công đã khóa chưa phải bảng lương hoặc kết quả thanh toán.
@@ -309,6 +311,11 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `GET` | `/api/payroll-configuration/context`, `/api/payroll-configuration`, `/api/payroll-configuration/:id` | Phạm vi KT, lọc/ngày hiệu lực và lịch sử đơn giá/công thức |
 | `POST` | `/api/payroll-configuration`, `/api/payroll-configuration/:id/versions` | Tạo cấu hình hoặc phiên bản tương lai theo revision, kiểm tra đồ thị và nguồn theo ngày |
 | `GET`, `POST` | `/api/payroll-configuration/preview-context`, `/api/payroll-configuration/preview` | Dữ liệu mẫu bắt buộc, chạy thử Decimal theo đơn vị/ngày, thứ tự topo và vết phiên bản; không ghi bảng lương |
+| `GET` | `/api/payroll-inputs/context`, `/api/payroll-inputs/periods`, `/api/payroll-inputs`, `/api/payroll-inputs/:id` | KT đọc phạm vi, kỳ nhận riêng với kỳ công, nguồn/lỗi/lịch sử được phép |
+| `POST` | `/api/payroll-inputs/periods`, `/api/payroll-inputs`, `/api/payroll-inputs/import` | Tạo kỳ nhận, tiếp nhận biểu mẫu hoặc CSV nguyên tử; chống trùng theo khóa/hash |
+| `POST` | `/api/payroll-inputs/:id/validate`, `/:id/confirm`, `/:id/return` | Kiểm tra, xác nhận hoặc trả nguồn theo revision/lý do; không sửa nội dung cũ |
+| `GET` | `/api/payroll-inputs/confirmed?payrollPeriodId=…` | Nguồn hoạt động và snapshot phiên bản đã ghim cho consumer tính lương tương lai |
+| `GET`, `POST` | `/api/payroll-inputs/template`, `/api/payroll-inputs/:id/evidence`, `/api/payroll-inputs/:id/evidence/:evidenceId` | Mẫu CSV và tệp chứng từ được bảo vệ theo quyền toàn lô |
 
 Kiểm tra nhanh khi API đang chạy:
 
@@ -339,6 +346,8 @@ npm run verify:workshop-closure
 npm run verify:period-lock
  npm run verify:salary-components
 npm run verify:payroll-configuration
+npm run verify:employee-pay-plans
+npm run verify:payroll-inputs
 ```
 
 Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi chạy HTTP server thật và dọn database đã tạo. Tài khoản kết nối cần quyền tạo/xóa database; không trỏ bộ kiểm chứng vào môi trường vận hành. Chạy lần lượt, không chạy đồng thời với compiler dev/watch.
@@ -360,8 +369,10 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | `verify:period-lock` | Quyền KT/phạm vi/loại trừ, CLOSED→OPEN, thứ tự kỳ, hash nguồn đầy đủ, cạnh tranh, bất biến SQL/HTTP, nguồn đổi/raw muộn và giữ xưởng không đổi | 7/7 |
  | `verify:salary-components` | Quyền KT/phạm vi/ngày hiệu lực, phân loại độc lập, bất biến SQL/HTTP, mã trùng, ngày sai, tranh phiên bản và audit nguyên tử | 9/9 |
 | `verify:payroll-configuration` | Giá/công thức, quyền, lịch sử/revision, đồ thị theo hiệu lực, kế thừa cơ sở, đơn vị/biên, dữ liệu thiếu/0, lazy IF và độ chính xác NONE | 20/20 |
+| `verify:employee-pay-plans` | Bảy hình thức trả lương, kế thừa công thức, KT chỉ đọc, phạm vi/loại trừ/lịch sử, thiếu nguồn và ngày biên, cộng trùng, phiên bản cạnh tranh và bất biến SQL | 14/14 |
+| `verify:payroll-inputs` | Tiếp nhận nguyên tử, thiếu/0/KPI 0/NA, nguồn công khóa thật, mọi loại nguồn, KT/phạm vi/loại trừ/chính mình, chứng từ, phân bổ tổ, chống trùng/thay thế/điều chỉnh, drift/cạnh tranh và bất biến SQL | 21/21 |
 
-Hồi quy toàn backend sau Task 2.2 đạt **204/204**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
+Hồi quy toàn backend sau Task 1 đầu vào lương đạt **239/239**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
 
 Browser đã chạy AD tạo loại nghỉ/chính sách và phiên bản kế tiếp; KT tính quỹ, điều chỉnh, ứng trước và xem ledger. Drawer desktop/390px không tràn trang; cuộn bảng bằng bàn phím hoạt động, axe không phát hiện lỗi tự động trên các drawer đã kiểm tra (vẫn có mục cần đánh giá thủ công). Đây là kết quả local, **không phải CI hoặc chứng nhận UAT toàn R1**. Xem [20 §7.16](docs/20-tech-stack-va-moi-truong-phat-trien.md#716-loại-nghỉ-chính-sách-và-quỹ-phép-năm).
 
@@ -376,6 +387,12 @@ Browser đã chạy AD tạo loại nghỉ/chính sách và phiên bản kế ti
  **Cấu phần lương:** đăng nhập KT → `#/salary-components` → **Tạo cấu phần**. Chọn công ty/cơ sở, loại khoản và các phân loại BH, thuế, căn cứ OT, theo công; ghi căn cứ, quyết định/chứng từ, lý do và hiệu lực. **Phiên bản kế tiếp** chỉ từ ngày mai trở đi; không sửa phân loại đã lưu, bản trước chỉ đóng khoảng hiệu lực nếu có bản kế tiếp. Lọc **Ngày xem hiệu lực**, mở **Lịch sử** để đối chiếu. KT chỉ có quyền đọc không thấy nút ghi; xung đột 409 giữ biểu mẫu và yêu cầu tải lại. Browser đã chạy tạo/phiên bản/lịch sử/xung đột và cuộn ngang bằng bàn phím ở 390px; không phát sinh khoản tiền bảng lương. Xem [20 §7.24](docs/20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực).
 
 **Đơn giá & công thức:** KT → `#/payroll-configuration` → tạo đơn giá hoặc công thức gắn cấu phần. Khai báo biến/nguồn/đơn vị và làm tròn; chọn đơn vị đích, ngày, công thức rồi nhập dữ liệu mẫu để **Chạy mô phỏng**. Vết hiển thị nguồn/phiên bản, biểu thức, giá trị thô và kết quả; không ghi lương. Lịch sử/phiên bản tương lai và giữ biểu mẫu khi 409 giống cấu phần. Xem [20 §7.25](docs/20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22).
+
+**Phương án lương — Task 2.3:** KT → `#/employee-pay-plans` → **Kế hoạch trả lương** → **Tạo kế hoạch**. Chọn ngày, phạm vi và nhân viên; khai báo hình thức trả, quyết định, nguồn xác nhận và quy tắc từng cấu phần: một Nguồn chính, khoản Bổ sung hoặc Không áp dụng. Công thức công ty được kế thừa đúng cơ sở/ngày; chỉ chọn công thức VND gắn đúng cấu phần. Khoản dùng lại nguồn/căn cứ chi trả cần quyết định độc lập; phương thức phân bổ tổ bắt buộc có tham chiếu. **Phiên bản kế tiếp** không ghi đè lịch sử; 409 giữ nháp và cho tải lại trước khi lưu. Không tiếp nhận sản lượng/nghiệm thu hoặc tính bảng lương tại đây. Hợp đồng và kiểm chứng tại [20 §7.27](docs/20-tech-stack-va-moi-truong-phat-trien.md#727-phương-án-lương-nhân-viên-task-23).
+
+**Đầu vào lương — Task 1:** KT → `#/payroll-inputs` → **Tạo kỳ nhận** rồi **Nhận đầu vào** hoặc **Chọn CSV**. Khai báo nguồn/người phê chuẩn/ngày và tham chiếu hoặc tệp chứng từ; kiểm tra rồi xác nhận theo phương án và phiên bản hiệu lực. Thiếu khác với 0; phân bổ tổ phải cân tổng. Bản thay thế chỉ loại nguồn cũ khi xác nhận thành công; nguồn trả không được dùng, kỳ khóa chỉ điều chỉnh liên kết ở kỳ mở. Browser đã chạy thay thế/xác nhận, nhập CSV, tệp chứng từ, chặn thiếu/trả có lý do, tạo kỳ và 409 giữ nháp ở desktop/390px; bảng cuộn bàn phím, không tràn toàn trang. Xem [20 §7.28](docs/20-tech-stack-va-moi-truong-phat-trien.md#728-tiếp-nhận-và-xác-nhận-đầu-vào-lương-task-1). Demo chính không tự gán phương án hay tạo nguồn tiền thử cho nhân viên.
+
+**Dữ liệu thực hành Task 2.1–2.2:** demo chính có **16 cấu phần, 32 đơn giá, 17 công thức** theo công ty và bốn cơ sở, mã `MP_`, nhãn Mô phỏng. Có lịch sử điều chỉnh từ 01/11/2026 và **32 tình huống đối chiếu**. Khi backend đang chạy, `npm run demo:payroll` chỉ thêm mã còn thiếu, không ghi đè hay tạo trùng; `npm run demo:payroll:verify` chỉ đọc/chạy thử. Mức giá, dữ liệu nhập và kết quả mong đợi tại [20 §7.26](docs/20-tech-stack-va-moi-truong-phat-trien.md#726-dữ-liệu-thực-hành-cấu-phần-đơn-giá-và-công-thức). Không dùng các cờ BH/thuế/OT mẫu làm căn cứ pháp lý; chưa gắn phương án lương nhân viên hay tính bảng lương.
 
 **Giao diện nghiệp vụ:** xác nhận tổ hiển thị việc cần xử lý, người phụ trách, nhân viên/ngày công và liên kết tra cứu; UUID, hash, mã lỗi và dữ liệu gốc nằm trong mục **Chi tiết kỹ thuật** mặc định đóng. Chi tiết ngày công/lượt quẹt hiện tên tệp và dòng nguồn; OT có bảng quy tắc và liên kết công/lượt quẹt/giải trình. Quỹ phép có bảng cách tính theo tháng và tên nghiệp vụ sổ quỹ. Thiết lập dùng tên tham số, tên cơ sở/vùng và trường số/ngày/văn bản/danh sách ngày nghỉ; JSON chỉ thuộc thiết lập nâng cao. Kỳ công dùng Đang mở/Chưa mở/Đã chốt/Đã khóa; lịch sử OT dùng Bản lưu lịch sử/Phiên bản. Lỗi lưu hiện ngay trong biểu mẫu bằng tiếng Việt, giữ thông điệp gốc trong phần kỹ thuật. Xem [20 §7.21](docs/20-tech-stack-va-moi-truong-phat-trien.md#721-chuẩn-hóa-giao-diện-nghiệp-vụ).
 
@@ -392,7 +409,7 @@ python scripts/validate_release_scope.py
 |---|---|
 | `DATABASE_URL` | Kết nối PostgreSQL phía backend |
 | `HOST`, `PORT` | Địa chỉ lắng nghe API; mặc định local `127.0.0.1:3000` |
-| `HR_DATA_KEY` | Khóa 32 byte dạng Base64 dùng mã hóa dữ liệu hợp đồng |
+| `HR_DATA_KEY` | Khóa 32 byte dạng Base64 dùng mã hóa hợp đồng, payload/snapshot đầu vào lương, số tiền nhóm và tệp chứng từ nguồn |
 | `WEB_ORIGINS` | Origin được phép cho các request ghi |
 | `COOKIE_SECURE` | Bật `true` khi triển khai qua HTTPS |
 | AUTH_* | Thời hạn phiên, giới hạn sai mật khẩu và thời gian khóa; AUTH_PASSWORD_* cấu hình độ dài, độ phức tạp, lịch sử và hạn đổi (mặc định 12 ký tự/5 mật khẩu/90 ngày) |

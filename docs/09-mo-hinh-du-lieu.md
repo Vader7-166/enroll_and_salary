@@ -357,7 +357,7 @@ bảng riêng.
 
 ## 8. G7 — Tính lương và thưởng
  
-**Đã triển khai local — Task 2.1–2.2:** cấu phần, đơn giá/công thức và phiên bản hiệu lực; bộ tính Decimal chạy thử có vết. Chưa có cơ cấu/phương án lương nhân viên hoặc engine bảng lương. Phiên bản kế tiếp chỉ có hiệu lực tương lai, đóng bản trước cùng giao dịch; PostgreSQL chặn sửa/xóa/truncate lịch sử và khoảng chồng. Xem [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực) và [§7.25](20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22).
+**Đã triển khai local — Task 2.1–2.3:** cấu phần, đơn giá/công thức, chạy thử Decimal có vết và phương án lương nhân viên theo hiệu lực. Chưa có engine bảng lương hoặc lô đầu vào sản xuất. Phương án dùng trực tiếp cấu phần/công thức hiện có; không thêm bảng cơ cấu trùng. Phiên bản kế tiếp chỉ có hiệu lực tương lai, đóng phần chồng của bản trước cùng giao dịch; PostgreSQL chặn sửa/xóa/truncate lịch sử và khoảng chồng. Xem [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực), [§7.25](20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22) và [§7.27](20-tech-stack-va-moi-truong-phat-trien.md#727-phương-án-lương-nhân-viên-task-23).
 
 | Bảng | Trường chính | Ghi chú |
 |---|---|---|
@@ -367,7 +367,8 @@ bảng riêng.
 | `payroll_configuration` *(local Task 2.2)* | `org_unit_id` · `kind` (`PRICE` / `FORMULA`) · `code` · `revision` | Định danh đơn giá/công thức, mã duy nhất theo đơn vị và loại; nội dung nằm trong phiên bản |
 | `payroll_configuration_version` *(local Task 2.2)* | `configuration_id` · `name` · `unit` · `active` · `status` · `decision_reference` · `reason` · `effective_from/to` · `created_by_id/at`; PRICE: `price_type` · `amount NUMERIC(26,6)` · `product_code` / `operation_code`; FORMULA: `component_id` · `expression` · `variables JSONB` · `rounding_mode/scale` | Lưu đơn giá và công thức cùng quy tắc phiên bản; khoảng không chồng, nội dung bất biến, nguồn/đồ thị kiểm tra theo ngày và cơ sở kế thừa |
 | `employee_salary` *(phụ trợ)* | `employee_id` · `salary_component_id` · `amount` (🔒) · `effective_from` / `effective_to` · `salary_decision_id` | Tăng lương giữa kỳ → engine tách hai đoạn đơn giá |
-| `employee_pay_plan` *(phụ trợ)* | `employee_id` · `salary_structure_id` · `pay_mode` · `combination_rule_version` · `effective_from/to` · `decision_reference` | Không chồng phương án hiệu lực; khoản thay thế/cộng thêm tường minh, đủ thời gian/sản phẩm/khoán/hoa hồng/3P |
+| `employee_pay_plan` *(local Task 2.3)* | `employee_id` duy nhất · `revision` | Một định danh ổn định mỗi nhân viên, không gắn cơ sở cố định để cho phép phiên bản mới khi điều chuyển |
+| `employee_pay_plan_version` *(local Task 2.3)* | `pay_plan_id` · `name` · `pay_mode` · `status` · `decision_reference` · `reason` · `effective_from/to` · `lines JSONB` · `created_by_id/at` | Bảy hình thức tháng/ngày/giờ/sản phẩm/khoán/hoa hồng/3P; JSON lưu cấu phần, vai trò BASE/ADDITIONAL/NOT_APPLICABLE, mã công thức, nguồn, quyết định riêng, phương thức/tham chiếu phân bổ; khoảng không chồng, nội dung bất biến |
 | `payroll_input_batch` *(phụ trợ)* | `source_system` · `source_document_no` · `source_version` · `file_hash` · `mapping_version` · `payroll_period_id` · `status` · người/thời điểm nhập và xác nhận | KT tiếp nhận; trạng thái DRAFT/VALIDATED/CONFIRMED/RETURNED/SUPERSEDED, có chứng từ nguồn |
 | `payroll_input_line` *(phụ trợ)* | `batch_id` · `source_line_id` · `employee_id` · `site_id` · `input_type` · `salary_component_id` · `work_from/to` · `quantity` · `unit` · `unit_price_version_id` / `formula_version` · `amount` · `value_state` · `source_approval_reference` · `supersedes_line_id` | Tách PRESENT/MISSING/CONFIRMED_ZERO/NOT_APPLICABLE khỏi trạng thái lô; khóa nhập lại theo nguồn/chứng từ/dòng/version; một bản hiệu lực, không sửa bản đã dùng trong kỳ khóa |
 | `bonus` | `bonus_type` · `employee_id` / `org_unit_id` · `amount` · `payroll_period_id` · `status` | Chỉ tính khi kỳ có thưởng (7.3) |
@@ -378,7 +379,7 @@ bảng riêng.
 | `payroll_adjustment` | `salary_decision_id` · `origin_period_id` (**kỳ gốc**) · `target_period_id` (kỳ mở nhận) · `employee_id` · `adjustment_type` (`RETRO_PAY` / `RETRO_DEDUCT` / `LATE_PAYMENT_COMPENSATION`) · `diff_salary` · `diff_insurance` · `diff_tax` · `status` (`DRAFT` / `CONFIRMED`) · `confirmed_by` (KT) | Kỳ gốc giữ nguyên |
 | `payslip` | `payroll_employee_id` · `issued_at` · `issued_by` (KT) · `file_id` · `status` | Không có OTP / PIN |
 
-Đơn giá nghiệp vụ `payroll_unit_price` được hiện thực bởi `payroll_configuration(kind=PRICE)` và `payroll_configuration_version` ở trên; không tạo bảng giá thứ hai. Công thức cấu phần dùng cùng cặp bảng với `kind=FORMULA`; chưa gắn cơ cấu/phương án nhân viên.
+Đơn giá nghiệp vụ `payroll_unit_price` được hiện thực bởi `payroll_configuration(kind=PRICE)` và `payroll_configuration_version` ở trên; không tạo bảng giá thứ hai. Công thức cấu phần dùng cùng cặp bảng với `kind=FORMULA`; Task 2.3 tham chiếu mã công thức trong dòng phương án, phân giải đúng phiên bản theo ngày/cơ sở, không sao chép engine hoặc giá vào JSON phương án.
 
 Bảng phụ trợ **`payroll_snapshot`** (`payroll_sheet_id`, `content`, `content_hash`, `locked_at`,
 `locked_by`, `compliance_result_id`) và **`compliance_check_result`** (`payroll_sheet_id`,

@@ -45,9 +45,11 @@ import { ForcedPasswordChange, PasswordChangeDialog } from "./components/Passwor
 import { LeaveWorkspace } from "./components/LeaveWorkspace";
 import { SalaryComponentsWorkspace } from "./components/SalaryComponentsWorkspace";
 import { PayrollConfigurationWorkspace } from "./components/PayrollConfigurationWorkspace";
+import { EmployeePayPlansWorkspace } from "./components/EmployeePayPlansWorkspace";
+import { PayrollInputsWorkspace } from "./components/PayrollInputsWorkspace";
 const { Header, Sider, Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
-type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "health";
+type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "employee-pay-plans" | "payroll-inputs" | "health";
 const routeTitles: Record<Route, string> = {
   employees: "Nhân sự",
   accounts: "Tài khoản",
@@ -61,6 +63,8 @@ const routeTitles: Record<Route, string> = {
   leave: "Nghỉ & quỹ phép",
   "salary-components": "Cấu phần lương",
   "payroll-configuration": "Đơn giá & công thức",
+  "employee-pay-plans": "Kế hoạch trả lương",
+  "payroll-inputs": "Đầu vào lương",
 };
 
 function currentRoute(user: AuthUser): Route {
@@ -71,7 +75,8 @@ function currentRoute(user: AuthUser): Route {
         : route === "attendance" ? user.permissions.includes("attendance.read")
         : route === "overtime" ? user.permissions.includes("overtime.read")
           : route === "leave" ? (user.permissions.includes("leave.read") || user.permissions.includes("leave.balance.read"))
-          : route === "salary-components" || route === "payroll-configuration" ? user.roles.includes("KT") && user.permissions.includes("payroll.components.read")
+          : route === "salary-components" || route === "payroll-configuration" || route === "employee-pay-plans" ? user.roles.includes("KT") && user.permissions.includes("payroll.components.read")
+          : route === "payroll-inputs" ? user.roles.includes("KT") && user.permissions.includes("payroll.inputs.read")
           : route === "accounts" ? user.permissions.includes("accounts.manage")
             : route === "settings" ? user.permissions.includes("settings.manage")
               : route === "periods" ? user.permissions.includes("period.read")
@@ -82,6 +87,7 @@ function currentRoute(user: AuthUser): Route {
         : user.permissions.includes("overtime.read") ? "overtime"
         : (user.permissions.includes("leave.read") || user.permissions.includes("leave.balance.read")) ? "leave"
         : user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? "salary-components"
+        : user.roles.includes("KT") && user.permissions.includes("payroll.inputs.read") ? "payroll-inputs"
         : user.permissions.includes("accounts.manage") ? "accounts"
           : user.permissions.includes("period.read") ? "periods"
             : user.permissions.includes("settings.manage") ? "settings"
@@ -204,6 +210,8 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     leaveRead ? { key: "leave", icon: <CalendarOutlined />, label: "Nghỉ & quỹ phép" } : null,
     user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "salary-components", icon: <BankOutlined />, label: "Cấu phần lương" } : null,
     user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "payroll-configuration", icon: <BankOutlined />, label: "Đơn giá & công thức" } : null,
+    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "employee-pay-plans", icon: <BankOutlined />, label: "Kế hoạch trả lương" } : null,
+    user.roles.includes("KT") && user.permissions.includes("payroll.inputs.read") ? { key: "payroll-inputs", icon: <BankOutlined />, label: "Đầu vào lương" } : null,
     { key: "organization", icon: <ApartmentOutlined />, label: "Tổ chức" },
     { key: "health", icon: <AuditOutlined />, label: "Hệ thống" },
   ].filter(Boolean) as { key: Route; icon: React.ReactNode; label: string }[];
@@ -249,6 +257,10 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       <SalaryComponentsWorkspace user={user} />
     ) : route === "payroll-configuration" ? (
       <PayrollConfigurationWorkspace user={user} />
+    ) : route === "employee-pay-plans" ? (
+      <EmployeePayPlansWorkspace user={user} />
+    ) : route === "payroll-inputs" ? (
+      <PayrollInputsWorkspace user={user} />
     ) : route === "organization" ? (
       <OrganizationPage />
     ) : (

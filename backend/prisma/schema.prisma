@@ -84,6 +84,8 @@ model OrgUnit {
   workshopClosures AttendanceWorkshopClosure[]
   salaryComponents SalaryComponent[]
   payrollConfigurations PayrollConfiguration[]
+  payrollPeriods PayrollPeriod[]
+  payrollInputTeamAllocations PayrollInputTeamAllocation[]
   @@map("org_unit")
 }
 
@@ -153,6 +155,8 @@ model Employee {
   correctionItems AttendanceCorrectionItem[]
   leaveBalances LeaveBalance[]
   leaveRequests LeaveRequest[]
+  payPlans EmployeePayPlan[]
+  payrollInputLines PayrollInputLine[]
   @@index([fullName])
   @@map("employee")
 }
@@ -218,6 +222,10 @@ model UserAccount {
   periodLockEvents AttendancePeriodLockEvent[]
   salaryComponentVersions SalaryComponentVersion[]
   payrollConfigurationVersions PayrollConfigurationVersion[]
+  employeePayPlanVersions EmployeePayPlanVersion[]
+  payrollInputBatchesCreated PayrollInputBatch[] @relation("PayrollInputBatchCreator")
+  payrollInputEvidence PayrollInputEvidence[]
+  payrollInputHistory PayrollInputHistory[]
   @@map("user_account")
 }
 
@@ -384,6 +392,151 @@ model BusinessPeriod {
   @@unique([code])
   @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
   @@map("business_period")
+}
+
+enum PayrollPeriodStatus {
+  OPEN
+  LOCKED
+}
+
+enum PayrollInputStatus {
+  DRAFT
+  VALIDATED
+  CONFIRMED
+  RETURNED
+  SUPERSEDED
+}
+
+enum PayrollInputProvenance {
+  SIMULATION
+  BUSINESS_CONFIRMED
+}
+
+model PayrollPeriod {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(64)
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  dateFrom DateTime @map("date_from") @db.Date
+  dateTo DateTime @map("date_to") @db.Date
+  expectedPaymentDate DateTime? @map("expected_payment_date") @db.Date
+  status PayrollPeriodStatus @default(OPEN)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id])
+  batches PayrollInputBatch[]
+  @@index([siteOrgUnitId, dateFrom, dateTo])
+  @@map("payroll_period")
+}
+
+model PayrollInputBatch {
+  id String @id @default(uuid()) @db.Uuid
+  payrollPeriodId String @map("payroll_period_id") @db.Uuid
+  sourceSystem String @map("source_system") @db.VarChar(80)
+  sourceDocumentNo String @map("source_document_no") @db.VarChar(160)
+  sourceVersion String @map("source_version") @db.VarChar(80)
+  mappingVersion String @map("mapping_version") @db.VarChar(80)
+  provenance PayrollInputProvenance
+  preparedBy String @map("prepared_by") @db.VarChar(200)
+  sourceApprovedBy String? @map("source_approved_by") @db.VarChar(200)
+  sourceApprovedAt DateTime? @map("source_approved_at") @db.Date
+  sourceApprovalReference String? @map("source_approval_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  attendancePeriodIds String[] @map("attendance_period_ids") @db.Uuid
+  status PayrollInputStatus @default(DRAFT)
+  revision Int @default(1)
+  contentHash String @map("content_hash") @db.Char(64)
+  payloadCipher String @map("payload_cipher")
+  validationCipher String? @map("validation_cipher")
+  fileName String? @map("file_name") @db.VarChar(255)
+  fileHash String? @map("file_hash") @db.Char(64)
+  supersedesBatchId String? @map("supersedes_batch_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+  createdBy UserAccount @relation("PayrollInputBatchCreator", fields: [createdById], references: [id])
+  supersedesBatch PayrollInputBatch? @relation("PayrollInputBatchReplacement", fields: [supersedesBatchId], references: [id])
+  replacements PayrollInputBatch[] @relation("PayrollInputBatchReplacement")
+  lines PayrollInputLine[]
+  teamAllocations PayrollInputTeamAllocation[]
+  evidence PayrollInputEvidence[]
+  history PayrollInputHistory[]
+  @@unique([sourceSystem, sourceDocumentNo, sourceVersion])
+  @@index([payrollPeriodId, status])
+  @@index([sourceSystem, sourceDocumentNo, status])
+  @@map("payroll_input_batch")
+}
+
+model PayrollInputLine {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  sourceLineId String @map("source_line_id") @db.VarChar(160)
+  employeeId String @map("employee_id") @db.Uuid
+  componentId String @map("component_id") @db.Uuid
+  inputType String @map("input_type") @db.VarChar(32)
+  workFrom DateTime @map("work_from") @db.Date
+  workTo DateTime @map("work_to") @db.Date
+  valueState String @map("value_state") @db.VarChar(32)
+  calculationMode String @map("calculation_mode") @db.VarChar(16)
+  businessReference String? @map("business_reference") @db.VarChar(500)
+  adjustmentOfLineId String? @map("adjustment_of_line_id") @db.Uuid
+  teamAllocationKey String? @map("team_allocation_key") @db.VarChar(160)
+  payloadCipher String @map("payload_cipher")
+  bindingSnapshotCipher String? @map("binding_snapshot_cipher")
+  inputHash String @map("input_hash") @db.Char(64)
+  supersedesLineId String? @map("supersedes_line_id") @db.Uuid
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  component SalaryComponent @relation(fields: [componentId], references: [id])
+  adjustmentOfLine PayrollInputLine? @relation("PayrollInputLineAdjustment", fields: [adjustmentOfLineId], references: [id])
+  adjustments PayrollInputLine[] @relation("PayrollInputLineAdjustment")
+  supersedesLine PayrollInputLine? @relation("PayrollInputLineReplacement", fields: [supersedesLineId], references: [id])
+  replacements PayrollInputLine[] @relation("PayrollInputLineReplacement")
+  @@unique([batchId, sourceLineId])
+  @@index([employeeId, componentId, workFrom, workTo])
+  @@map("payroll_input_line")
+}
+
+model PayrollInputTeamAllocation {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  allocationKey String @map("allocation_key") @db.VarChar(160)
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  acceptedAmountCipher String @map("accepted_amount_cipher") @db.Text
+  reference String @db.VarChar(500)
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id])
+  @@unique([batchId, allocationKey])
+  @@map("payroll_input_team_allocation")
+}
+
+model PayrollInputEvidence {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(255)
+  contentType String @map("content_type") @db.VarChar(100)
+  size Int
+  sha256 String @db.Char(64)
+  contentCipher String @map("content_cipher")
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  uploadedBy UserAccount @relation(fields: [uploadedById], references: [id])
+  @@map("payroll_input_evidence")
+}
+
+model PayrollInputHistory {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(40)
+  fromStatus PayrollInputStatus? @map("from_status")
+  toStatus PayrollInputStatus @map("to_status")
+  reason String @db.VarChar(2000)
+  revision Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  @@index([batchId, createdAt])
+  @@map("payroll_input_history")
 }
 
 
@@ -1167,6 +1320,7 @@ model SalaryComponent {
   orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
   versions SalaryComponentVersion[]
   payrollConfigurationVersions PayrollConfigurationVersion[]
+  payrollInputLines PayrollInputLine[]
   @@unique([orgUnitId, code])
   @@map("salary_component")
 }
@@ -1194,4 +1348,71 @@ model SalaryComponentVersion {
   createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
   @@unique([componentId, effectiveFrom])
   @@map("salary_component_version")
+}
+
+enum EmployeePayMode {
+  MONTHLY
+  DAILY
+  HOURLY
+  PRODUCT
+  PIECEWORK
+  COMMISSION
+  THREE_P
+}
+
+enum EmployeePayPlanStatus {
+  SIMULATION
+  BUSINESS_CONFIRMED
+}
+
+enum EmployeePayPlanLineRole {
+  BASE
+  ADDITIONAL
+  NOT_APPLICABLE
+}
+
+enum EmployeePayPlanSourceType {
+  TIME
+  PRODUCT
+  PIECEWORK
+  COMMISSION
+  THREE_P
+  ALLOWANCE
+  BONUS
+  DEDUCTION
+  EMPLOYER_COST
+}
+
+enum EmployeePayPlanAllocation {
+  INDIVIDUAL
+  CONFIRMED_TEAM_ALLOCATION
+}
+
+model EmployeePayPlan {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @unique @map("employee_id") @db.Uuid
+  revision Int @default(1)
+  employee Employee @relation(fields: [employeeId], references: [id])
+  versions EmployeePayPlanVersion[]
+  @@map("employee_pay_plan")
+}
+
+model EmployeePayPlanVersion {
+  id String @id @default(uuid()) @db.Uuid
+  payPlanId String @map("pay_plan_id") @db.Uuid
+  name String @db.VarChar(150)
+  payMode EmployeePayMode @map("pay_mode")
+  status EmployeePayPlanStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  lines Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  payPlan EmployeePayPlan @relation(fields: [payPlanId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id])
+  @@unique([payPlanId, effectiveFrom])
+  @@index([payPlanId, effectiveFrom, effectiveTo])
+  @@map("employee_pay_plan_version")
 }
