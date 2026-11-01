@@ -16,6 +16,7 @@ import {
 } from "@prisma/client";
 import Decimal from "decimal.js";
 import { cipherText, plainText } from "./contract-crypto";
+import { crossRegionDecrease } from "../salary-decisions/salary-timeline";
 import { AuditService } from "../audit/audit.service";
 import { businessDate } from "../auth/business-date";
 import type { AuthUser } from "../auth/auth.types";
@@ -563,6 +564,10 @@ export class PersonnelService {
         }
       }
 
+      const salaryWarning = await crossRegionDecrease(tx, this.key, { employeeId, day: effectiveFrom, fromOrgUnitId: source.orgUnitId, toOrgUnitId: dto.toOrgUnitId });
+      const salaryWarningReason = dto.salaryWarningReason?.trim() || null;
+      if (salaryWarning && !salaryWarningReason)
+        throw new ConflictException({ code: "CROSS_REGION_SALARY_DECREASE", message: "Điều chuyển sang vùng lương thấp hơn kèm giảm lương thỏa thuận (BR-08); nhập lý do xác nhận để lưu.", details: { warnings: [salaryWarning] } });
       if (dateKey(source.effectiveFrom) === dateKey(effectiveFrom)) {
         await tx.orgAssignment.delete({ where: { id: source.id } });
       } else {
@@ -576,7 +581,7 @@ export class PersonnelService {
       });
       await this.audit.record({
         actorId: user.id, entityType: "personnel_transfer", entityId: transfer.id, action: "CREATE", result: "ALLOWED",
-        newValue: { employeeId, fromOrgUnitId: source.orgUnitId, toOrgUnitId: dto.toOrgUnitId, effectiveFrom: dateKey(effectiveFrom), decisionNumber: transfer.decisionNumber }, ipAddress,
+        newValue: { employeeId, fromOrgUnitId: source.orgUnitId, toOrgUnitId: dto.toOrgUnitId, effectiveFrom: dateKey(effectiveFrom), decisionNumber: transfer.decisionNumber, ...(salaryWarning ? { salaryWarning, salaryWarningReason } : {}) }, ipAddress,
       }, tx);
       return transfer;
     }, { isolationLevel: "Serializable" });
