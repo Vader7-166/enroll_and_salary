@@ -7,6 +7,7 @@ import { ApiError, errorMessage } from "../api/client";
 import { organizationApi } from "../api/hrtp";
 import type { OrgUnit } from "../api/hrtp";
 import { settingsApi } from "../api/hr-next";
+import { payrollApi } from "../api/payroll";
 import type { LegalParameter } from "../api/hr-next";
 import { TechnicalDetails } from "./TechnicalDetails";
 
@@ -39,6 +40,12 @@ for (const [code, label, unit, unitLabel] of [
   ["OT_DAILY_MAX_RATIO", "Tỷ lệ tăng ca tối đa so với giờ làm bình thường", "ratio", "hệ số (1 = 100%)"],
   ["OT_MONTH_MAX_MINUTES", "Giới hạn tăng ca mỗi tháng", "minute", "phút"],
   ["OT_YEAR_MAX_MINUTES", "Giới hạn tăng ca mỗi năm", "minute", "phút"],
+  ["OT_RATE_WEEKDAY", "Hệ số OT ngày thường", "ratio", "hệ số (1,5 = 150%)"],
+  ["OT_RATE_WEEKLY_REST", "Hệ số OT ngày nghỉ hằng tuần", "ratio", "hệ số (2 = 200%)"],
+  ["OT_RATE_HOLIDAY", "Hệ số OT ngày lễ, Tết", "ratio", "hệ số (3 = 300%)"],
+  ["NIGHT_ALLOWANCE_RATE", "Phụ cấp làm việc ban đêm", "ratio", "hệ số (0,3 = 30%)"],
+  ["NIGHT_OT_ADDON_RATE", "Hệ số cộng thêm khi làm thêm ban đêm", "ratio", "hệ số (0,2 = 20%)"],
+  ["PARAMETER_EXPIRY_WARNING_DAYS", "Số ngày cảnh báo tham số sắp hết hiệu lực", "day", "ngày"],
 ] as const) definitions[code] = { label, unit, unitLabel, kind: "number" };
 definitions.HOLIDAY_CALENDAR = { label: "Lịch ngày nghỉ lễ", unit: "date-list", unitLabel: "danh sách ngày", kind: "calendar" };
 definitions.OT_300_NOTICE_REFERENCE = { label: "Căn cứ thông báo tăng ca đến 300 giờ/năm", unit: "reference", unitLabel: "tham chiếu", kind: "text" };
@@ -80,9 +87,9 @@ type Values = {
   selection: string; customCode?: string; scopeKey: string; subjectType: string; customSubject?: string;
   applicationBasis: LegalParameter["applicationBasis"]; value?: string; unit?: string; customValue?: string;
   holidayDates?: { date: string }[]; holidayStatus?: string; holidayReference?: string;
-  effectiveFrom: string; effectiveTo?: string; documentEffectiveDate: string; legalBasis: string;
+  effectiveFrom: string; effectiveTo?: string; documentEffectiveDate: string; legalBasis: string; password: string;
 };
-function ParameterForm({ open, loading, error, items, units, onClose, onSubmit }: { open: boolean; loading: boolean; error: Error | null; items: LegalParameter[]; units: OrgUnit[]; onClose: () => void; onSubmit: (value: Omit<LegalParameter, "id">) => void }) {
+function ParameterForm({ open, loading, error, items, units, onClose, onSubmit }: { open: boolean; loading: boolean; error: Error | null; items: LegalParameter[]; units: OrgUnit[]; onClose: () => void; onSubmit: (value: Omit<LegalParameter, "id">, password: string) => void }) {
   const [form] = Form.useForm<Values>();
   const selection = Form.useWatch("selection", form);
   const subject = Form.useWatch("subjectType", form);
@@ -96,7 +103,8 @@ function ParameterForm({ open, loading, error, items, units, onClose, onSubmit }
     const existing = items.find(item => item.paramCode === selection);
     onSubmit({ paramCode: selection === "CUSTOM" ? values.customCode!.trim() : selection, scopeKey: values.scopeKey, subjectType: subject === "CUSTOM" ? values.customSubject!.trim() : subject,
       applicationBasis: values.applicationBasis, value, unit: known ? definition.unit : values.unit?.trim() || existing?.unit || "value", effectiveFrom: values.effectiveFrom,
-      effectiveTo: values.effectiveTo || null, documentEffectiveDate: values.documentEffectiveDate, legalBasis: values.legalBasis.trim() });
+      effectiveTo: values.effectiveTo || null, documentEffectiveDate: values.documentEffectiveDate, legalBasis: values.legalBasis.trim() }, values.password);
+    form.setFieldValue("password", "");
   };
   const options = [...Object.entries(definitions).map(([value, definition]) => ({ value, label: definition.label })), ...Array.from(new Set(items.filter(item => !definitions[item.paramCode]).map(item => item.paramCode))).map(value => ({ value, label: `Tham số mở rộng: ${value}` })), { value: "CUSTOM", label: "Tham số khác (thiết lập nâng cao)" }];
   return <Modal className="parameter-modal" title="Thêm phiên bản tham số" open={open} onCancel={onClose} footer={null} width={800} destroyOnHidden afterClose={() => form.resetFields()}>
@@ -122,6 +130,7 @@ function ParameterForm({ open, loading, error, items, units, onClose, onSubmit }
       </section>}
       <div className="form-grid"><Form.Item name="effectiveFrom" label="Hiệu lực từ" rules={dateRules}><Input type="date" /></Form.Item><Form.Item name="effectiveTo" label="Hiệu lực đến (nếu có)" rules={[{ validator: (_, value?: string) => !value || realDate(value) ? Promise.resolve() : Promise.reject(new Error("Ngày không hợp lệ.")) }]}><Input type="date" /></Form.Item><Form.Item name="documentEffectiveDate" label="Ngày hiệu lực văn bản" rules={dateRules}><Input type="date" /></Form.Item></div>
       <Form.Item name="legalBasis" label="Căn cứ pháp lý / quyết định" rules={[...required, { whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
+      <Form.Item name="password" label="Nhập lại mật khẩu để xác nhận" extra="Thay đổi tham số pháp lý là thao tác nhạy cảm (NFR-33); mật khẩu chỉ dùng để xác thực lại phiên này." rules={required}><Input.Password autoComplete="current-password" /></Form.Item>
       {error && <Alert type="error" showIcon message="Không tạo được phiên bản tham số" description={<>{errorMessage(error)}{error instanceof ApiError && <TechnicalDetails><pre>{JSON.stringify({ code: error.code, status: error.status, message: error.rawMessage }, null, 2)}</pre></TechnicalDetails>}</>} />}
       <Space className="modal-actions"><Button onClick={onClose}>Hủy</Button><Button type="primary" htmlType="submit" loading={loading} disabled={!selection}>Tạo phiên bản</Button></Space>
     </Form>
@@ -133,9 +142,13 @@ export function LegalParametersPanel() {
   const [asOf, setAsOf] = useState(TODAY);
   const parameters = useQuery({ queryKey: ["legal-parameters", asOf], queryFn: () => settingsApi.parameters({ asOf }) });
   const context = useQuery({ queryKey: ["organization-context"], queryFn: organizationApi.context });
-  const create = useMutation({ mutationFn: settingsApi.createParameter, onSuccess: ({ parameter }) => { setAsOf(parameter.effectiveFrom); void client.invalidateQueries({ queryKey: ["legal-parameters"] }); setOpen(false); } });
+  const create = useMutation({ mutationFn: async ({ value, password }: { value: Omit<LegalParameter, "id">; password: string }) => settingsApi.createParameter({ ...value, reauthToken: (await payrollApi.reauthenticate(password)).token }), onSuccess: ({ parameter }) => { setAsOf(parameter.effectiveFrom); void client.invalidateQueries({ queryKey: ["legal-parameters"] }); void client.invalidateQueries({ queryKey: ["legal-parameters-expiring"] }); setOpen(false); } });
   const units = context.data?.units ?? [];
-  return <div className="tab-stack"><div className="history-toolbar"><Space wrap><label htmlFor="parameter-asof">Hiệu lực tại</label><Input id="parameter-asof" type="date" value={asOf} onChange={event => { if (realDate(event.target.value)) setAsOf(event.target.value); }} /></Space><Button type="primary" icon={<PlusOutlined />} onClick={() => { create.reset(); setOpen(true); }}>Thêm phiên bản</Button></div>
+  const expiring = useQuery({ queryKey: ["legal-parameters-expiring"], queryFn: settingsApi.expiringParameters });
+  return <div className="tab-stack">{expiring.data && expiring.data.items.length > 0 && <Alert type="warning" showIcon
+    message={"Tham số sắp hết hiệu lực trong " + expiring.data.warningDays + " ngày tới nhưng chưa có bản kế tiếp"}
+    description={<ul className="plain-list">{expiring.data.items.map(item => <li key={item.id}><Text strong>{definitions[item.paramCode]?.label ?? item.paramCode}</Text> — {scopeLabel(item.scopeKey, units)}: hết hiệu lực {item.effectiveTo} (còn {item.daysLeft} ngày). Thêm phiên bản mới bắt đầu từ ngày kế tiếp.</li>)}</ul>} />}
+    <div className="history-toolbar"><Space wrap><label htmlFor="parameter-asof">Hiệu lực tại</label><Input id="parameter-asof" type="date" value={asOf} onChange={event => { if (realDate(event.target.value)) setAsOf(event.target.value); }} /></Space><Button type="primary" icon={<PlusOutlined />} onClick={() => { create.reset(); setOpen(true); }}>Thêm phiên bản</Button></div>
     {parameters.isError ? <Alert type="error" showIcon message="Không tải được tham số" description={errorMessage(parameters.error)} /> : <Table<LegalParameter> components={{ body: { wrapper: ParameterTableBody } }} rowKey="id" loading={parameters.isLoading} size="small" scroll={{ x: 1100 }} pagination={false} dataSource={parameters.data?.items ?? []} locale={{ emptyText: <Empty description="Chưa có tham số tại ngày đã chọn" /> }} columns={[
       { title: "Tham số", width: 270, render: (_, item) => <><Text strong>{definitions[item.paramCode]?.label ?? "Tham số mở rộng"}</Text><TechnicalDetails><pre>{JSON.stringify(item, null, 2)}</pre></TechnicalDetails></> },
       { title: "Phạm vi áp dụng", width: 170, render: (_, item) => scopeLabel(item.scopeKey, units) },
@@ -145,6 +158,6 @@ export function LegalParametersPanel() {
       { title: "Hiệu lực", width: 210, render: (_, item) => `${item.effectiveFrom} — ${item.effectiveTo ?? "Không giới hạn ngày kết thúc"}` },
     ]} />}
     {context.isError && <Alert type="warning" showIcon message="Chưa tải được danh sách cơ sở" description={errorMessage(context.error)} />}
-    <ParameterForm open={open} loading={create.isPending} error={create.error} items={parameters.data?.items ?? []} units={units} onClose={() => setOpen(false)} onSubmit={value => create.mutate(value)} />
+    <ParameterForm open={open} loading={create.isPending} error={create.error} items={parameters.data?.items ?? []} units={units} onClose={() => setOpen(false)} onSubmit={(value, password) => create.mutate({ value, password })} />
   </div>;
 }

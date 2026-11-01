@@ -178,7 +178,8 @@ export const settingsApi = {
       "/api/settings/parameters" + (query ? "?" + query : ""),
     );
   },
-  createParameter: (payload: Omit<LegalParameter, "id">) =>
+  expiringParameters: () => api<{ asOf: string; warningDays: number; items: Array<LegalParameter & { daysLeft: number }> }>("/api/settings/parameters/expiring"),
+  createParameter: (payload: Omit<LegalParameter, "id"> & { reauthToken: string }) =>
     api<{ parameter: LegalParameter }>("/api/settings/parameters", {
       method: "POST",
       body: JSON.stringify(payload),

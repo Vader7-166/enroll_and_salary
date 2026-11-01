@@ -33,9 +33,14 @@ export class SettingsController {
     return this.settings.listParameters(req.user, query);
   }
 
+  @Get("parameters/expiring")
+  expiringParameters(@Req() req: AuthRequest) {
+    return this.settings.expiringParameters(req.user);
+  }
+
   @Post("parameters")
   createParameter(@Req() req: AuthRequest, @Body() dto: CreateParameterDto) {
-    return this.settings.createParameter(req.user, dto, req.ip);
+    return this.settings.createParameter(req.user, req.sessionId, dto, req.ip);
   }
 
   @Get("policies/resolve")

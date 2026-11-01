@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const { dropDatabase } = require('./http-harness.cjs');
 const assert = require('node:assert/strict');
 const { PrismaClient } = require('@prisma/client');
 const { randomUUID } = require('node:crypto');
@@ -51,6 +52,8 @@ test('HR foundation on fresh PostgreSQL and actual HTTP API', { timeout: 120000 
       assert.equal(result.status, 201, JSON.stringify(result.body)); sessions[username] = result.cookie;
     }
     const kt = sessions['kt.all'], ad = sessions['ad.demo'], tt = sessions['tt.bn'], ktbn = sessions['kt.bn'];
+    // NFR-33: legal parameter writes carry a fresh re-authentication token.
+    const adReauth = async () => (await request('/auth/reauthenticate', ad, { password: credentials.find(a => a.username === 'ad.demo').password })).body.token;
     const context = (await request('/organization/context', kt)).body;
     const source = context.units.find(u => u.code === 'NM-BN-D1-T1');
     const other = context.units.find(u => u.code === 'NM-BN-D1-T2');
@@ -127,12 +130,15 @@ test('HR foundation on fresh PostgreSQL and actual HTTP API', { timeout: 120000 
       assert.equal(persisted.body.employee.orgUnit.id, remote.id);
     });
     await t.test('Dated legal version preserves historical value and rejects backdated overlap', async () => {
-      const result = await request('/settings/parameters', ad, { paramCode: 'MIN_WAGE_MONTH_I', scopeKey: 'GLOBAL', subjectType: 'ALL', applicationBasis: 'WORK_DATE', value: '6666666', unit: 'VND/month', effectiveFrom: '2027-01-01', documentEffectiveDate: '2027-01-01', legalBasis: 'Quyết định kiểm chứng có hiệu lực tương lai' });
+      const reauthToken = await adReauth();
+      const unauthenticated = await request('/settings/parameters', ad, { paramCode: 'MIN_WAGE_MONTH_I', scopeKey: 'GLOBAL', subjectType: 'ALL', applicationBasis: 'WORK_DATE', value: '6666666', unit: 'VND/month', effectiveFrom: '2027-01-01', documentEffectiveDate: '2027-01-01', legalBasis: 'Thiếu xác thực lại', reauthToken: 'invalid' });
+      assert.equal(unauthenticated.status, 403); assert.equal(unauthenticated.body.code, 'REAUTH_REQUIRED');
+      const result = await request('/settings/parameters', ad, { reauthToken, paramCode: 'MIN_WAGE_MONTH_I', scopeKey: 'GLOBAL', subjectType: 'ALL', applicationBasis: 'WORK_DATE', value: '6666666', unit: 'VND/month', effectiveFrom: '2027-01-01', documentEffectiveDate: '2027-01-01', legalBasis: 'Quyết định kiểm chứng có hiệu lực tương lai' });
       assert.equal(result.status, 201, JSON.stringify(result.body));
       const history = await request('/settings/parameters?paramCode=MIN_WAGE_MONTH_I&asOf=2026-12-31', ad);
       const next = await request('/settings/parameters?paramCode=MIN_WAGE_MONTH_I&asOf=2027-01-01', ad);
       assert.equal(String(history.body.items[0].value), '5310000'); assert.equal(String(next.body.items[0].value), '6666666');
-      const conflict = await request('/settings/parameters', ad, { ...result.body.parameter, id: undefined, createdAt: undefined, effectiveFrom: '2026-06-01', effectiveTo: '2027-02-01' });
+      const conflict = await request('/settings/parameters', ad, { ...result.body.parameter, reauthToken, id: undefined, createdAt: undefined, effectiveFrom: '2026-06-01', effectiveTo: '2027-02-01' });
       assert.ok([400, 409].includes(conflict.status));
       assert.equal((await request('/settings/parameters', kt)).status, 403);
     });
@@ -174,7 +180,7 @@ test('HR foundation on fresh PostgreSQL and actual HTTP API', { timeout: 120000 
       assert.equal((await request('/employees/' + bounded.id + '/assignments?asOf=2026-02-01', kt)).body.currentOrgUnitId, remote.id);
     });
     await t.test('Frozen parameter protection respects site, region, inclusive boundaries and predecessor truncation', async () => {
-      const common = { paramCode: 'PROBATION_MIN_RATIO', subjectType: 'ALL', applicationBasis: 'WORK_DATE', value: '0.86', unit: 'ratio', documentEffectiveDate: '2026-01-01', legalBasis: 'Tham số hồi quy phạm vi và khoảng hiệu lực' };
+      const common = { reauthToken: await adReauth(), paramCode: 'PROBATION_MIN_RATIO', subjectType: 'ALL', applicationBasis: 'WORK_DATE', value: '0.86', unit: 'ratio', documentEffectiveDate: '2026-01-01', legalBasis: 'Tham số hồi quy phạm vi và khoảng hiệu lực' };
       const remoteSite = context.units.find(unit => unit.code === 'NM-NA');
       const separateSite = await request('/settings/parameters', ad, { ...common, scopeKey: 'SITE:' + remoteSite.siteId, effectiveFrom: '2026-03-01', effectiveTo: '2026-03-25' });
       assert.equal(separateSite.status, 201, JSON.stringify(separateSite.body));
@@ -263,7 +269,7 @@ test('HR foundation on fresh PostgreSQL and actual HTTP API', { timeout: 120000 
   } finally {
     if (server && server.exitCode === null) { server.kill(); await new Promise(r => server.once('exit', r)); }
     if (db) await db.$disconnect();
-    await admin.$executeRawUnsafe('DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE)');
+    await dropDatabase(name);
     await admin.$disconnect(); rmSync(credentialsPath, { force: true });
   }
 });

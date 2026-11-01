@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const { dropDatabase } = require('./http-harness.cjs');
 const assert = require('node:assert/strict');
 const { PrismaClient } = require('@prisma/client');
 const { randomUUID } = require('node:crypto');
@@ -199,7 +200,8 @@ test('Overtime requests on isolated PostgreSQL and HTTP API', { timeout: 180000 
       const annualPending = await submit(annual);
       assert.equal((await requestCall('/overtime/requests/' + annualPending.id + '/approve', qd, { revision: annualPending.revision })).status, 409);
       const bn = await db.site.findUnique({ where: { code: "NM-BN" } });
-      const parameter = { scopeKey: "SITE:" + bn.id, subjectType: "ALL", applicationBasis: "WORK_DATE", effectiveFrom: date(1, 1), documentEffectiveDate: date(1, 1), legalBasis: "Căn cứ kiểm chứng trần 300 giờ" };
+      const reauthToken = (await ok("/auth/reauthenticate", ad, { password: credentials.find(candidate => candidate.username === "ad.demo").password })).token;
+      const parameter = { reauthToken, scopeKey: "SITE:" + bn.id, subjectType: "ALL", applicationBasis: "WORK_DATE", effectiveFrom: date(1, 1), documentEffectiveDate: date(1, 1), legalBasis: "Căn cứ kiểm chứng trần 300 giờ" };
       await ok("/settings/parameters", ad, { ...parameter, paramCode: "OT_YEAR_MAX_MINUTES", value: "18000", unit: "minute" });
       assert.equal((await requestCall("/overtime/requests/" + annualPending.id + "/approve", qd, { revision: annualPending.revision })).status, 409);
       await ok("/settings/parameters", ad, { ...parameter, paramCode: "OT_300_NOTICE_REFERENCE", value: "TB-300-OT", unit: "reference" });
@@ -239,7 +241,7 @@ test('Overtime requests on isolated PostgreSQL and HTTP API', { timeout: 180000 
   } finally {
     if (server && server.exitCode === null) { const stopped = new Promise(resolve => server.once('exit', resolve)); server.kill(); await stopped; }
     if (db) await db.$disconnect();
-    await admin.$executeRawUnsafe('DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE)');
+    await dropDatabase(name);
     await admin.$disconnect(); rmSync(credentialsPath, { force: true });
   }
 });

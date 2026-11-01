@@ -15,11 +15,14 @@ import {
   SitePolicy,
   SitePolicyKey,
 } from "@prisma/client";
+import { ConfigService } from "@nestjs/config";
 import { AuditService } from "../audit/audit.service";
+import { reauthKey, verifyReauthToken } from "../auth/reauth";
 import type { AuthUser } from "../auth/auth.types";
  import { holidayCalendar } from "../leave/holiday-calendar";
  import { businessDate } from "../auth/business-date";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { effectiveAt, ScopeService } from "../organization/scope.service";
 import {
   CreateParameterDto,
@@ -33,6 +36,8 @@ import {
 } from "./settings.dto";
 
 type Db = Prisma.TransactionClient;
+// Used only when the PARAMETER_EXPIRY_WARNING_DAYS parameter is missing.
+const DEFAULT_EXPIRY_WARNING_DAYS = 30;
 type Scope = Awaited<ReturnType<ScopeService["load"]>>;
 
 const SEEDED_NUMERIC_CODES = new Set([
@@ -41,8 +46,12 @@ const SEEDED_NUMERIC_CODES = new Set([
   "PROBATION_MIN_RATIO", "PROBATION_MAX_DAYS_TECHNICAL", "PROBATION_MAX_DAYS_WORKER",
   "FIXED_TERM_MIN_MONTHS", "FIXED_TERM_MAX_MONTHS", "FIXED_TERM_MAX_COUNT",
   "INSURANCE_MIN_CONTRACT_MONTHS",
+  "OT_RATE_WEEKDAY", "OT_RATE_WEEKLY_REST", "OT_RATE_HOLIDAY", "NIGHT_ALLOWANCE_RATE", "NIGHT_OT_ADDON_RATE",
+  "BASE_SALARY_MONTH", "UNION_FEE_RATE", "UNION_FEE_CAP", "INSURANCE_TRAINED_FLOOR_ADDON", "UNPAID_LEAVE_INSURANCE_EXEMPT_DAYS",
+  "PARAMETER_EXPIRY_WARNING_DAYS",
 ]);
 const SEEDED_INTEGER_CODES = new Set([
+  "PARAMETER_EXPIRY_WARNING_DAYS",
   "PROBATION_MAX_DAYS_TECHNICAL", "PROBATION_MAX_DAYS_WORKER",
   "FIXED_TERM_MIN_MONTHS", "FIXED_TERM_MAX_MONTHS", "FIXED_TERM_MAX_COUNT",
   "INSURANCE_MIN_CONTRACT_MONTHS",
@@ -70,6 +79,12 @@ function numericString(value: unknown): boolean {
 function assertParameterValue(paramCode: string, value: unknown): asserts value is Prisma.InputJsonValue {
    if (!isJsonValue(value)) throw new BadRequestException("Giá trị tham số phải là JSON hợp lệ, không rỗng.");
    if (paramCode === "HOLIDAY_CALENDAR") holidayCalendar(value);
+  if (paramCode === "COMP_TIME_ENABLED" && typeof value !== "boolean") throw new BadRequestException("COMP_TIME_ENABLED phải là true hoặc false.");
+  if (paramCode === "WEEKLY_REST_DAYS") {
+    const days = (value as { days?: unknown }).days;
+    if (!Array.isArray(days) || days.some((day) => !Number.isInteger(day) || (day as number) < 1 || (day as number) > 7) || new Set(days).size !== days.length)
+      throw new BadRequestException("WEEKLY_REST_DAYS cần days là danh sách thứ ISO 1 (thứ Hai) … 7 (Chủ nhật), không trùng.");
+  }
   if (SEEDED_NUMERIC_CODES.has(paramCode) && !numericString(value))
     throw new BadRequestException("Giá trị tham số đã seed phải là chuỗi số dương.");
   if (SEEDED_INTEGER_CODES.has(paramCode) && !(typeof value === "string" && /^[1-9]\d*$/.test(value)))
@@ -120,7 +135,52 @@ function serializePeriod(period: BusinessPeriod, scopeOrgUnitName: string) {
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService) {}
+  private readonly reauthKey: Buffer;
+
+  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService, private readonly notifications: NotificationsService, config: ConfigService) {
+    this.reauthKey = reauthKey(config.getOrThrow<string>("HR_DATA_KEY"));
+  }
+
+  /**
+   * Parameters ending within PARAMETER_EXPIRY_WARNING_DAYS with no version of the same code/scope/subject/basis
+   * starting the next day (FR-1.3.3).
+   */
+  private async expiring(asOf: Date) {
+    const setting = await this.prisma.legalParameter.findFirst({ where: { paramCode: "PARAMETER_EXPIRY_WARNING_DAYS", scopeKey: "GLOBAL", ...effectiveAt(asOf) }, orderBy: { effectiveFrom: "desc" } });
+    const days = typeof setting?.value === "string" && /^[1-9]\d*$/.test(setting.value) ? Number(setting.value) : DEFAULT_EXPIRY_WARNING_DAYS;
+    const until = new Date(asOf.getTime() + days * 86400000);
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT p.id::text AS id FROM legal_parameter p
+      WHERE p.effective_to IS NOT NULL AND p.effective_to >= ${asOf}::date AND p.effective_to <= ${until}::date
+        AND NOT EXISTS (SELECT 1 FROM legal_parameter n WHERE n.param_code = p.param_code AND n.scope_key = p.scope_key
+          AND n.subject_type = p.subject_type AND n.application_basis = p.application_basis AND n.effective_from = p.effective_to + 1)
+      ORDER BY p.effective_to, p.param_code`;
+    const items = await this.prisma.legalParameter.findMany({ where: { id: { in: rows.map(row => row.id) } }, orderBy: [{ effectiveTo: "asc" }, { paramCode: "asc" }] });
+    return { days, items };
+  }
+
+  async expiringParameters(user: AuthUser) {
+    const asOf = businessDate();
+    const scope = await this.settingsScope(user, asOf);
+    const { days, items } = await this.expiring(asOf);
+    return { asOf: dateText(asOf), warningDays: days, items: items.filter(item => this.visibleParameterScope(scope, item.scopeKey))
+      .map(item => ({ ...serializeParameter(item), daysLeft: Math.round((item.effectiveTo!.getTime() - asOf.getTime()) / 86400000) })) };
+  }
+
+  /** Daily job: one notification per expiring version to the AD whose scope covers it. */
+  async notifyExpiringParameters(asOf = businessDate()) {
+    const { items } = await this.expiring(asOf);
+    for (const item of items) {
+      const siteUnit = item.scopeKey.startsWith("SITE:")
+        ? await this.prisma.orgUnitVersion.findFirst({ where: { siteId: item.scopeKey.slice(5), type: "SITE", ...effectiveAt(asOf) }, select: { orgUnitId: true } })
+        : null;
+      await this.notifications.emit({ type: "PARAMETER_EXPIRING", linkKey: "settings", roles: ["AD"], permission: "settings.manage", scopeOrgUnitId: siteUnit?.orgUnitId ?? null,
+        title: "Tham số " + item.paramCode + " (" + item.scopeKey + ") hết hiệu lực ngày " + dateText(item.effectiveTo!) + " nhưng chưa có bản kế tiếp",
+        payload: { parameterId: item.id, paramCode: item.paramCode, scopeKey: item.scopeKey, effectiveTo: dateText(item.effectiveTo!) },
+        dedupeKey: "PARAMETER_EXPIRING:" + item.id + ":" + dateText(item.effectiveTo!) });
+    }
+    return items.length;
+  }
 
   private managementScope(user: AuthUser, db: Db = this.prisma) { return this.scope.load(user, "settings.manage", db); }
   private async settingsScope(user: AuthUser, asOf: Date, db: Db = this.prisma) {
@@ -162,7 +222,10 @@ export class SettingsService {
     return { items: items.filter((item) => this.visibleParameterScope(scope, item.scopeKey)).map(serializeParameter) };
   }
 
-  async createParameter(user: AuthUser, dto: CreateParameterDto, ipAddress?: string) {
+  async createParameter(user: AuthUser, sessionId: string, dto: CreateParameterDto, ipAddress?: string) {
+    if (!user.permissions.includes("settings.manage")) throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này.");
+    if (!verifyReauthToken(this.reauthKey, sessionId, dto.reauthToken))
+      throw new ForbiddenException({ code: "REAUTH_REQUIRED", message: "Nhập lại mật khẩu để thay đổi tham số pháp lý." });
     const effectiveFrom = parseDate(dto.effectiveFrom, "Ngày hiệu lực");
     const effectiveTo = dto.effectiveTo ? parseDate(dto.effectiveTo, "Ngày hết hiệu lực") : null;
     const documentEffectiveDate = parseDate(dto.documentEffectiveDate, "Ngày hiệu lực văn bản");
