@@ -203,6 +203,16 @@ Thứ tự phản ánh **phụ thuộc kỹ thuật**, đánh số theo phân h�
 
 ---
 
+### 5.1. Biện pháp đã cài đặt cho rủi ro vận hành (change `add-r1-acceptance-hardening`)
+
+| Rủi ro | Đã có | Còn mở |
+|---|---|---|
+| Mất dữ liệu / không khôi phục được | Service `backup` (profile `backup`) sao lưu `pg_dump` mỗi giờ, mã hóa bằng khóa tách biệt, giữ 48 giờ / 90 ngày / 36 tháng; `restore-drill.cjs` khôi phục vào DB sạch, kiểm migration, chuỗi audit, hash snapshot lương và kỳ công khóa, đo RTO, lập biên bản | Diễn tập trên hạ tầng vận hành thật 6 tháng/lần; sao chép bản sao lưu ra ngoài máy chủ |
+| Lộ hoặc mất khóa mã hóa | Vòng khóa `HR_DATA_KEYS`/`HR_DATA_KEY_ACTIVE`, `keys:rotate` mã hóa lại và tính lại blind index, `--check` chỉ ra khóa gỡ được | Quy trình cất giữ khóa ngoài máy chủ (két/HSM) do doanh nghiệp quyết |
+| Hồi quy khi sửa mã | CI chạy typecheck, build, lint tuân thủ, phạm vi phát hành, toàn bộ `verify:*`, runner UAT/TC; benchmark ban đêm NFR-07…13 | Chưa chạy trên GitHub Actions thật |
+| Hiệu năng nhập công | NFR-08/09 đạt trên máy đo | NFR-13 nhập + ghép đầy đủ tệp 10.000 dòng vượt 60 giây → change `add-r1-gap-closure` |
+| Đổi tham số pháp lý trái phép | Bắt buộc nhập lại mật khẩu (NFR-33), audit từng phiên bản | — |
+
 ## 6. Theo dõi giả định và kết quả xác nhận
 
 Ngày 17/10/2026, chủ dự án xác nhận DEC-01…03: chưa bật quy đổi nghỉ bù; giữ đủ hình thức

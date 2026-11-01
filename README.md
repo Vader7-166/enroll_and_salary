@@ -60,7 +60,7 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Hồ sơ nhân sự | Tìm kiếm, lọc, xem chi tiết và tạo nhân sự trong phạm vi được cấp |
 | Hợp đồng & điều chuyển | Hợp đồng, phụ lục mã hóa; lịch sử và điều chuyển theo ngày hiệu lực |
 | Thiết lập & kỳ công | Tham số/chính sách hiệu lực; AD tạo/mở kỳ, KT trả trước khóa và khóa nguồn bất biến theo thứ tự kỳ |
-| Ca & phân ca | Danh mục ca, lịch theo tổ/người/ngày; Tổ trưởng gửi, Quản đốc duyệt hoặc trả lại; lịch sử phiên bản |
+| Ca & phân ca | Danh mục ca, lịch theo tổ/người/ngày; Tổ trưởng gửi, Quản đốc duyệt hoặc trả lại; lịch sử phiên bản; mẫu xoay ca theo cơ sở, sinh lịch theo mẫu, phân ca hàng loạt, sao chép kỳ trước; đổi ca sau duyệt có QĐ duyệt, ghép lại công ngày đổi |
 | Nhập dữ liệu chấm công | CSV/TXT/XLSX, cấu hình cột, kiểm tra từng dòng, chống nhập trùng; lịch sử và nguồn dữ liệu |
 | Xử lý chấm công | Ghép vào–ra theo lịch đã duyệt, ca qua ngày, nghỉ giữa ca, thiếu quẹt, đi muộn/về sớm |
 | Bảng công & truy vết | Lọc theo kỳ, đơn vị, nhân viên; xem ngoại lệ, phân đoạn giờ làm và nguồn lượt quẹt |
@@ -74,10 +74,28 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
  | Cấu phần lương | KT quản lý theo công ty/cơ sở, phân loại BH/thuế/OT/theo công độc lập, phiên bản hiệu lực, căn cứ/quyết định, lịch sử bất biến và chống ghi đè |
 | Đơn giá & công thức | KT khai báo giá tháng/ngày/giờ/sản phẩm/khoán/hoa hồng/P1–P3 và công thức Decimal, phiên bản hiệu lực, đồ thị không vòng, chạy thử có vết; chưa tính bảng lương |
 | Phương án lương nhân viên | KT chọn một nguồn lương chính, khoản bổ sung/không áp dụng; gắn cấu phần/công thức/căn cứ và phương thức phân bổ, lịch sử hiệu lực không chồng, kiểm tra phạm vi và chống cộng trùng |
+| Hồ sơ lương & thuế | KT quản lý CCCD/hộ chiếu, MST, số sổ BHXH, tài khoản nhận lương (mã hóa AES-GCM + blind index chặn trùng), người phụ thuộc theo tháng có chứng từ và phiên bản, hồ sơ cư trú thuế và diện đặc thù theo hiệu lực; AD luôn thấy giá trị che, mọi lần đọc có audit |
+| Quyết định lương | KT lập quyết định thay đổi lương theo ngày hiệu lực (mã hóa), dòng thời gian lương theo đoạn (hợp đồng → quyết định), đoạn đơn vị/vùng/cost center trong kỳ, ứng viên hồi tố khi chạm kỳ lương đã khóa, cảnh báo BR-08 giảm lương khi điều chuyển xuống vùng thấp hơn |
+| Bảo hiểm bắt buộc | KT quản lý mức đóng BHXH/BHYT/BHTN/KPCĐ theo hiệu lực (sàn tối thiểu vùng, trần theo lương cơ sở/tối thiểu vùng, căn cứ bắt buộc); diện tham gia theo tháng có mã lý do; lương đóng BH kẹp sàn/trần (+7% đào tạo nghề); NLĐ/DN, KPCĐ, đoàn phí có trần; kiểm tra CP-07; chạy thử theo nhân viên/tháng |
+| Thuế TNCN | Bộ quy tắc theo ngày chi trả (2025: 7 bậc, 11/4,4 triệu, miễn chênh lệch; 2026: 5 bậc, 15,5/6,2 triệu, miễn khoản đủ điều kiện), ba nhánh lũy tiến/10%/20%, bóc tách miễn OT/đêm/ăn ca/phép không trùng nguồn, gross-up ±1 đồng, sổ khấu trừ một bản nháp mỗi lần chi và điều chỉnh liên kết bản gốc |
+| Tính bảng lương | KT chạy tính theo kỳ lương + cơ sở khi mọi kỳ công nguồn đã LOCKED; pipeline lương theo phương án → OT (đơn giá BR-15) → phụ cấp đêm → phụ cấp → BH → miễn thuế → TNCN → khấu trừ → thực lĩnh; chạy lô nền có tiến độ/dừng an toàn/chạy lại một phần, lỗi cô lập theo nhân viên; cổng CP-01…CP-09 (CP-08 cần xác nhận), drill-down tới công gốc và lượt quẹt; kết quả mã hóa, idempotent theo hash nguồn |
+| Duyệt & khóa kỳ lương | KT duyệt bảng lương khi không còn BLOCKING/nhân viên lỗi và CP-08 đã xác nhận; nguồn đổi sau duyệt tự đưa về Nháp (sự kiện + đối chiếu hash khi khóa); khóa một chiều sau khi nhập lại mật khẩu, kiểm tra kỳ trước cùng cơ sở, ghi snapshot + SHA-256, dòng lương/BH/thuế bất biến; cảnh báo hạn chi; PDF bằng chứng tuân thủ CP-01…CP-09 dựng từ snapshot |
+| Phiếu lương & chi lương | Phiếu lương PDF từng người dựng từ snapshot đã khóa, mật khẩu AES-256 theo quy tắc cấu hình (không lưu), bản in, xuất hàng loạt nền có tiến độ/lỗi từng tệp và gói mã hóa tải một lần; mẫu file chi theo ngân hàng là cấu hình phiên bản; lô chi xác thực lại, đúng thực lĩnh, một nhân viên/kỳ một lô hiệu lực; ghi ngày chi thực tế (thuế ACTUAL, `TAX_CONTEXT_CHANGED`), đền bù chậm trả > 15 ngày vào kỳ mở kế tiếp |
+| Thưởng & hồi tố | Đợt thưởng tháng/quý/năm/KPI/lễ Tết/thâm niên/đột xuất theo số tiền hoặc công thức (KPI, điểm chuyên cần chỉ là biến thưởng), mỗi người một lần, chặn trùng nguồn KPI với P3 (`BONUS_P3_DOUBLE_COUNT`); thưởng chỉ vào kỳ chi, trước tổng thu nhập, chịu thuế theo ngày chi. Hồi tố tái hiện kỳ đã khóa bằng chính engine (REPLAY), bảng chênh lệch lương/BH/thuế từng kỳ, xác nhận có xác thực lại → bút toán truy lĩnh/truy thu vào kỳ đang mở; kỳ gốc giữ nguyên |
+| Giờ OT theo hệ số | Tách đoạn 00:00/06:00/22:00, loại ngày theo lịch lễ và ngày nghỉ tuần; hệ số tính từ tham số theo công thức ba số hạng (150/200/210/270/390 là kết quả); giờ đêm không OT; kỳ khóa đọc snapshot; quy đổi nghỉ bù luôn `COMP_TIME_DISABLED` |
 | Đầu vào lương | KT nhận bằng biểu mẫu/CSV, kiểm phương án và phiên bản nguồn, chứng từ mã hóa, phân bổ tổ, xác nhận/trả/thay thế bất biến, chống trùng và đọc nguồn CONFIRMED |
+| Trợ lý AI nghiệp vụ (AI-02, tắt mặc định) | Hỏi đáp theo vai trò chỉ từ corpus hướng dẫn đã duyệt (lọc quyền trước truy xuất và trước gọi Gemini), mỗi bước có nguồn, liên kết dựng từ route registry, chặn PII, chống injection, fallback hướng dẫn tĩnh, kiểm tra lại phiên/quyền, audit chỉ metadata; đã kiểm bằng Gemini giả lập, chưa nghiệm thu với Gemini thật |
+| Báo cáo 10.x | Khung báo cáo chung (quyền/phạm vi/loại trừ trước truy vấn, che cột cả trong tệp, nhãn Nháp/Chính thức, kỳ khóa đọc bản lưu, cây tổ chức theo kỳ, kết xuất Excel/PDF nền có audit); 18 báo cáo: bảng chấm công tháng, OT so trần, đi muộn/về sớm, ngoại lệ, giờ tuần, biến động nhân sự, sổ quản lý lao động 20 tiêu chí, bảng thanh toán lương/thưởng, quỹ lương, phân bổ chi phí 622/642, trích BH, tăng/giảm BH, C12, thuế khấu trừ, quyết toán, sử dụng lao động, OT 200–300 giờ |
+| Ốm đau, thai sản & tỷ lệ vắng | KT nhập hồ sơ chế độ BHXH (chứng từ bắt buộc, chồng ngày, chính sách loại nghỉ), số ngày và mức hưởng dự tính có vết từ lương đóng đã khóa, ghi thực chi và chênh lệch; QĐ xem tỷ lệ vắng xưởng theo tổ/ngày/loại nghỉ, cảnh báo vượt ngưỡng |
+| Quyết toán TNCN năm | KT lập dự thảo theo năm của ngày chi trả thực tế, thuế năm bằng biểu năm (giảm trừ bản thân 12 tháng, NPT theo tháng, BH, trần năm), chênh lệch nộp thêm/hoàn; giữ nguyên số đã khai 6 tháng đầu 2026 (TC-T10); chỉ người ủy quyền, liệt kê người không đủ điều kiện; chặn hoàn tất khi còn khoản dự kiến hoặc `TAX_CONTEXT_CHANGED`; phiên bản bất biến; xuất tờ khai tổng hợp + phụ lục |
+| Phúc lợi | KT quản lý 12 nhóm phúc lợi theo phiên bản (mức hưởng, xử lý thuế/định mức miễn, cờ vào lương, điều kiện hưởng dạng dữ liệu); lập danh sách dự kiến theo điều kiện, thêm/bớt có kiểm tra lại và lý do, xác nhận chống trùng (UAT-28); khoản vào lương đúng phân loại thuế; chi phí phúc lợi theo cost center/kỳ/loại gồm trợ cấp thôi việc, xuất Excel |
+| Hợp đồng & chấm dứt | KT xem cảnh báo HĐ sắp hết hạn (30/60 ngày), quá hạn, hết thử việc, đủ 2 HĐ xác định thời hạn — không tự chấm dứt; quyết định chấm dứt nháp có xem trước trợ cấp thôi việc/mất việc (trừ thời gian BHTN và đã chi, mức tối thiểu), tiền phép chưa nghỉ, báo giảm BH; xác nhận có xác thực lại trong một giao dịch, khoản vào kỳ lương mở gần nhất đúng một lần |
+| Biến động BH & C12 | KT lập danh sách báo tăng/giảm/điều chỉnh theo cơ sở và tháng từ so sánh diện + lương đóng tháng N/N−1, chốt bất biến theo hash rà soát, biến động sau chốt vào tháng mở với cờ báo muộn và truy thu/thoái thu theo mức đóng tháng gốc; xuất Excel theo mẫu cấu hình; nhập C12 ghép theo số sổ BHXH và phân loại chênh lệch với bảng lương đã khóa |
+| Nhật ký & thông báo | AD tra cứu nhật ký theo phạm vi (lọc thời gian/người/hành động/đối tượng/kết quả gồm bị từ chối, che giá trị lương, xuất Excel có audit); kiểm tra toàn vẹn chuỗi băm hằng ngày và thủ công; chuông thông báo trong ứng dụng cho TT/QĐ/KT/AD ở các luồng duyệt/chốt/khóa, hạn chi và tham số sắp hết hiệu lực |
+| Nghiệm thu & vận hành | CI GitHub Actions (typecheck, build, lint tuân thủ, phạm vi phát hành, 6 nhóm `verify:*` song song trên PostgreSQL 18, runner UAT/TC, benchmark ban đêm NFR-07…13); bảng đối chiếu 152 FR; ghi trạng thái nghiệm thu chỉ từ kết quả chạy thật; sao lưu mã hóa theo giờ và diễn tập khôi phục có kiểm hash; xoay vòng khóa mã hóa; proxy TLS tùy chọn; xác thực lại khi đổi tham số pháp lý |
 | Kết nối hệ thống | Health endpoint kiểm tra truy vấn PostgreSQL thật và trạng thái kết nối trên giao diện |
 
-**Chưa triển khai:** tiền OT, chế độ BHXH và thanh toán phép khi nghỉ việc, engine tính lương/BH/thuế, phúc lợi, quyết toán, báo cáo lương và trợ lý AI. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Nguồn công đã khóa chưa phải bảng lương hoặc kết quả thanh toán.
+**Chưa nghiệm thu:** trợ lý AI chưa chạy với Gemini thật (cần key); đối soát hai kỳ lương liên tiếp với nguồn đối chứng thật chưa thực hiện; `verification_status` trong manifest vẫn `NOT_EXECUTED` cho tới khi ghi bằng chứng bằng `npm run acceptance:record`. Khoảng trống FR-1.4.2, FR-2.1.3, FR-X.3 và NFR-13 (nhập + ghép tệp 10.000 dòng) nằm trong change `add-r1-gap-closure`. Lịch lễ demo 2026 mang nhãn SIMULATION, cơ sở phải xác nhận lịch chính thức và ngày nghỉ bù; không xem là căn cứ pháp lý đã được duyệt. Nguồn công đã khóa chưa phải bảng lương hoặc kết quả thanh toán.
 
 ### Nguyên tắc xử lý chấm công
 
@@ -114,7 +132,7 @@ Prisma → PostgreSQL
 | Backend | NestJS 11.2.7, class-validator, class-transformer |
 | Database & ORM | PostgreSQL 18.3, Prisma 6.19.3 |
 | Nhập tệp | ExcelJS, csv-parse, iconv-lite |
-| Số thập phân | Decimal.js; bộ tính công thức khai báo và mô phỏng có vết, chưa có engine bảng lương |
+| Số thập phân | Decimal.js; bộ tính công thức khai báo, engine bảng lương, BH và thuế TNCN có vết |
 | Kiểm chứng | Node.js test runner; các bài tích hợp chạy HTTP và PostgreSQL thật |
 
 ### Cấu trúc thư mục
@@ -142,7 +160,7 @@ Prisma → PostgreSQL
 
 Môi trường đã kiểm chứng: **Windows x64**, **Node.js 22.16.0**, **npm 10.9.2**, **PostgreSQL 18.3**. Dự án yêu cầu Node `>=22.16.0 <23` và npm `>=10.9.2 <11`.
 
-Cài PostgreSQL 18 cùng các binary `postgres`, `initdb`, `pg_ctl`, `psql`, `createdb`. Không cần Docker cho quy trình local dưới đây. Chạy các lệnh từ **thư mục gốc dự án**.
+Cài PostgreSQL 18 cùng các binary `postgres`, `initdb`, `pg_ctl`, `psql`, `createdb`. Không cần Docker cho quy trình local dưới đây; muốn chạy bằng Docker xem [Chạy bằng Docker](#docker). Chạy các lệnh từ **thư mục gốc dự án**.
 
 ### 2. Thiết lập lần đầu
 
@@ -205,6 +223,30 @@ npm run preview --workspace frontend
 ```
 
 Website preview chạy tại [127.0.0.1:4173](http://127.0.0.1:4173). Vite preview phục vụ kiểm tra bản build local, **không phải máy chủ production**.
+
+<a id="docker"></a>
+### 5. Chạy bằng Docker
+
+Cần Docker Engine với Docker Compose v2. Compose chạy ba service: `db` (PostgreSQL 18.3), `backend` (NestJS, tự chạy `prisma migrate deploy` khi khởi động) và `frontend` (bản build Vite phục vụ bằng nginx, proxy `/api` sang backend).
+
+```bash
+cp .env.example .env
+# Điền POSTGRES_PASSWORD (openssl rand -hex 24), HR_DATA_KEY (openssl rand -base64 32)
+# và ADMIN_USERNAME / ADMIN_PASSWORD vào .env
+
+docker compose up -d --build --wait
+docker compose exec backend node prisma/seed.cjs   # nạp dữ liệu demo và tạo tài khoản admin (lần đầu)
+```
+
+Seed trong Docker chỉ tạo **một tài khoản Admin** (phạm vi toàn công ty) từ `ADMIN_USERNAME`/`ADMIN_PASSWORD`, không tạo năm tài khoản demo. Mật khẩu cần ≥ 12 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt; đặt trong dấu nháy đơn để Compose không xử lý `$`. Mật khẩu chỉ áp dụng khi tạo tài khoản lần đầu, đổi sau đó trong ứng dụng. Admin tạo thêm tài khoản TT/QĐ/KT trên giao diện. Ngoài Docker, khi không đặt `SEED_ADMIN_USERNAME`/`SEED_ADMIN_PASSWORD`, `npm run db:seed` vẫn tạo năm tài khoản demo mà các bộ `verify:*` sử dụng.
+
+| Địa chỉ | Chức năng |
+|---|---|
+| [localhost:8080](http://localhost:8080) | Website (đổi bằng `WEB_PORT`) |
+| [127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health) | API trực tiếp (`API_PORT`) |
+| `127.0.0.1:5434` | PostgreSQL, user/db `hrtp_demo` (`DB_PORT`) |
+
+Dữ liệu database nằm trong volume `pgdata`. Dừng bằng `docker compose down`; thêm `-v` để **xóa toàn bộ dữ liệu**. Sau khi sửa code, chạy lại `docker compose up -d --build`. Giữ bản sao `HR_DATA_KEY`: mất khóa thì không giải mã được hợp đồng đã lưu.
 
 <a id="demo"></a>
 ## Tài khoản & trải nghiệm demo
@@ -316,6 +358,45 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `POST` | `/api/payroll-inputs/:id/validate`, `/:id/confirm`, `/:id/return` | Kiểm tra, xác nhận hoặc trả nguồn theo revision/lý do; không sửa nội dung cũ |
 | `GET` | `/api/payroll-inputs/confirmed?payrollPeriodId=…` | Nguồn hoạt động và snapshot phiên bản đã ghim cho consumer tính lương tương lai |
 | `GET`, `POST` | `/api/payroll-inputs/template`, `/api/payroll-inputs/:id/evidence`, `/api/payroll-inputs/:id/evidence/:evidenceId` | Mẫu CSV và tệp chứng từ được bảo vệ theo quyền toàn lô |
+| `GET` | `/api/overtime-pay/buckets?periodId=…&orgUnitId=&employeeId=` | KT/QĐ xem giờ OT và giờ đêm theo hệ số; kỳ mở là DRAFT, kỳ khóa đọc snapshot và lưu bucket bất biến |
+| `POST` | `/api/overtime-pay/rate-preview` | KT chạy thử hệ số theo tham số (có thể ghi đè tạm), không lưu |
+| `POST` | `/api/overtime-pay/comp-time-requests` | Luôn trả `COMP_TIME_DISABLED` (DEC-01), ghi audit, không sinh quỹ nghỉ |
+| `GET` | `/api/employees/:id/payroll-profile`, `/dependents/count?month=`, `/at?asOf=` | Hồ sơ lương & thuế (che theo quyền), số NPT đủ điều kiện theo tháng, diện/hồ sơ thuế tại ngày |
+| `POST` | `/api/employees/:id/payroll-profile/identity`, `/bank-accounts`, `/tax-profiles`, `/special-statuses`, `/dependents`, `/dependents/:key/versions` | Lưu định danh theo revision; thêm phiên bản hiệu lực (tự đóng bản trước, chặn chồng); NPT chỉ thêm phiên bản |
+| `GET` | `/api/payroll-profile/banks` | Danh mục ngân hàng tối thiểu (SIMULATION) |
+| `GET`, `POST` | `/api/employees/:id/salary-decisions` | Danh sách / lập quyết định lương (đóng dòng cũ cùng giao dịch, chặn trùng ngày, sinh ứng viên hồi tố, BR-08 cần `warningAcknowledgement`) |
+| `GET` | `/api/employees/:id/salary-timeline?from=&to=` | Đoạn lương không chồng theo cấu phần (nguồn CONTRACT/DECISION) và đoạn đơn vị/vùng/cost center |
+| `GET`, `POST` | `/api/salary-decisions/retro-candidates`, `/:id/dismiss` | Ứng viên hồi tố theo trạng thái; bỏ qua có lý do |
+| `GET`, `POST` | `/api/social-insurance/rates` | KT xem lịch sử / thêm phiên bản mức đóng (đóng bản mở, chặn chồng, bắt buộc căn cứ) |
+| `POST` | `/api/social-insurance/preview` | Chạy thử BH cho `employeeId` + `month`: diện tham gia, lương đóng BH, phần NLĐ/DN, CP-07 |
+| `GET`, `POST` | `/api/pit/rulesets` | KT xem / thêm phiên bản bộ quy tắc thuế (biểu bậc liên tục, căn cứ bắt buộc, đóng bản mở) |
+| `POST` | `/api/pit/preview`, `/api/pit/gross-up-preview` | Chạy thử khấu trừ theo nhân viên hoặc đối tượng/ngày chi; tìm GROSS cho NET |
+| `GET`, `POST` | `/api/pit/withholdings`, `/:id/file`, `/:id/adjustments` | Sổ khấu trừ theo lần chi (`paymentKey`), đánh dấu đã khai, điều chỉnh liên kết bản gốc |
+| `GET`, `POST` | `/api/payroll/periods`, `/api/payroll/runs`, `/runs/:id`, `/runs/:id/cancel` | Kỳ lương, chạy tính nền (`PERIOD_NOT_LOCKED` khi nguồn chưa khóa), tiến độ/lỗi, dừng an toàn; `employeeIds` để chạy lại một phần |
+| `GET` | `/api/payroll/sheets?payrollPeriodId=`, `/sheets/:id`, `/sheets/:id/employees/:employeeId` | Bảng lương nháp, tổng, vi phạm theo nhân viên và dòng lương |
+| `GET`, `POST` | `/api/payroll/sheets/:id/compliance`, `/compliance/acknowledge` | Kết quả CP-01…CP-09; chỉ CP-08 được KT xác nhận từng nhân viên kèm lý do |
+| `GET` | `/api/payroll/lines/:id/trace` | Drill-down: công thức, biến, tham số, nguồn/hash, ngày công và lượt quẹt gốc |
+| `POST` | `/api/auth/reauthenticate` | Nhập lại mật khẩu, trả token 5 phút gắn phiên hiện tại cho thao tác nhạy cảm |
+| `POST` | `/api/payroll/sheets/:id/approve`, `/return-to-draft`, `/lock` | Duyệt theo revision; trả về nháp có lý do; khóa nguyên tử cần `reauthToken` (`PREV_PERIOD_NOT_LOCKED`, `PAYROLL_SOURCE_CHANGED`) |
+| `GET`, `POST` | `/api/payroll/sheets/:id/payslips`, `/payslips/:employeeId`, `/payslips/:employeeId/pdf`, `/payslips/exports` | Danh sách phát hành, bản in, PDF có mật khẩu, xuất hàng loạt nền (`PAYROLL_NOT_LOCKED` với kỳ chưa khóa) |
+| `GET` | `/api/payroll/payslip-exports/:id`, `/:id/download` | Tiến độ, lỗi từng tệp; tải gói một lần (người tạo) |
+| `GET`, `POST` | `/api/payroll/bank-templates` | Mẫu file chi theo ngân hàng, thêm phiên bản (kiểm tra cột/định dạng) |
+| `GET`, `POST` | `/api/payroll/payment-batches`, `/:id`, `/:id/file`, `/:id/paid`, `/:id/cancel` | Lô chi (cần `reauthToken`; tải file cần header `X-Reauth-Token`), ghi ngày chi thực tế, hủy lô đã xuất |
+| `GET`, `POST`, `DELETE` | `/api/payroll/bonuses`, `/:id`, `/:id/allocations`, `/:id/allocations/:allocationId`, `/:id/confirm`, `/:id/cancel` | Đợt thưởng, người nhận theo nhân viên/đơn vị (`BONUS_DUPLICATE_EMPLOYEE`), xác nhận (`BONUS_P3_DOUBLE_COUNT`), hủy |
+| `GET`, `POST` | `/api/payroll/retro-candidates`, `/:id/calculate`, `/api/payroll/retro-calculations/:id`, `/:id/confirm`, `/:id/discard` | Ứng viên hồi tố, tính bảng chênh lệch (`RETRO_SOURCE_UNAVAILABLE`), xác nhận cần `reauthToken` + `resultHash`, hủy không để lại bút toán |
+| `GET` | `/api/payroll/adjustments` | Bút toán chờ/đã vào kỳ lương (hồi tố, đền bù chậm trả) |
+| `GET`, `POST` | `/api/shifts/rotation-patterns`, `/plans/:id/generate`, `/plans/:id/bulk-assign`, `/plans/copy-previous`, `/swaps`, `/swaps/:id/approve`, `/return`, `/reject`, `/cancel` | Mẫu xoay ca, sinh lịch/phân hàng loạt/sao chép; đề xuất và duyệt đổi ca |
+| `GET`, `POST` | `/api/ai/business-assistant/context`, `/guide`, `/answers` | Trợ lý AI: gợi ý theo vai trò, hướng dẫn tĩnh, hỏi đáp có nguồn (cần `AI_BUSINESS_ASSISTANT_ENABLED=true` và `GEMINI_API_KEY`) |
+| `GET`, `POST` | `/api/reports`, `/:type/preview`, `/:type/export`, `/runs`, `/runs/:id`, `/runs/:id/download` | Danh mục báo cáo theo quyền, xem trước, kết xuất nền và tải tệp |
+| `GET`, `POST` | `/api/leave/sickness-maternity`, `/:id`, `/:id/payment`, `/:id/evidence`, `/api/leave/absence-rate` | Hồ sơ ốm đau/thai sản, thực chi, chứng từ; tỷ lệ vắng mặt |
+| `GET`, `POST` | `/api/pit/finalizations`, `/run`, `/:id`, `/:id/complete`, `/export` | Dự thảo quyết toán thuế TNCN năm, hoàn tất, xuất Excel |
+| `GET`, `POST` | `/api/welfare/catalog`, `/catalog/:id/versions`, `/allocations`, `/allocations/:id`, `/:id/candidates`, `/:id/candidates/remove`, `/:id/confirm`, `/:id/cancel`, `/costs`, `/costs/export` | Danh mục phúc lợi, lô cấp phát dự kiến/xác nhận, chi phí phúc lợi |
+| `GET`, `POST` | `/api/personnel/contract-alerts`, `/api/personnel/terminations`, `/:id`, `/:id/refresh`, `/:id/confirm`, `/:id/cancel` | Cảnh báo hợp đồng; quyết định chấm dứt nháp/xem trước/xác nhận (`reauthToken`, `previewHash`)/hủy |
+| `GET`, `POST` | `/api/social-insurance/change-lists`, `/generate`, `/:id`, `/:id/finalize`, `/:id/export`, `/c12-imports`, `/c12-imports/:id`, `/file-templates` | Danh sách biến động BH theo cơ sở/tháng, chốt, xuất; nhập và xem chênh lệch C12 |
+| `GET`, `POST` | `/api/audit/logs`, `/logs/export`, `/facets`, `/integrity-checks` | AD tra cứu/xuất nhật ký theo phạm vi; lịch sử và chạy kiểm tra toàn vẹn chuỗi băm |
+| `GET`, `POST` | `/api/notifications`, `/unread-count`, `/read`, `/daily-jobs/run` | Hộp thông báo của người dùng, đánh dấu đã đọc; AD chạy tác vụ định kỳ ngay |
+| `GET` | `/api/settings/parameters/expiring` | Tham số sắp hết hiệu lực chưa có bản kế tiếp |
+| `GET` | `/api/payroll/sheets/:id/history`, `/compliance-report.pdf` | Trạng thái, điều kiện chưa đạt, lịch sử duyệt/khóa, snapshot; PDF bằng chứng tuân thủ của kỳ đã khóa |
 
 Kiểm tra nhanh khi API đang chạy:
 
@@ -348,6 +429,19 @@ npm run verify:period-lock
 npm run verify:payroll-configuration
 npm run verify:employee-pay-plans
 npm run verify:payroll-inputs
+npm run verify:audit
+npm run verify:notifications
+npm run verify:insurance-changes
+npm run verify:termination
+npm run verify:welfare
+npm run verify:tax-finalization
+npm run verify:sickness-maternity
+npm run verify:reports
+npm run verify:ai-assistant
+npm run verify:key-rotation
+npm run verify:backup
+npm run verify:acceptance-tools
+npm run lint:compliance
 ```
 
 Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi chạy HTTP server thật và dọn database đã tạo. Tài khoản kết nối cần quyền tạo/xóa database; không trỏ bộ kiểm chứng vào môi trường vận hành. Chạy lần lượt, không chạy đồng thời với compiler dev/watch.
@@ -356,7 +450,7 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 |---|---|---|
 | `verify:foundation` | Phiên, phân quyền, nhân sự và tính bền vững của dữ liệu nền | 13/13 |
 | `verify:hr` | Hợp đồng, điều chuyển, tham số/chính sách và kỳ công | 16/16 |
-| `verify:shifts` | Danh mục ca, lập/gửi/duyệt lịch và ràng buộc liên phân hệ | 14/14 |
+| `verify:shifts` | Danh mục ca, lập/gửi/duyệt lịch và ràng buộc liên phân hệ; mẫu xoay ca, sinh lịch, sao chép, đổi ca (`shift-swap.test.cjs`) | 14/14 + 7/7 |
 | `verify:attendance` | Parser, engine, nhập trùng, log bất biến, ca đêm và phân quyền | 21/21 |
 | `verify:overtime` | Chứng từ, quyền, vòng đời, cạnh tranh duyệt, trùng giờ, trần 200/300 giờ, qua năm và khóa kỳ | 7/7 |
 | `verify:overtime-actual` | Giao giờ duyệt/thực tế, ca đêm, thiếu/chưa duyệt, không dùng trùng quẹt, qua năm, phạm vi và khóa kỳ nguồn | 20/20 |
@@ -370,9 +464,21 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
  | `verify:salary-components` | Quyền KT/phạm vi/ngày hiệu lực, phân loại độc lập, bất biến SQL/HTTP, mã trùng, ngày sai, tranh phiên bản và audit nguyên tử | 9/9 |
 | `verify:payroll-configuration` | Giá/công thức, quyền, lịch sử/revision, đồ thị theo hiệu lực, kế thừa cơ sở, đơn vị/biên, dữ liệu thiếu/0, lazy IF và độ chính xác NONE | 20/20 |
 | `verify:employee-pay-plans` | Bảy hình thức trả lương, kế thừa công thức, KT chỉ đọc, phạm vi/loại trừ/lịch sử, thiếu nguồn và ngày biên, cộng trùng, phiên bản cạnh tranh và bất biến SQL | 14/14 |
+| `verify:audit` | Suy phạm vi bản ghi, AD theo phạm vi, bị từ chối/ngoài phạm vi, con trỏ, xuất có audit, phát hiện bản ghi bị sửa ngoài ứng dụng | 7/7 |
+| `verify:notifications` | Người nhận theo vai trò/phạm vi, đã đọc, lỗi thông báo không ảnh hưởng nghiệp vụ, quyền hiện hành khi mở, tham số sắp hết hạn | 6/6 |
+| `verify:insurance-changes` | Quy tắc tăng/giảm/điều chỉnh, chốt bất biến, báo muộn và truy thu theo tháng gốc, hash rà soát, xuất có audit, đối chiếu C12 | 6/6 |
+| `verify:termination` | Toán trợ cấp/phép, stage engine, cảnh báo không tự chấm dứt, UAT-27 nháp/xác nhận một lần dưới cạnh tranh, nguồn đổi chặn xác nhận, hủy sạch | 8/8 |
+| `verify:welfare` | Schema điều kiện đóng, engine thuế phúc lợi, phiên bản bất biến, danh sách dự kiến không ảnh hưởng lương/chi phí, lý do khi thêm thủ công, UAT-28 chống trùng, chi phí gồm trợ cấp | 9/9 |
+| `verify:tax-finalization` | Biểu năm trên tổng năm, nhóm theo năm chi, TC-T10 dòng gốc, ủy quyền, khoản dự kiến chặn, phiên bản bất biến, năm 2025, xuất có audit | 6/6 |
+| `verify:sickness-maternity` | Quy tắc ngày/mức hưởng, chứng từ, chồng ngày, dự tính từ lương đã khóa, thai sản bình quân 6 tháng, thực chi; tỷ lệ vắng theo phạm vi QĐ, ngày lễ, ngưỡng (UAT-25) | 5/5 |
+| `verify:reports` | Quyền/phạm vi (UAT-14, UAT-22), kỳ khóa in lại từ bản lưu, bảng lương/kỳ gốc, phân bổ UAT-21, thuế theo ngày chi, kết xuất Excel/PDF nền có audit, che cột, mọi báo cáo chạy, tên đơn vị theo kỳ | 9/9 |
+| `verify:ai-assistant` | Build corpus, lọc quyền/hiệu lực, PII, validator; bộ 22 câu Q&A, prompt không có dữ liệu nghiệp vụ, cache theo quyền, fallback, thu hồi phiên, flag tắt — với Gemini giả lập | 9/9 |
+| `verify:key-rotation` | Vòng khóa tương thích bản mã cũ, tiền tố khóa mới, `keys:rotate` chuyển mọi `*_cipher` và blind index sang v2, đọc lại không đổi, MST trùng vẫn bị chặn | 2/2 |
+| `verify:backup` | `payroll-lock.test.cjs` kèm sao lưu `pg_dump` mã hóa → khôi phục vào DB sạch → kiểm migration, chuỗi audit, hash snapshot lương và kỳ công khóa; sai khóa không khôi phục được | 12/12 |
+| `verify:acceptance-tools` | Luật lint tuân thủ trên fixture và mã nguồn (`--strict` sạch), script ghi nghiệm thu từ chối khi thiếu/sai bằng chứng, chính sách giữ bản sao lưu | 6/6 |
 | `verify:payroll-inputs` | Tiếp nhận nguyên tử, thiếu/0/KPI 0/NA, nguồn công khóa thật, mọi loại nguồn, KT/phạm vi/loại trừ/chính mình, chứng từ, phân bổ tổ, chống trùng/thay thế/điều chỉnh, drift/cạnh tranh và bất biến SQL | 21/21 |
 
-Hồi quy toàn backend sau Task 1 đầu vào lương đạt **239/239**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
+Hồi quy toàn backend gần nhất (01/11/2026, `npm run acceptance:all`, 2 tệp song song): **413/413**, 29/29 UAT và 58/59 TC tự động đạt (TC-I12 chưa tự động hóa). Mốc cũ sau Task 1 đầu vào lương: **239/239**, chạy `node --test --test-concurrency=1 backend/test/*.test.cjs` sau build. Typecheck hai workspace và build backend/frontend đạt. Build frontend còn cảnh báo chunk UI lớn hơn 500 kB, không chặn build.
 
 Browser đã chạy AD tạo loại nghỉ/chính sách và phiên bản kế tiếp; KT tính quỹ, điều chỉnh, ứng trước và xem ledger. Drawer desktop/390px không tràn trang; cuộn bảng bằng bàn phím hoạt động, axe không phát hiện lỗi tự động trên các drawer đã kiểm tra (vẫn có mục cần đánh giá thủ công). Đây là kết quả local, **không phải CI hoặc chứng nhận UAT toàn R1**. Xem [20 §7.16](docs/20-tech-stack-va-moi-truong-phat-trien.md#716-loại-nghỉ-chính-sách-và-quỹ-phép-năm).
 
@@ -402,6 +508,23 @@ Kiểm tra tính nhất quán của **đặc tả** độc lập với kiểm th
 python scripts/validate_release_scope.py
 ```
 
+### Nghiệm thu R1, sao lưu và khóa
+
+```powershell
+npm run lint:compliance          # tiền tệ không float, hằng số pháp lý nghi vấn, tra tham số theo ngày nghiệp vụ
+npm run fr:coverage              # sinh docs/acceptance/fr-coverage.md (152 FR M → chức năng → test → UAT/TC)
+npm run acceptance               # chạy các suite của UAT-01…28 + UAT-05b và bộ TC → .local/acceptance/<sha>-<giờ>.json
+npm run acceptance:all           # như trên nhưng chạy mọi tệp test (hồi quy đầy đủ)
+npm run acceptance:record -- --result <json> --accepted-by "<người nghiệm thu>" [--restore-drill <json>] [--mark-implemented]
+npm run benchmark:nightly        # NFR-07…13 → .local/benchmarks/<ngày>-<sha>.json
+npm run keys:rotate [-- --check] # mã hóa lại sang HR_DATA_KEY_ACTIVE, tính lại blind index; --check cho biết khóa nào gỡ được
+npm run backup:restore-drill -- --file backups/hrtp-….dump.enc   # khôi phục vào DB sạch, đo RTO, lập biên bản
+```
+
+- `acceptance:record` là cách **duy nhất** đổi `verification_status`: từ chối khi thiếu tệp kết quả, build có thay đổi chưa commit hoặc khác HEAD, thiếu người nghiệm thu, hoặc manifest còn `NOT_IMPLEMENTED` mà không có `--mark-implemented`. FR trong danh sách khoảng trống ghi `BLOCKED`; FR chưa có bằng chứng giữ `NOT_EXECUTED`. Sổ bằng chứng ghi tại `docs/acceptance/evidence/`.
+- Sao lưu: `docker compose --profile backup up -d` chạy `pg_dump -Fc` mỗi giờ, mã hóa AES-256 (PBKDF2) bằng `BACKUP_ENCRYPTION_KEY` **khác** `HR_DATA_KEY`, kèm `.sha256`; giữ mọi bản 48 giờ, bản đầu ngày 90 ngày, bản đầu tháng 36 tháng. Chép thư mục `backups/` ra ngoài máy chủ. Diễn tập khôi phục 6 tháng/lần theo mẫu `docs/acceptance/restore-drill-template.md`.
+- TLS: tạo `deploy/certs/tls.crt` + `tls.key` (thử nghiệm: `bash scripts/dev-tls-cert.sh`), đặt `COOKIE_SECURE=true` và origin `https://…:8443` trong `WEB_ORIGINS`, rồi `docker compose --profile tls up -d`.
+
 <a id="cau-hinh"></a>
 ## Cấu hình & bảo vệ dữ liệu
 
@@ -410,6 +533,8 @@ python scripts/validate_release_scope.py
 | `DATABASE_URL` | Kết nối PostgreSQL phía backend |
 | `HOST`, `PORT` | Địa chỉ lắng nghe API; mặc định local `127.0.0.1:3000` |
 | `HR_DATA_KEY` | Khóa 32 byte dạng Base64 dùng mã hóa hợp đồng, payload/snapshot đầu vào lương, số tiền nhóm và tệp chứng từ nguồn |
+| `HR_DATA_KEYS`, `HR_DATA_KEY_ACTIVE` | Vòng khóa mã hóa: `HR_DATA_KEY` luôn là khóa `v1`, thêm `v2:<base64>,…` và chọn khóa đang dùng; dữ liệu cũ vẫn đọc được, `keys:rotate` chuyển toàn bộ sang khóa mới |
+| `BACKUP_ENCRYPTION_KEY` | Khóa mã hóa bản sao lưu (profile `backup`), tách biệt với `HR_DATA_KEY` |
 | `WEB_ORIGINS` | Origin được phép cho các request ghi |
 | `COOKIE_SECURE` | Bật `true` khi triển khai qua HTTPS |
 | AUTH_* | Thời hạn phiên, giới hạn sai mật khẩu và thời gian khóa; AUTH_PASSWORD_* cấu hình độ dài, độ phức tạp, lịch sử và hạn đổi (mặc định 12 ký tự/5 mật khẩu/90 ngày) |
@@ -417,11 +542,11 @@ python scripts/validate_release_scope.py
 
 Mẫu cấu hình: [backend/.env.example](backend/.env.example) và [frontend/.env.example](frontend/.env.example). Nếu tự quản lý database, tạo `.env` theo mẫu thay vì chạy script quản lý cụm demo.
 
-- Sao lưu **khóa `HR_DATA_KEY` cùng database** ở nơi an toàn. Không sinh khóa mới thay trực tiếp khi đã có dữ liệu mã hóa.
+- Sao lưu **khóa `HR_DATA_KEY` cùng database** ở nơi an toàn. Không thay trực tiếp giá trị `HR_DATA_KEY` khi đã có dữ liệu mã hóa; xoay khóa bằng `HR_DATA_KEYS`/`HR_DATA_KEY_ACTIVE` rồi `npm run keys:rotate`, chỉ gỡ khóa cũ khi `--check` báo gỡ được.
 - Không đưa `.env`, `.local/`, tài khoản demo hoặc bản sao lưu lên kho mã; các đường dẫn nhạy cảm đã nằm trong `.gitignore`.
 - Phiên dùng cookie `HttpOnly`, `SameSite=Strict`; database chỉ lưu digest token. Admin không mặc nhiên có quyền đọc lương.
 - Nhập chấm công qua tệp, **không kết nối trực tiếp máy chấm công, ngân hàng hoặc hệ thống BHXH/thuế**.
-- Vite proxy phục vụ local; môi trường vận hành cần reverse proxy cùng origin cho `/api`, HTTPS và cấu hình bảo mật riêng. Không đưa bí mật backend vào biến frontend.
+- Vite proxy phục vụ local; môi trường vận hành cần reverse proxy cùng origin cho `/api` và HTTPS (có sẵn profile `tls`, xem mục Nghiệm thu R1, sao lưu và khóa). Không đưa bí mật backend vào biến frontend.
 
 <a id="tai-lieu"></a>
 ## Tài liệu dự án

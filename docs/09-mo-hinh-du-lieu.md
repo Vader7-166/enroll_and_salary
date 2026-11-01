@@ -356,6 +356,14 @@ bảng riêng.
 ---
 
 ## 8. G7 — Tính lương và thưởng
+
+> **Trạng thái triển khai (26/10/2026):** đã có `payroll_run`, `payroll_sheet`,
+> `payroll_employee`, `payroll_line`, `payroll_line_input`, `payroll_run_error`,
+> `compliance_check_result` (migration `20261026140000_payroll_engine`), cùng
+> `employee_salary`/`salary_decision`/`retro_candidate`, `insurance_rate`/
+> `insurance_contribution`, `tax_ruleset`/`pit_bracket`/`tax_withholding`/
+> `tax_exemption_line`/`tax_deduction_usage` và `overtime_pay_bucket`. Số tiền được lưu
+> mã hóa (`*_cipher`); vết tính nằm ở `payroll_line.trace_cipher`. Xem docs/20.
  
 **Đã triển khai local — Task 2.1–2.3:** cấu phần, đơn giá/công thức, chạy thử Decimal có vết và phương án lương nhân viên theo hiệu lực. Chưa có engine bảng lương hoặc lô đầu vào sản xuất. Phương án dùng trực tiếp cấu phần/công thức hiện có; không thêm bảng cơ cấu trùng. Phiên bản kế tiếp chỉ có hiệu lực tương lai, đóng phần chồng của bản trước cùng giao dịch; PostgreSQL chặn sửa/xóa/truncate lịch sử và khoảng chồng. Xem [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực), [§7.25](20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22) và [§7.27](20-tech-stack-va-moi-truong-phat-trien.md#727-phương-án-lương-nhân-viên-task-23).
 
