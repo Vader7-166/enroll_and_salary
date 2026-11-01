@@ -10,10 +10,13 @@ import { LeaveRequestsController } from "./leave-requests.controller";
 import { LeaveRequestsService } from "./leave-requests.service";
 import { AttendanceModule } from "../attendance/attendance.module";
 import { SettingsModule } from "../settings/settings.module";
+import { AbsenceRateService } from "./absence-rate/absence-rate.service";
+import { SicknessMaternityController } from "./sickness-maternity/sickness-maternity.controller";
+import { SicknessMaternityService } from "./sickness-maternity/sickness-maternity.service";
 
 @Module({
   imports: [AuthModule, AttendanceModule, SettingsModule],
-  controllers: [LeaveCatalogController, LeaveFundsController, LeaveRequestsController],
-  providers: [ScopeService, LeaveAccessService, LeaveCatalogService, LeaveFundsService, LeaveRequestsService],
+  controllers: [SicknessMaternityController, LeaveCatalogController, LeaveFundsController, LeaveRequestsController],
+  providers: [ScopeService, LeaveAccessService, LeaveCatalogService, LeaveFundsService, LeaveRequestsService, SicknessMaternityService, AbsenceRateService],
 })
 export class LeaveModule {}
