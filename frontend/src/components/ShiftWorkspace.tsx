@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { HTMLAttributes } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CopyPreviousButton, PlanTools, RotationPatternsTab, SwapsTab } from "./ShiftRotationPanels";
 import { Alert, Button, Checkbox, Descriptions, Empty, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Spin, Table, Tabs, Tag, Typography } from "antd";
 import { CalendarOutlined, PlusOutlined } from "@ant-design/icons";
 import type { AuthUser, OrgUnit } from "../api/hrtp";
@@ -130,7 +131,7 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
   const definitions = useQuery({ queryKey: ["shifts", "definitions"], queryFn: () => shiftsApi.definitions() });
   const validRange = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom <= filters.dateTo && Date.parse(filters.dateTo) - Date.parse(filters.dateFrom) <= 92 * 86400000);
   const plans = useQuery({ queryKey: ["shifts", "plans", filters], queryFn: () => shiftsApi.plans(filters), enabled: validRange && tab === "plans" });
-  const official = useQuery({ queryKey: ["shifts", "official", filters], queryFn: () => shiftsApi.official(filters), enabled: validRange && tab === "official" });
+  const official = useQuery({ queryKey: ["shifts", "official", filters], queryFn: () => shiftsApi.official(filters), enabled: validRange && (tab === "official" || tab === "swaps") });
   const detail = useQuery({ queryKey: ["shifts", "plan", selectedId], queryFn: () => shiftsApi.plan(selectedId!), enabled: Boolean(selectedId) });
   const plan = detail.data?.plan;
   const manage = user.permissions.includes("shift.manage");
@@ -148,7 +149,7 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
   </div>;
   return <div className="content-stack shift-workspace">
     <div className="page-heading"><div><p className="eyebrow">CA LÀM VIỆC / LỊCH ĐƯỢC DUYỆT</p><Title level={1}>Ca & phân ca</Title><Paragraph type="secondary">Một ca thuộc ngày bắt đầu. Mọi thời điểm hiển thị theo giờ Việt Nam.</Paragraph></div>
-      <Space wrap>{manage && <Button icon={<PlusOutlined />} onClick={() => setEditor({ shift: null })}>Thêm ca</Button>}{user.permissions.includes("shift.plan") && <Button type="primary" icon={<CalendarOutlined />} onClick={() => setPlanEditor({ plan: null })}>Lập lịch phân ca</Button>}</Space>
+      <Space wrap>{manage && <Button icon={<PlusOutlined />} onClick={() => setEditor({ shift: null })}>Thêm ca</Button>}{user.permissions.includes("shift.plan") && <CopyPreviousButton units={units} onCreated={id => { void client.invalidateQueries({ queryKey: ["shifts"] }); setSelectedId(id); setTab("plans"); }} />}{user.permissions.includes("shift.plan") && <Button type="primary" icon={<CalendarOutlined />} onClick={() => setPlanEditor({ plan: null })}>Lập lịch phân ca</Button>}</Space>
     </div>
     {context.isError && <Alert type="error" showIcon message="Không tải được phạm vi đơn vị" description={errorMessage(context.error)} />}
     <section className="panel settings-panel"><Tabs activeKey={tab} onChange={setTab} items={[
@@ -178,6 +179,8 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
           { title: "Trạng thái", render: (_, row) => <Tag color={statusColors[row.status]}>{statusLabels[row.status]}</Tag> },
         ]} />
       </div> },
+      { key: "patterns", label: "Mẫu xoay ca", children: <RotationPatternsTab canManage={manage} units={units} shifts={definitions.data?.items ?? []} /> },
+      { key: "swaps", label: "Đổi ca", children: <div className="tab-stack">{toolbar}<SwapsTab user={user} shifts={definitions.data?.items ?? []} official={official.data?.items ?? []} /></div> },
       { key: "official", label: "Chính thức", children: <div className="tab-stack">{toolbar}<Alert type="success" showIcon message="Chỉ hiển thị lịch đã được QĐ duyệt; không lấy lịch nháp, chờ duyệt hoặc trả lại." />
         {!validRange && <Alert type="warning" message="Chọn khoảng ngày hợp lệ, tối đa 93 ngày." />}
         {official.isError ? <Alert type="error" message="Không tải được lịch chính thức" description={errorMessage(official.error)} /> : official.isLoading ? <Spin /> : <ScheduleTable entries={official.data?.items ?? []} />}
@@ -188,7 +191,7 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
     <Modal className="shift-modal" title={plan?.title ?? "Chi tiết lịch phân ca"} open={Boolean(selectedId)} onCancel={() => { setSelectedId(undefined); setRevisionView(null); }} footer={null} width={1100} destroyOnHidden>
       {detail.isLoading ? <Spin /> : detail.isError ? <Alert type="error" showIcon message="Không tải được lịch" description={errorMessage(detail.error)} /> : plan && <div className="tab-stack">
         <Descriptions size="small" items={[{ key: "unit", label: "Đơn vị", children: plan.teamOrgUnitCode }, { key: "status", label: "Trạng thái", children: <Tag color={statusColors[plan.status]}>{statusLabels[plan.status]}</Tag> }, { key: "revision", label: "Phiên bản", children: plan.revision }]} />
-        <Space wrap>{canEdit && <><Button onClick={() => { setSelectedId(undefined); setPlanEditor({ plan }); }}>Sửa lịch</Button><Popconfirm title="Gửi lịch cho QĐ duyệt?" onConfirm={() => action.mutate({ name: "submit" })}><Button type="primary" loading={action.isPending}>Gửi duyệt</Button></Popconfirm></>}
+        <Space wrap>{canEdit && <><Button onClick={() => { setSelectedId(undefined); setPlanEditor({ plan }); }}>Sửa lịch</Button><PlanTools plan={plan} shifts={definitions.data?.items ?? []} onSaved={() => void client.invalidateQueries({ queryKey: ["shifts"] })} /><Popconfirm title="Gửi lịch cho QĐ duyệt?" onConfirm={() => action.mutate({ name: "submit" })}><Button type="primary" loading={action.isPending}>Gửi duyệt</Button></Popconfirm></>}
           {canReview && <><Popconfirm title="Duyệt lịch này thành lịch chính thức?" onConfirm={() => action.mutate({ name: "approve" })}><Button type="primary" loading={action.isPending}>Duyệt lịch</Button></Popconfirm><Button disabled={action.isPending} onClick={() => { setReason(""); setReasonAction("return"); }}>Trả lại</Button></>}
           {own && plan.status !== "APPROVED" && plan.status !== "CANCELLED" && <Button danger disabled={action.isPending} onClick={() => { setReason(""); setReasonAction("cancel"); }}>Hủy lịch</Button>}
         </Space>
