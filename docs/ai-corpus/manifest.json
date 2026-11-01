@@ -1,0 +1,811 @@
+{
+  "name": "hrtp-ai-business-assistant-corpus",
+  "promptVersion": "AI02-PROMPT-1",
+  "chunks": [
+    {
+      "sourceId": "TT-01",
+      "file": "chunks/TT-01.md",
+      "title": "Giải trình thiếu lượt chấm công",
+      "section": "docs/05 §4.3; docs/17 §5",
+      "roles": [
+        "TT"
+      ],
+      "requiredPermissions": [
+        "attendance.explain"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "TT_ATTENDANCE_CORRECTIONS"
+      ],
+      "pageKeys": [
+        "attendance"
+      ],
+      "keywords": [
+        "thiếu lượt",
+        "quên chấm",
+        "thiếu giờ ra",
+        "giải trình",
+        "điều chỉnh công",
+        "lượt quẹt"
+      ]
+    },
+    {
+      "sourceId": "TT-02",
+      "file": "chunks/TT-02.md",
+      "title": "Lập và gửi đề xuất OT",
+      "section": "docs/05 §5.1; docs/07 FR-5.1",
+      "roles": [
+        "TT"
+      ],
+      "requiredPermissions": [
+        "overtime.plan"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "TT_OVERTIME_PLAN"
+      ],
+      "pageKeys": [
+        "overtime"
+      ],
+      "keywords": [
+        "làm thêm",
+        "tăng ca",
+        "OT",
+        "đề xuất",
+        "đồng ý làm thêm",
+        "trần OT"
+      ]
+    },
+    {
+      "sourceId": "TT-03",
+      "file": "chunks/TT-03.md",
+      "title": "Lập đơn nghỉ",
+      "section": "docs/05 §6.2; docs/07 FR-6.3",
+      "roles": [
+        "TT"
+      ],
+      "requiredPermissions": [
+        "leave.request"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "TT_LEAVE_REQUESTS"
+      ],
+      "pageKeys": [
+        "leave"
+      ],
+      "keywords": [
+        "đơn nghỉ",
+        "nghỉ phép",
+        "xin nghỉ",
+        "quỹ phép",
+        "ốm",
+        "chứng từ"
+      ]
+    },
+    {
+      "sourceId": "TT-04",
+      "file": "chunks/TT-04.md",
+      "title": "Lập lịch ca, xoay ca và đổi ca",
+      "section": "docs/05 §3; docs/07 FR-3.2, 3.3",
+      "roles": [
+        "TT"
+      ],
+      "requiredPermissions": [
+        "shift.plan"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "TT_SHIFT_PLANS"
+      ],
+      "pageKeys": [
+        "shifts"
+      ],
+      "keywords": [
+        "lịch ca",
+        "phân ca",
+        "xoay ca",
+        "đổi ca",
+        "sao chép lịch",
+        "nghỉ giữa ca"
+      ]
+    },
+    {
+      "sourceId": "TT-05",
+      "file": "chunks/TT-05.md",
+      "title": "Xác nhận công tổ",
+      "section": "docs/17 §6; docs/07 FR-4.6",
+      "roles": [
+        "TT"
+      ],
+      "requiredPermissions": [
+        "attendance.confirm"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "TT_TEAM_CONFIRMATION"
+      ],
+      "pageKeys": [
+        "attendance"
+      ],
+      "keywords": [
+        "xác nhận công",
+        "xác nhận tổ",
+        "rà soát công"
+      ]
+    },
+    {
+      "sourceId": "QD-01",
+      "file": "chunks/QD-01.md",
+      "title": "Duyệt đề xuất OT",
+      "section": "docs/05 §5.2; docs/07 FR-5.2",
+      "roles": [
+        "QD"
+      ],
+      "requiredPermissions": [
+        "overtime.approve"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "QD_OVERTIME_APPROVE"
+      ],
+      "pageKeys": [
+        "overtime"
+      ],
+      "keywords": [
+        "duyệt OT",
+        "duyệt tăng ca",
+        "trả lại",
+        "từ chối",
+        "trần OT",
+        "đề xuất OT",
+        "duyệt đề xuất"
+      ]
+    },
+    {
+      "sourceId": "QD-02",
+      "file": "chunks/QD-02.md",
+      "title": "Chốt công phân xưởng",
+      "section": "docs/17 §7; docs/07 FR-4.7",
+      "roles": [
+        "QD"
+      ],
+      "requiredPermissions": [
+        "attendance.review"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "QD_WORKSHOP_CLOSURE"
+      ],
+      "pageKeys": [
+        "attendance"
+      ],
+      "keywords": [
+        "chốt xưởng",
+        "chốt công",
+        "phân xưởng",
+        "trả lại xưởng",
+        "khóa kỳ"
+      ]
+    },
+    {
+      "sourceId": "QD-03",
+      "file": "chunks/QD-03.md",
+      "title": "Duyệt lịch ca và đổi ca",
+      "section": "docs/05 §3.4; docs/07 FR-3.4",
+      "roles": [
+        "QD"
+      ],
+      "requiredPermissions": [
+        "shift.approve"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "QD_SHIFT_APPROVE"
+      ],
+      "pageKeys": [
+        "shifts"
+      ],
+      "keywords": [
+        "duyệt lịch",
+        "duyệt đổi ca",
+        "đổi ca",
+        "lịch ca"
+      ]
+    },
+    {
+      "sourceId": "QD-04",
+      "file": "chunks/QD-04.md",
+      "title": "Tỷ lệ vắng mặt phân xưởng",
+      "section": "docs/07 FR-6.5.1",
+      "roles": [
+        "QD"
+      ],
+      "requiredPermissions": [
+        "attendance.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "QD_ABSENCE_RATE"
+      ],
+      "pageKeys": [
+        "leave"
+      ],
+      "keywords": [
+        "tỷ lệ vắng",
+        "vắng mặt",
+        "nghỉ nhiều",
+        "ngưỡng vắng"
+      ]
+    },
+    {
+      "sourceId": "KT-01",
+      "file": "chunks/KT-01.md",
+      "title": "Điều kiện tính bảng lương",
+      "section": "docs/18 §3; docs/06 §7",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "payroll.calculate"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "KT_PAYROLL"
+      ],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "tính lương",
+        "chưa tính được lương",
+        "điều kiện tính lương",
+        "bảng lương",
+        "lỗi tính lương"
+      ]
+    },
+    {
+      "sourceId": "KT-02",
+      "file": "chunks/KT-02.md",
+      "title": "Khóa kỳ công",
+      "section": "docs/17 §8; docs/07 FR-4.8",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "attendance.lock"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "KT_PERIOD_LOCK"
+      ],
+      "pageKeys": [
+        "attendance"
+      ],
+      "keywords": [
+        "khóa kỳ",
+        "khóa công",
+        "trả kỳ",
+        "nguồn công"
+      ]
+    },
+    {
+      "sourceId": "KT-03",
+      "file": "chunks/KT-03.md",
+      "title": "Duyệt và khóa bảng lương",
+      "section": "docs/07 FR-7.5",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "payroll.lock"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "KT_PAYROLL"
+      ],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "duyệt lương",
+        "khóa lương",
+        "khóa bảng lương",
+        "CP-08"
+      ]
+    },
+    {
+      "sourceId": "KT-04",
+      "file": "chunks/KT-04.md",
+      "title": "Biến động BH và đối chiếu C12",
+      "section": "docs/07 FR-8.3",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "insurance.manage"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "KT_INSURANCE_CHANGES"
+      ],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "báo tăng",
+        "báo giảm",
+        "biến động bảo hiểm",
+        "C12",
+        "truy thu"
+      ]
+    },
+    {
+      "sourceId": "KT-05",
+      "file": "chunks/KT-05.md",
+      "title": "Quyết toán thuế TNCN năm",
+      "section": "docs/07 FR-8.5",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "tax.manage"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "KT_TAX_FINALIZATION"
+      ],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "quyết toán",
+        "thuế năm",
+        "ủy quyền quyết toán",
+        "TNCN"
+      ]
+    },
+    {
+      "sourceId": "KT-06",
+      "file": "chunks/KT-06.md",
+      "title": "Chấm dứt hợp đồng",
+      "section": "docs/07 FR-2.5, FR-9.3",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "contract.manage"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "KT_TERMINATION"
+      ],
+      "pageKeys": [
+        "contracts"
+      ],
+      "keywords": [
+        "chấm dứt hợp đồng",
+        "nghỉ việc",
+        "trợ cấp thôi việc",
+        "mất việc"
+      ]
+    },
+    {
+      "sourceId": "KT-07",
+      "file": "chunks/KT-07.md",
+      "title": "Thuế TNCN năm 2026",
+      "section": "docs/04 BR-53; docs/12 §4",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "tax.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "KT_TAX_FINALIZATION"
+      ],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "thuế 2026",
+        "giảm trừ gia cảnh",
+        "giảm trừ bản thân",
+        "người phụ thuộc",
+        "biểu thuế"
+      ]
+    },
+    {
+      "sourceId": "KT-08",
+      "file": "chunks/KT-08.md",
+      "title": "Thuế TNCN năm 2025",
+      "section": "docs/04 BR-53",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "tax.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2020-07-01",
+      "effectiveTo": "2025-12-31",
+      "actions": [
+        "KT_TAX_FINALIZATION"
+      ],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "thuế 2025",
+        "giảm trừ gia cảnh",
+        "giảm trừ bản thân",
+        "11 triệu"
+      ]
+    },
+    {
+      "sourceId": "AD-01",
+      "file": "chunks/AD-01.md",
+      "title": "Nhập dữ liệu chấm công",
+      "section": "docs/05 §4.1; docs/07 FR-4.2",
+      "roles": [
+        "AD"
+      ],
+      "requiredPermissions": [
+        "attendance.import"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "AD_ATTENDANCE_IMPORT"
+      ],
+      "pageKeys": [
+        "attendance"
+      ],
+      "keywords": [
+        "nhập dữ liệu",
+        "nhập chấm công",
+        "tải tệp",
+        "máy chấm công"
+      ]
+    },
+    {
+      "sourceId": "AD-02",
+      "file": "chunks/AD-02.md",
+      "title": "Tạo và mở kỳ công",
+      "section": "docs/17 §3",
+      "roles": [
+        "AD"
+      ],
+      "requiredPermissions": [
+        "period.manage"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "AD_PERIODS"
+      ],
+      "pageKeys": [
+        "periods"
+      ],
+      "keywords": [
+        "tạo kỳ",
+        "mở kỳ",
+        "kỳ công",
+        "ngày chốt"
+      ]
+    },
+    {
+      "sourceId": "AD-03",
+      "file": "chunks/AD-03.md",
+      "title": "Quản lý tài khoản",
+      "section": "docs/10 §3",
+      "roles": [
+        "AD"
+      ],
+      "requiredPermissions": [
+        "accounts.manage"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "AD_ACCOUNTS"
+      ],
+      "pageKeys": [
+        "accounts"
+      ],
+      "keywords": [
+        "tài khoản",
+        "phân quyền",
+        "khóa tài khoản",
+        "mật khẩu",
+        "thu hồi phiên"
+      ]
+    },
+    {
+      "sourceId": "AD-04",
+      "file": "chunks/AD-04.md",
+      "title": "Tham số pháp lý và cảnh báo hết hiệu lực",
+      "section": "docs/07 FR-1.3",
+      "roles": [
+        "AD"
+      ],
+      "requiredPermissions": [
+        "settings.manage"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "AD_SETTINGS"
+      ],
+      "pageKeys": [
+        "settings"
+      ],
+      "keywords": [
+        "tham số",
+        "hết hiệu lực",
+        "lương tối thiểu",
+        "phiên bản"
+      ]
+    },
+    {
+      "sourceId": "AD-05",
+      "file": "chunks/AD-05.md",
+      "title": "Nhật ký kiểm toán",
+      "section": "docs/10 §6; docs/07 FR-1.6",
+      "roles": [
+        "AD"
+      ],
+      "requiredPermissions": [
+        "audit.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [
+        "AD_AUDIT"
+      ],
+      "pageKeys": [
+        "audit"
+      ],
+      "keywords": [
+        "nhật ký",
+        "kiểm toán",
+        "audit",
+        "toàn vẹn",
+        "bị từ chối"
+      ]
+    },
+    {
+      "sourceId": "DRAFT-01",
+      "file": "chunks/DRAFT-01.md",
+      "title": "Ghi chú thưởng đột xuất (chưa duyệt)",
+      "section": "nội bộ",
+      "roles": [
+        "KT"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "actions": [],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "thưởng"
+      ]
+    }
+  ],
+  "routes": {
+    "TT_ATTENDANCE_CORRECTIONS": {
+      "route": "attendance",
+      "label": "Chấm công → Giải trình & điều chỉnh",
+      "roles": [
+        "TT"
+      ],
+      "permission": "attendance.explain"
+    },
+    "TT_TEAM_CONFIRMATION": {
+      "route": "attendance",
+      "label": "Chấm công → Xác nhận tổ",
+      "roles": [
+        "TT"
+      ],
+      "permission": "attendance.confirm"
+    },
+    "TT_OVERTIME_PLAN": {
+      "route": "overtime",
+      "label": "Tăng ca (OT) → Lập đề xuất",
+      "roles": [
+        "TT"
+      ],
+      "permission": "overtime.plan"
+    },
+    "TT_LEAVE_REQUESTS": {
+      "route": "leave",
+      "label": "Nghỉ & quỹ phép → Đơn nghỉ",
+      "roles": [
+        "TT"
+      ],
+      "permission": "leave.request"
+    },
+    "TT_SHIFT_PLANS": {
+      "route": "shifts",
+      "label": "Ca & phân ca",
+      "roles": [
+        "TT"
+      ],
+      "permission": "shift.plan"
+    },
+    "QD_OVERTIME_APPROVE": {
+      "route": "overtime",
+      "label": "Tăng ca (OT) → Chờ duyệt",
+      "roles": [
+        "QD"
+      ],
+      "permission": "overtime.approve"
+    },
+    "QD_WORKSHOP_CLOSURE": {
+      "route": "attendance",
+      "label": "Chấm công → Chốt phân xưởng",
+      "roles": [
+        "QD"
+      ],
+      "permission": "attendance.review"
+    },
+    "QD_SHIFT_APPROVE": {
+      "route": "shifts",
+      "label": "Ca & phân ca → Lập & duyệt / Đổi ca",
+      "roles": [
+        "QD"
+      ],
+      "permission": "shift.approve"
+    },
+    "QD_ABSENCE_RATE": {
+      "route": "leave",
+      "label": "Nghỉ & quỹ phép → Tỷ lệ vắng",
+      "roles": [
+        "QD"
+      ],
+      "permission": "attendance.read"
+    },
+    "KT_PERIOD_LOCK": {
+      "route": "attendance",
+      "label": "Chấm công → Khóa kỳ công",
+      "roles": [
+        "KT"
+      ],
+      "permission": "attendance.lock"
+    },
+    "KT_PAYROLL": {
+      "route": "payroll",
+      "label": "Bảng lương",
+      "roles": [
+        "KT"
+      ],
+      "permission": "payroll.read"
+    },
+    "KT_INSURANCE_CHANGES": {
+      "route": "payroll",
+      "label": "Bảng lương → Biến động BH",
+      "roles": [
+        "KT"
+      ],
+      "permission": "insurance.manage"
+    },
+    "KT_TAX_FINALIZATION": {
+      "route": "payroll",
+      "label": "Bảng lương → Quyết toán TNCN",
+      "roles": [
+        "KT"
+      ],
+      "permission": "tax.read"
+    },
+    "KT_TERMINATION": {
+      "route": "contracts",
+      "label": "Hợp đồng & chấm dứt",
+      "roles": [
+        "KT"
+      ],
+      "permission": "contract.manage"
+    },
+    "AD_ATTENDANCE_IMPORT": {
+      "route": "attendance",
+      "label": "Chấm công → Nhập dữ liệu",
+      "roles": [
+        "AD"
+      ],
+      "permission": "attendance.import"
+    },
+    "AD_PERIODS": {
+      "route": "periods",
+      "label": "Kỳ công",
+      "roles": [
+        "AD"
+      ],
+      "permission": "period.manage"
+    },
+    "AD_ACCOUNTS": {
+      "route": "accounts",
+      "label": "Tài khoản",
+      "roles": [
+        "AD"
+      ],
+      "permission": "accounts.manage"
+    },
+    "AD_SETTINGS": {
+      "route": "settings",
+      "label": "Thiết lập",
+      "roles": [
+        "AD"
+      ],
+      "permission": "settings.manage"
+    },
+    "AD_AUDIT": {
+      "route": "audit",
+      "label": "Nhật ký kiểm toán",
+      "roles": [
+        "AD"
+      ],
+      "permission": "audit.read"
+    }
+  },
+  "suggestions": {
+    "TT": [
+      "Nhân viên thiếu lượt ra thì xử lý thế nào?",
+      "Lập đề xuất OT cần những gì?",
+      "Làm sao đổi ca sau khi lịch đã duyệt?"
+    ],
+    "QD": [
+      "Duyệt đề xuất OT cần kiểm tra gì?",
+      "Chốt công phân xưởng thế nào?",
+      "Xem tỷ lệ vắng mặt ở đâu?"
+    ],
+    "KT": [
+      "Vì sao chưa tính được lương?",
+      "Khóa kỳ công như thế nào?",
+      "Lập quyết toán thuế TNCN năm ra sao?"
+    ],
+    "AD": [
+      "Nhập dữ liệu chấm công thế nào?",
+      "Tạo và mở kỳ công ra sao?",
+      "Tra cứu nhật ký kiểm toán ở đâu?"
+    ]
+  }
+}
