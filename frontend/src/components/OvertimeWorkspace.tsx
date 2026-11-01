@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { AuthUser } from "../api/hrtp";
 import { errorMessage } from "../api/client";
 import { overtimeApi } from "../api/overtime";
+import { OvertimePayPanel } from "./OvertimePayPanel";
 import type { OvertimeAction, OvertimeFilters, OvertimeHistory, OvertimeInput, OvertimeSnapshot, OvertimeStatus } from "../api/overtime";
 
 const { Title, Paragraph, Text } = Typography;
@@ -250,10 +251,7 @@ export function OvertimeWorkspace({ user }: { user: AuthUser }) {
     { title: "Người lập", dataIndex: ["createdBy", "displayName"], width: 140 },
     { title: "Thao tác", width: 100, fixed: "right", render: (_, row) => <Button type="link" onClick={() => setDetailId(row.id)}>Chi tiết</Button> },
   ];
-  return <section className="workspace overtime-workspace" aria-labelledby="overtime-title">
-    <div className="page-heading"><div><Title id="overtime-title" level={2}>Tăng ca (OT)</Title><Paragraph type="secondary">Lập, phê duyệt và truy vết đề nghị làm thêm theo đơn vị được phân quyền.</Paragraph></div>
-      {context.data?.canPlan && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Lập đề nghị OT</Button>}
-    </div>
+  const requestList = <>
     {context.isError && <Alert type="error" showIcon message="Không tải được phạm vi tăng ca" description={errorMessage(context.error)} />}
     {!context.isLoading && context.data && !context.data.canPlan && !context.data.canApprove && <Alert type="info" showIcon message="Bạn có quyền xem đề nghị tăng ca trong phạm vi được cấp." />}
     <div className="workspace-filters" aria-label="Bộ lọc đề nghị tăng ca">
@@ -263,6 +261,13 @@ export function OvertimeWorkspace({ user }: { user: AuthUser }) {
       <label>Trạng thái<Select allowClear value={filters.status} placeholder="Tất cả trạng thái" options={(Object.keys(statusLabels) as OvertimeStatus[]).map((status) => ({ value: status, label: statusLabels[status] }))} onChange={(status) => setFilters((current) => ({ ...current, status }))} /></label>
     </div>
     {requests.isError ? <Alert type="error" showIcon message="Không tải được danh sách đề nghị" description={errorMessage(requests.error)} /> : requests.isLoading ? <div className="workspace-loading"><Spin /> Đang tải đề nghị tăng ca…</div> : <Table className="workspace-table" rowKey="id" dataSource={requests.data?.items ?? []} columns={columns} scroll={{ x: 1060 }} pagination={{ pageSize: 12, showSizeChanger: false }} locale={{ emptyText: <Empty description="Không có đề nghị tăng ca trong khoảng ngày đã chọn" /> }} />}
+  </>;
+  const canSeePay = user.roles.some((role) => role === "KT" || role === "QD");
+  return <section className="workspace overtime-workspace" aria-labelledby="overtime-title">
+    <div className="page-heading"><div><Title id="overtime-title" level={2}>Tăng ca (OT)</Title><Paragraph type="secondary">Lập, phê duyệt và truy vết đề nghị làm thêm theo đơn vị được phân quyền.</Paragraph></div>
+      {context.data?.canPlan && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Lập đề nghị OT</Button>}
+    </div>
+    {canSeePay ? <Tabs items={[{ key: "requests", label: "Đề nghị OT", children: requestList }, { key: "pay", label: "Giờ OT theo hệ số", children: <OvertimePayPanel /> }]} /> : requestList}
     {editor !== undefined && <RequestEditor key={editor?.id ?? "new"} request={editor} onClose={() => setEditor(undefined)} />}
     {detailId && <RequestDetail id={detailId} user={user} canApprove={Boolean(context.data?.canApprove)} onClose={() => setDetailId(null)} onEdit={(request) => { setDetailId(null); setEditor(request); }} />}
   </section>;
