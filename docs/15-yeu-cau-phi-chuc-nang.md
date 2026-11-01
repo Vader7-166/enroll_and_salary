@@ -38,6 +38,20 @@ không mặc định bổ sung email/đa ngôn ngữ hoặc tích hợp ngoài �
 > pháp: cache tham số và định nghĩa công thức trong một lần chạy lô; đo hiệu năng với 3.000
 > nhân sự **từ giai đoạn sớm**, không để tới khi nghiệm thu mới phát hiện.
 
+**Kết quả đo gần nhất** (`npm run benchmark:nightly`, 01/11/2026, build `18c7683` + thay đổi chưa commit; i5-12450H 12 nhân,
+15 GB, Node 26, PostgreSQL 18 local; báo cáo `.local/benchmarks/`). Đây là số đo trên máy phát triển với dữ liệu mô phỏng,
+**chưa phải nghiệm thu** trên môi trường đích.
+
+| Mã | Đo được | Kết quả | Ghi chú phạm vi đo |
+|---|---|---|---|
+| NFR-07 | 1,5 s | Đạt (engine) | Engine lương + BH + thuế cho 3.000 NV/4 cơ sở, **không gồm đọc/ghi DB**; đo trọn luồng HTTP còn mở |
+| NFR-08 | 27,6 s | Đạt | Nhập + ghép tệp một ngày 4.500 lượt, 2.250 NV một cơ sở |
+| NFR-09 | p95 262 ms (tổ) / 292 ms (xưởng) | Đạt | 20 lần mỗi loại, bảng công 2.500 NV |
+| NFR-10 | 55,6 s | Đạt | 1.100 PDF có mật khẩu đóng gói, không gồm đọc DB |
+| NFR-11 | p95 116 ms | Đạt | 40 lần drill-down trên bảng lương của bộ kiểm thử (quy mô nhỏ) |
+| NFR-12 | 11,6 s | Đạt | Bảng chấm công tháng XLSX 3.000 NV, end-to-end qua HTTP |
+| NFR-13 | kiểm tra 1,3 s · nhập + ghép 75,0 s | **Không đạt** (trọn luồng) | Tệp 10.000 dòng: phần kiểm tra và trả lỗi đạt; lưu + ghép đầy đủ vượt 60 s → change `add-r1-gap-closure` |
+
 ---
 
 ## 3. Xử lý theo lô

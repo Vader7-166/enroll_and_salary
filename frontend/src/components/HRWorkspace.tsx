@@ -41,6 +41,8 @@ import {
   type PeriodPreview as PeriodPreviewData,
 } from "../api/hr-next";
 import { LegalParametersPanel } from "./LegalParametersPanel";
+import { PayrollProfileTab } from "./PayrollProfileTab";
+import { SalaryDecisionsTab } from "./SalaryDecisionsTab";
 import { TechnicalDetails } from "./TechnicalDetails";
 
 const { Title, Paragraph, Text } = Typography;
@@ -106,6 +108,12 @@ export function EmployeeProfileDrawer({ employee, user, onClose }: { employee: E
         },
         ...(canReadContracts
           ? [{ key: "contracts", label: "Hợp đồng", children: <ContractsTab employeeId={person.id} canManage={user.permissions.includes("contract.manage")} /> }]
+          : []),
+        ...(canReadContracts && user.roles.includes("KT")
+          ? [{ key: "salary-decisions", label: "Quyết định lương", children: <SalaryDecisionsTab employeeId={person.id} canManage={user.permissions.includes("contract.manage")} /> }]
+          : []),
+        ...(user.permissions.includes("payroll.profile.read")
+          ? [{ key: "payroll-profile", label: "Hồ sơ lương & thuế", children: <PayrollProfileTab employeeId={person.id} canManage={user.permissions.includes("payroll.profile.manage")} /> }]
           : []),
         ...(canHistory
           ? [{ key: "history", label: "Lịch sử đơn vị", children: <HistoryTab employeeId={person.id} canTransfer={user.permissions.includes("employee.transfer")} /> }]

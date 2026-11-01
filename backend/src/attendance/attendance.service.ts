@@ -198,6 +198,23 @@ export class AttendanceService {
     }
     for (const siteId of sites) await this.processRows(user, siteId, reference, db, undefined, "attendance.review", pending);
   }
+  /**
+   * Re-pairs one employee day after its approved schedule changed (shift swap, 06 §3.4 case 6). Only an OPEN period
+   * is reprocessed; otherwise the day is reported as waiting.
+   */
+  async reprocessScheduleDay(user: AuthUser, db: Db, line: { employeeId: string; workDate: string; orgUnitId: string; scheduleId: string }, permission: string) {
+    const day = new Date(line.workDate + "T00:00:00Z");
+    const hierarchy = await db.orgUnitVersion.findMany({ where: effectiveAt(day), select: { orgUnitId: true, parentId: true, siteId: true } });
+    const parents = ancestors(line.orgUnitId, hierarchy);
+    const periods = await db.businessPeriod.findMany({ where: { periodType: "ATTENDANCE", scopeOrgUnitId: { in: parents }, dateFrom: { lte: day }, dateTo: { gte: day } } });
+    const reference = periods.sort((a, b) => parents.indexOf(a.scopeOrgUnitId) - parents.indexOf(b.scopeOrgUnitId))[0];
+    const siteId = hierarchy.find(v => v.orgUnitId === line.orgUnitId)?.siteId;
+    if (!reference || reference.status !== "OPEN" || !siteId) return { state: "WAITING_PERIOD" as const, dayId: null };
+    await this.processRows(user, siteId, reference, db, undefined, permission, [], [{ employeeId: line.employeeId, workDate: line.workDate }]);
+    const attendance = await db.dailyAttendance.findUnique({ where: { scheduleId: line.scheduleId }, select: { id: true } });
+    return { state: "UPDATED" as const, dayId: attendance?.id ?? null };
+  }
+
    async reconcileLeaves(user: AuthUser, db: Db, employeeId: string, lines: Array<{workDate:string;orgUnitId:string;scheduleId:string}>, requestId: string, applied: boolean) {
     const result: Array<{workDate:string;scheduleId:string;dayId:string|null;state:string}> = [];
     for (const line of lines) {

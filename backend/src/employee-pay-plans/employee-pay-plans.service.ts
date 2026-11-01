@@ -6,6 +6,7 @@ import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../database/prisma.service";
 import { effectiveAt } from "../organization/scope.service";
 import { PayrollConfigurationService } from "../payroll-configuration/payroll-configuration.service";
+import { PayrollSourceEvents } from "../payroll-events/payroll-source-events.service";
 import { CreateEmployeePayPlanDto, CreateEmployeePayPlanVersionDto, EmployeePayPlanCatalogueQueryDto, EmployeePayPlanDetailQueryDto, EmployeePayPlanEmployeeQueryDto, EmployeePayPlanQueryDto, PlanLineDto, PlanVersionInputDto } from "./employee-pay-plans.dto";
 
 type Db = Prisma.TransactionClient;
@@ -34,7 +35,7 @@ function text(value: string | undefined, label: string, max: number) {
 
 @Injectable()
 export class EmployeePayPlansService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly configurations: PayrollConfigurationService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly configurations: PayrollConfigurationService, private readonly events: PayrollSourceEvents) {}
 
   private assertPermission(user: AuthUser, permission: Permission) {
     if (!user.roles.includes("KT") || !user.permissions.includes(permission)) throw new ForbiddenException("Chỉ kế toán được cấp quyền mới được xem hoặc quản lý phương án trả lương nhân viên.");
@@ -349,6 +350,7 @@ export class EmployeePayPlansService {
       await this.validateComposition(db, orgUnitId, dto, from, to, lines);
       const plan = await db.employeePayPlan.create({ data: { employeeId: dto.employeeId, versions: { create: this.versionData(dto, from, to, lines, user.id) } }, include: INCLUDE });
       await this.audit.record({ actorId: user.id, entityType: "EmployeePayPlan", entityId: plan.id, action: "CREATE", result: "SUCCESS", newValue: { employeeId: plan.employeeId, effectiveFrom: dateText(from) }, ipAddress }, db);
+      await this.events.changed(db, { employeeIds: [plan.employeeId], source: "EMPLOYEE_PAY_PLAN", reason: "Tạo phương án lương", actorId: user.id });
       return { item: this.view(plan, from, await this.employeeUnit(dto.employeeId, from, db), true) };
     });
   }
@@ -374,6 +376,7 @@ export class EmployeePayPlansService {
       await db.employeePayPlanVersion.create({ data: { payPlanId: id, ...this.versionData(dto, from, to, lines, user.id) } });
       const updated = await db.employeePayPlan.update({ where: { id }, data: { revision: { increment: 1 } }, include: INCLUDE });
       await this.audit.record({ actorId: user.id, entityType: "EmployeePayPlan", entityId: id, action: "CREATE_VERSION", result: "SUCCESS", oldValue: { revision: plan.revision }, newValue: { revision: updated.revision, effectiveFrom: dateText(from) }, ipAddress }, db);
+      await this.events.changed(db, { employeeIds: [updated.employeeId], source: "EMPLOYEE_PAY_PLAN", reason: "Phiên bản phương án lương mới", actorId: user.id });
       return { item: this.view(updated, from, await this.employeeUnit(updated.employeeId, from, db), true) };
     });
   }

@@ -54,13 +54,16 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly rawMessage: string;
+  /** Structured `details` of the API error body (e.g. every violated row), when the server sends one. */
+  readonly details?: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, details?: Record<string, unknown>) {
     super(userFacingMessage(status, code, message));
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.rawMessage = message;
+    this.details = details;
   }
 }
 
@@ -123,7 +126,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       body,
       requestFailure[response.status] ?? "Yêu cầu chưa thực hiện được. Vui lòng thử lại.",
     );
-    throw new ApiError(response.status, detail.code, detail.message);
+    const details = body && typeof body === "object" && "details" in body && typeof (body as { details: unknown }).details === "object" ? (body as { details: Record<string, unknown> }).details : undefined;
+    throw new ApiError(response.status, detail.code, detail.message, details);
   }
   return body as T;
 }

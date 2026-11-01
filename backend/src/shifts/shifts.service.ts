@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, InternalServerErrorException } from "@nestjs/common";
 import { Prisma, ShiftPlanStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { businessDate } from "../auth/business-date";
 import type { AuthUser } from "../auth/auth.types";
 import { PrismaService } from "../database/prisma.service";
@@ -17,36 +18,36 @@ export interface PlanSnapshot {
 }
 const DAY = 86400000;
 const MINUTE = 60000;
-const planInclude = { teamOrgUnit: true, createdBy: { select: { id: true, displayName: true } }, schedules: { orderBy: [{ workDate: "asc" as const }, { employeeId: "asc" as const }], include: { employee: { select: { id: true, code: true, fullName: true } }, shift: true } } } satisfies Prisma.ShiftPlanInclude;
-type Plan = Prisma.ShiftPlanGetPayload<{ include: typeof planInclude }>;
-type Line = { employeeId: string; workDate: Date; shiftId: string; startAt: Date; endAt: Date; workMinutes: number };
+export const planInclude = { teamOrgUnit: true, createdBy: { select: { id: true, displayName: true } }, schedules: { orderBy: [{ workDate: "asc" as const }, { employeeId: "asc" as const }], include: { employee: { select: { id: true, code: true, fullName: true } }, shift: true } } } satisfies Prisma.ShiftPlanInclude;
+export type Plan = Prisma.ShiftPlanGetPayload<{ include: typeof planInclude }>;
+export type Line = { employeeId: string; workDate: Date; shiftId: string; startAt: Date; endAt: Date; workMinutes: number };
 type PlanAccess = { teamOrgUnitId: string; schedules: Array<Pick<Line, "employeeId" | "workDate">> };
 const parameterNames = { daily: "SHIFT_MAX_DAILY_MINUTES", weekly: "SHIFT_MAX_WEEKLY_MINUTES", rest: "SHIFT_MIN_REST_MINUTES", dayBreak: "SHIFT_MIN_DAY_BREAK_MINUTES", nightBreak: "SHIFT_MIN_NIGHT_BREAK_MINUTES" };
 type Policy = Record<keyof typeof parameterNames, number>;
 function key(date: Date) { return date.toISOString().slice(0, 10); }
-function date(value: string) {
+export function date(value: string) {
   const parsed = new Date(value + "T00:00:00Z");
   if (!Number.isFinite(parsed.getTime()) || key(parsed) !== value) throw new BadRequestException("Ngày phân ca không hợp lệ.");
   return parsed;
 }
 function minute(time: string) { const [h, m] = time.split(":").map(Number); return h * 60 + m; }
-function ancestors(unitId: string, versions: Array<{ orgUnitId: string; parentId: string | null }>) {
+export function ancestors(unitId: string, versions: Array<{ orgUnitId: string; parentId: string | null }>) {
   const parent = new Map(versions.map(v => [v.orgUnitId, v.parentId]));
   const result = new Set<string>();
   let id: string | null | undefined = unitId;
   while (id && !result.has(id)) { result.add(id); id = parent.get(id); }
   return result;
 }
-function serialized(plan: Plan): PlanSnapshot {
+export function serialized(plan: Plan): PlanSnapshot {
   return { id: plan.id, teamOrgUnitId: plan.teamOrgUnitId, teamOrgUnitCode: plan.teamOrgUnit.code, title: plan.title, status: plan.status, revision: plan.revision, createdBy: plan.createdBy, createdAt: plan.createdAt.toISOString(), updatedAt: plan.updatedAt.toISOString(),
     entries: plan.schedules.map(s => ({ id: s.id, employee: s.employee, workDate: key(s.workDate), shift: { ...s.shift, createdAt: s.shift.createdAt.toISOString() }, startAt: s.startAt.toISOString(), endAt: s.endAt.toISOString(), workMinutes: s.workMinutes })) };
 }
 
 @Injectable()
 export class ShiftsService {
-  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService, private readonly notifications: NotificationsService) {}
 
-  private async transaction<T>(fn: (db: Db) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (db: Db) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async db => {
       // Shares the period-write lock so scheduling cannot race period closure.
       await db.$queryRaw`SELECT pg_advisory_xact_lock(8210472)::text AS lock`;
@@ -54,7 +55,7 @@ export class ShiftsService {
     }, { isolationLevel: "Serializable", timeout: 30000 });
   }
 
-  private async unitScope(user: AuthUser, permission: string, unitId: string, workDates: Date[], db: Db) {
+  async unitScope(user: AuthUser, permission: string, unitId: string, workDates: Date[], db: Db) {
     const current = await this.scope.load(user, permission, db);
     if (!current.allowed.has(unitId)) throw new ForbiddenException("Đơn vị nằm ngoài phạm vi hiện tại của bạn.");
     const dated = new Map<string, Scope>();
@@ -67,7 +68,7 @@ export class ShiftsService {
     return { current, dated };
   }
 
-  private async policy(db: Db, unitId: string, workDate: Date, scope: Pick<Scope, "versions">): Promise<Policy> {
+  async policy(db: Db, unitId: string, workDate: Date, scope: Pick<Scope, "versions">): Promise<Policy> {
     const version = scope.versions.find(v => v.orgUnitId === unitId);
     if (!version) throw new ForbiddenException("Không có đơn vị hiệu lực.");
     const scopes = version.site ? ["SITE:" + version.site.id, "REGION:" + version.site.wageRegionCode, "GLOBAL"] : ["GLOBAL"];
@@ -145,7 +146,7 @@ export class ShiftsService {
     });
   }
 
-  private async eligibleMembers(db: Db, user: AuthUser, unitId: string, workDate: Date, current: Scope) {
+  async eligibleMembers(db: Db, user: AuthUser, unitId: string, workDate: Date, current: Scope) {
     const today = businessDate();
     return db.employee.findMany({ where: { hireDate: { lte: workDate }, OR: [{ terminationDate: null, status: "ACTIVE" }, { terminationDate: { gt: workDate } }],
       AND: [
@@ -196,7 +197,7 @@ export class ShiftsService {
     return result;
   }
 
-  private async assertOpenDates(db: Db, unitId: string, dates: Date[]) {
+  async assertOpenDates(db: Db, unitId: string, dates: Date[]) {
     const from = new Date(Math.min(...dates.map(d => d.getTime())));
     const to = new Date(Math.max(...dates.map(d => d.getTime())));
     const frozen = await db.businessPeriod.findMany({ where: { periodType: "ATTENDANCE", status: { in: ["CLOSED", "LOCKED"] }, dateFrom: { lte: to }, dateTo: { gte: from } } });
@@ -207,7 +208,8 @@ export class ShiftsService {
     }
   }
 
-  private async validate(db: Db, user: AuthUser, unitId: string, lines: Line[], permission: string, ignorePlanId?: string) {
+  /** `ignoreScheduleIds` leaves out rows being replaced (a swap re-checks its new shift against everything else). */
+  async validate(db: Db, user: AuthUser, unitId: string, lines: Line[], permission: string, ignorePlanId?: string, ignoreScheduleIds: string[] = []) {
     await this.assertOpenDates(db, unitId, lines.map(l => l.workDate));
     const { current, dated } = await this.unitScope(user, permission, unitId, lines.map(l => l.workDate), db);
     const ids = [...new Set(lines.map(l => l.employeeId))].sort();
@@ -219,7 +221,7 @@ export class ShiftsService {
     }
     const from = new Date(Math.min(...lines.map(l => l.workDate.getTime())) - 7 * DAY);
     const to = new Date(Math.max(...lines.map(l => l.workDate.getTime())) + 7 * DAY);
-    const others = await db.shiftSchedule.findMany({ where: { employeeId: { in: ids }, workDate: { gte: from, lte: to }, plan: { status: { in: ["DRAFT", "PENDING", "APPROVED"] }, ...(ignorePlanId ? { id: { not: ignorePlanId } } : {}) } }, include: { plan: { select: { teamOrgUnitId: true } } } });
+    const others = await db.shiftSchedule.findMany({ where: { employeeId: { in: ids }, workDate: { gte: from, lte: to }, plan: { status: { in: ["DRAFT", "PENDING", "APPROVED"] }, ...(ignorePlanId ? { id: { not: ignorePlanId } } : {}) }, ...(ignoreScheduleIds.length ? { id: { notIn: ignoreScheduleIds } } : {}) }, include: { plan: { select: { teamOrgUnitId: true } } } });
     const definitions = await db.shiftDefinition.findMany({ where: { id: { in: [...new Set(lines.map(l => l.shiftId))] } } });
 
     const tree = await db.orgUnitVersion.findMany({ where: { effectiveFrom: { lte: to }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }] }, include: { orgUnit: true, site: true } });
@@ -270,7 +272,7 @@ export class ShiftsService {
     }
   }
 
-  private async visible(db: Db, user: AuthUser, plan: PlanAccess, permission = "shift.read") {
+  async visible(db: Db, user: AuthUser, plan: PlanAccess, permission = "shift.read") {
     const { current } = await this.unitScope(user, permission, plan.teamOrgUnitId, plan.schedules.map(l => l.workDate), db);
     const ids = [...new Set(plan.schedules.map(l => l.employeeId))];
     const excluded = await db.employeeExclusion.findFirst({ where: { employeeId: { in: ids }, userAccountId: user.id, OR: [effectiveAt(businessDate()), ...plan.schedules.map(l => ({ employeeId: l.employeeId, ...effectiveAt(l.workDate) }))] } });
@@ -279,7 +281,7 @@ export class ShiftsService {
     if (new Set(currentMembers.map(m => m.employeeId)).size !== ids.length) throw new ForbiddenException("Lịch có nhân sự ngoài phạm vi hiện tại.");
   }
 
-  private async record(db: Db, user: AuthUser, plan: Plan, action: string, fromStatus: ShiftPlanStatus | null, reason?: string, ipAddress?: string) {
+  async record(db: Db, user: AuthUser, plan: Plan, action: string, fromStatus: ShiftPlanStatus | null, reason?: string, ipAddress?: string) {
     const snapshot = serialized(plan);
     await db.shiftPlanHistory.create({ data: { planId: plan.id, actorId: user.id, action, fromStatus, toStatus: plan.status, revision: plan.revision, reason, snapshot: snapshot as unknown as Prisma.InputJsonValue } });
     await this.audit.record({ actorId: user.id, entityType: "shift_plan", entityId: plan.id, action, result: "SUCCESS", oldValue: { status: fromStatus }, newValue: { status: plan.status, revision: plan.revision, entries: plan.schedules.length }, ipAddress }, db);
@@ -317,7 +319,7 @@ export class ShiftsService {
 
   async transition(user: AuthUser, id: string, action: "SUBMIT" | "APPROVE" | "RETURN" | "CANCEL", dto: PlanActionDto, ipAddress?: string) {
     const permission = action === "APPROVE" || action === "RETURN" ? "shift.approve" : "shift.plan";
-    return this.transaction(async db => {
+    const result = await this.transaction(async db => {
       const old = await db.shiftPlan.findUnique({ where: { id }, include: planInclude });
       if (!old) throw new NotFoundException("Không tìm thấy lịch.");
       await this.visible(db, user, old, permission);
@@ -334,6 +336,14 @@ export class ShiftsService {
       await this.record(db, user, plan, action, old.status, reason, ipAddress);
       return { plan: serialized(plan) };
     });
+    const plan = result.plan, payload = { planId: plan.id, teamOrgUnitId: plan.teamOrgUnitId };
+    if (action === "SUBMIT")
+      await this.notifications.emit({ type: "SHIFT_PLAN_PENDING", linkKey: "shifts", roles: ["QD"], permission: "shift.approve", scopeOrgUnitId: plan.teamOrgUnitId, actorId: user.id, payload,
+        title: "Lịch ca \"" + plan.title + "\" của tổ " + plan.teamOrgUnitCode + " chờ duyệt" });
+    else if (action === "RETURN" || action === "APPROVE")
+      await this.notifications.emit({ type: "SHIFT_PLAN_RETURNED", linkKey: "shifts", userIds: [plan.createdBy.id], actorId: user.id, payload: { ...payload, status: plan.status },
+        title: "Lịch ca \"" + plan.title + "\" " + (action === "RETURN" ? "bị trả lại" : "đã được duyệt") });
+    return result;
   }
 
   private range(query: PlanQueryDto) {

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { AuditService } from "../audit/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { businessDate } from "../auth/business-date";
 import type { AuthUser } from "../auth/auth.types";
 import { PrismaService } from "../database/prisma.service";
@@ -21,6 +22,13 @@ type LockedSnapshot = {
   accessItems: AccessItem[];
   initialization: boolean;
   previousPeriod: { id: string; code: string; status: string; dateFrom: string; dateTo: string } | null;
+  payrollTime?: PayrollTimeSource;
+};
+/** Time pieces frozen with the lock so OT pay never recomputes from live attendance (UAT-19). */
+export type PayrollTimeSource = {
+  schemaVersion: 1;
+  overtime: Array<{ employeeId: string; orgUnitId: string; workDate: string; segments: Array<{ startAt: string; endAt: string; eligible: boolean }> }>;
+  regular: Array<{ employeeId: string; orgUnitId: string; workDate: string; segments: Array<{ startAt: string; endAt: string; kind: string }> }>;
 };
 
 type TeamSummary = { employees: number; scheduledDays: number; processedDays: number; workedMinutes: number; workUnits: number; leaveMinutes: number; approvedLeaveRequests: number; overtimeApprovedMinutes: number; overtimeActualMinutes: number; overtimeEligibleMinutes: number; blockers: number; warnings: number };
@@ -52,6 +60,7 @@ export class AttendancePeriodLockService {
     private readonly confirmations: TeamConfirmationService,
     private readonly closures: WorkshopClosureService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private transaction<T>(work: (db: Db) => Promise<T>) {
@@ -172,6 +181,7 @@ export class AttendancePeriodLockService {
     const previousPeriod = await this.previousPeriod(db, period);
     if (previousPeriod && previousPeriod.status !== "LOCKED") blockers.push({ code: "PREV_PERIOD_NOT_LOCKED", message: "Kỳ công trước cùng phạm vi chưa được khóa." });
     const summary = this.summary(teams, workshops.length, workshops.filter(workshop => workshop.state === "CLOSED").length, blockers.length, warnings.length);
+    const payrollTime = await this.payrollTime(db, period.id, teams.map(team => team.team.id));
     const source = json({
       schemaVersion: 1,
       period: { id: periodView.id, code: periodView.code, dateFrom: periodView.dateFrom, dateTo: periodView.dateTo, scopeOrgUnitId: periodView.scopeOrgUnitId, scopeName: periodView.scopeName },
@@ -181,8 +191,24 @@ export class AttendancePeriodLockService {
       accessItems,
       initialization: previousPeriod === null,
       previousPeriod,
+      payrollTime,
     }) as unknown as LockedSnapshot;
     return { period, periodView, source, sourceHash: sourceHash(source), summary, workshops, blockers, warnings, initialization: previousPeriod === null, previousPeriod };
+  }
+
+  private async payrollTime(db: Db, periodId: string, teamIds: string[]): Promise<PayrollTimeSource> {
+    const [actuals, days] = await Promise.all([
+      db.overtimeActual.findMany({ where: { periodId, orgUnitId: { in: teamIds } }, orderBy: [{ employeeId: "asc" }, { orgUnitId: "asc" }, { workDate: "asc" }] }),
+      db.dailyAttendance.findMany({ where: { periodId, orgUnitId: { in: teamIds } }, orderBy: [{ employeeId: "asc" }, { orgUnitId: "asc" }, { workDate: "asc" }, { scheduleId: "asc" }] }),
+    ]);
+    type Piece = { startAt: string; endAt: string; kind?: string; eligible?: boolean };
+    return {
+      schemaVersion: 1,
+      overtime: actuals.map(row => ({ employeeId: row.employeeId, orgUnitId: row.orgUnitId, workDate: key(row.workDate),
+        segments: ((row.evidence as { segments?: Piece[] }).segments ?? []).map(piece => ({ startAt: piece.startAt, endAt: piece.endAt, eligible: piece.eligible === true })) })),
+      regular: days.map(row => ({ employeeId: row.employeeId, orgUnitId: row.orgUnitId, workDate: key(row.workDate),
+        segments: ((row.segments as Piece[] | null) ?? []).map(piece => ({ startAt: piece.startAt, endAt: piece.endAt, kind: piece.kind ?? "DAY" })) })),
+    };
   }
 
   private history(events: Array<{ id: string; revision: number; action: string; sourceHash: string; note: string; actor: { id: string; displayName: string }; occurredAt: Date; snapshot: Prisma.JsonValue }>) {
@@ -240,7 +266,7 @@ export class AttendancePeriodLockService {
 
   async lock(user: AuthUser, dto: AttendancePeriodLockDto, ip?: string) {
     this.assertLocker(user);
-    return this.transaction(async db => {
+    const result = await this.transaction(async db => {
       const period = await this.period(db, dto.periodId);
       if (period.status === "LOCKED") throw new ConflictException("Kỳ công đã khóa và không thể khóa lại.");
       const live = await this.live(db, user, dto.periodId);
@@ -250,13 +276,17 @@ export class AttendancePeriodLockService {
       const updated = await db.businessPeriod.update({ where: { id: dto.periodId }, data: { status: "LOCKED", revision: { increment: 1 } } });
       const entry = await db.attendancePeriodLockEvent.create({ data: { periodId: dto.periodId, revision: updated.revision, action: "LOCK", sourceHash: live.sourceHash, note: dto.note?.trim() ?? "", snapshot: json(live.source), actorId: user.id } });
       await this.audit.record({ actorId: user.id, entityType: "attendance_period_lock", entityId: entry.id, action: "LOCK", result: "SUCCESS", newValue: json({ periodId: dto.periodId, revision: entry.revision, sourceHash: entry.sourceHash, summary: live.summary, initialization: live.initialization }), ipAddress: ip }, db);
-      return { id: entry.id, revision: entry.revision, sourceHash: entry.sourceHash, occurredAt: entry.occurredAt.toISOString() };
+      return { id: entry.id, revision: entry.revision, sourceHash: entry.sourceHash, occurredAt: entry.occurredAt.toISOString(), period };
     });
+    const { period, ...response } = result;
+    await this.notifications.emit({ type: "ATTENDANCE_PERIOD_LOCKED", linkKey: "attendance", roles: ["QD", "KT"], permission: "attendance.read", scopeOrgUnitId: period.scopeOrgUnitId, actorId: user.id,
+      payload: { periodId: period.id }, title: "Kỳ công " + period.code + " đã khóa; dữ liệu công sẵn sàng cho tính lương" });
+    return response;
   }
 
   async return(user: AuthUser, dto: AttendancePeriodReturnDto, ip?: string) {
     this.assertLocker(user);
-    return this.transaction(async db => {
+    const result = await this.transaction(async db => {
       const period = await this.period(db, dto.periodId);
       if (period.status === "LOCKED") throw new ConflictException("Kỳ công đã khóa, không có đường trả lại hay mở khóa.");
       const live = await this.live(db, user, dto.periodId);
@@ -266,7 +296,11 @@ export class AttendancePeriodLockService {
       const entry = await db.attendancePeriodLockEvent.create({ data: { periodId: dto.periodId, revision: nextRevision, action: "RETURN", sourceHash: live.sourceHash, note: dto.reason.trim(), snapshot: json({ period: live.periodView, summary: live.summary, sourceHash: live.sourceHash, returned: true }), actorId: user.id } });
       await db.businessPeriod.update({ where: { id: dto.periodId }, data: { status: "OPEN", revision: nextRevision } });
       await this.audit.record({ actorId: user.id, entityType: "attendance_period_lock", entityId: entry.id, action: "RETURN", result: "SUCCESS", newValue: json({ periodId: dto.periodId, revision: entry.revision, sourceHash: entry.sourceHash, reason: entry.note }), ipAddress: ip }, db);
-      return { id: entry.id, revision: entry.revision, sourceHash: entry.sourceHash, occurredAt: entry.occurredAt.toISOString() };
+      return { id: entry.id, revision: entry.revision, sourceHash: entry.sourceHash, occurredAt: entry.occurredAt.toISOString(), period };
     });
+    const { period, ...response } = result;
+    await this.notifications.emit({ type: "ATTENDANCE_PERIOD_RETURNED", linkKey: "attendance", roles: ["QD"], permission: "attendance.review", scopeOrgUnitId: period.scopeOrgUnitId, actorId: user.id,
+      payload: { periodId: period.id }, title: "Kỳ công " + period.code + " bị kế toán trả lại: " + dto.reason.trim() });
+    return response;
   }
 }

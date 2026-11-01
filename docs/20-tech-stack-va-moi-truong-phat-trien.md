@@ -1750,3 +1750,620 @@ nguồn, không tự tạo tiền thử hoặc gán phương án cho nhân viên
 database, tài khoản và tệp/script UI cách ly đã dọn. Kiểm tra nhất quán đặc tả đạt,
 không thay thế việc thực hiện UAT.
 
+
+### Giờ OT theo hệ số (FR-5.4, FR-5.5.1)
+
+- Engine thuần `backend/src/overtime-pay/overtime-pay-engine.ts`: tách đoạn tại
+  00:00/06:00/22:00, gán loại ngày THUONG / NGHI_TUAN / LE_TET theo **ngày lịch của
+  đầu đoạn** (lịch `HOLIDAY_CALENDAR`, ngày nghỉ tuần `WEEKLY_REST_DAYS`), xác định cờ
+  "đã có OT ban ngày" trên cả ngày công rồi mới áp hệ số
+  `r_ngày + phụ_cấp_đêm + hệ_số_cộng × r_ban_ngày`. Tham số: `OT_RATE_WEEKDAY`,
+  `OT_RATE_WEEKLY_REST`, `OT_RATE_HOLIDAY`, `NIGHT_ALLOWANCE_RATE`,
+  `NIGHT_OT_ADDON_RATE`, `COMP_TIME_ENABLED` (seed mô phỏng trong migration
+  `20261026090000_overtime_pay`, nhãn SIMULATION). Thiếu tham số trả
+  `OT_RATE_PARAMETER_MISSING`, không sinh bucket cho ngày công đó.
+- Ngày nghỉ hằng tuần là tham số `WEEKLY_REST_DAYS` (`{"days":[7],…}`, ISO 1–7),
+  mặc định GLOBAL và ghi đè bằng phạm vi `SITE:` vì `site_policy` chỉ lưu số nguyên.
+- Khóa kỳ công lưu thêm `payrollTime` (đoạn OT đủ/không đủ điều kiện và đoạn ca
+  thường) vào snapshot. Bucket chính thức (`overtime_pay_bucket`, LOCKED) chỉ sinh từ
+  snapshot này một lần, bất biến bằng trigger; kỳ khóa trước thay đổi trả
+  `OT_SEGMENTS_UNAVAILABLE`. Kỳ chưa khóa tính trực tiếp, nhãn DRAFT, không lưu.
+- `otPay(hourlyRate, buckets)` / `nightAllowancePay` dùng Decimal, trả vết đơn giá,
+  phân rã hệ số và mã tham số; đơn giá giờ do engine lương xác định.
+- Kiểm chứng: `npm run verify:overtime-pay` — 13 ca engine (TC-O01…O05c, TC-O04,
+  UAT-03, UAT-06, TC-A02, FIX-09, đảo thứ tự cờ) và 7 ca HTTP/PostgreSQL cách ly
+  (quyền KT/QĐ, loại trừ, chạy thử 160%→222%/210%, TC-B01…B03, khóa kỳ thật rồi đọc
+  snapshot, snapshot cũ thiếu đoạn).
+
+### Hồ sơ lương & thuế (FR-2.1.1, 2.1.2, 2.1.4, FR-X.1)
+
+- Bảng `employee_identity` (+ lịch sử bất biến), `employee_bank_account`, `tax_profile`,
+  `employee_special_status`, `employee_dependent`, danh mục `bank`
+  (migration `20261026100000_employee_payroll_profile`).
+- CCCD/hộ chiếu, MST, số sổ BHXH, số tài khoản và MST người phụ thuộc lưu
+  `v1.` AES-256-GCM bằng `HR_DATA_KEY`; trùng được chặn qua blind index
+  `b1.` HMAC-SHA256 với khóa dẫn xuất có phiên bản (`common/data-crypto.ts`), không
+  bao giờ lưu giá trị rõ. Lỗi nghiệp vụ: `DUPLICATE_TAX_CODE`, `DUPLICATE_SI_BOOK`,
+  `DUPLICATE_ID_NUMBER`, `EFFECTIVE_OVERLAP` (kèm `overlappingId`),
+  `DEPENDENT_EVIDENCE_REQUIRED`, `WORK_PERMIT_REQUIRED`.
+- Quyền mới: KT `payroll.profile.read/manage`, `employee.sensitive.read`; AD chỉ
+  `payroll.profile.read` và luôn nhận giá trị che. Mỗi lần đọc ghi audit
+  `VIEW_SENSITIVE` ALLOWED/MASKED; từ chối phạm vi ghi `ACCESS_DENIED`.
+- Bản hiệu lực mới đóng bản mở trước đó trong cùng giao dịch; trigger chỉ cho phép
+  đóng `effective_to`, chặn sửa/xóa/truncate. Người phụ thuộc chỉ thêm phiên bản.
+- Truy vấn dùng chung cho BH/thuế/chi lương: `PayrollProfileService.profileAt()` và
+  `eligibleDependentCount(employeeId, "YYYY-MM")`.
+- Seed realistic thêm hồ sơ mô phỏng cho 40 nhân viên có hợp đồng (nhãn SIMULATION).
+- Kiểm chứng: `npm run verify:payroll-profile` — 7 ca HTTP/PostgreSQL cách ly.
+
+### Quyết định thay đổi lương (FR-2.3)
+
+- `salary_decision` (bất biến) sinh dòng `employee_salary` mã hóa theo cấu phần;
+  `component_id` rỗng là lương thỏa thuận. Dòng mới đóng dòng mở cùng cấu phần trong
+  cùng giao dịch; EXCLUDE chặn chồng, trigger chỉ cho đóng `effective_to`. Lỗi:
+  `SALARY_DECISION_DUPLICATE_DATE` (kèm số QĐ đã có), `SALARY_DECISION_OUT_OF_ORDER`,
+  `BELOW_REGIONAL_MINIMUM`.
+- `salaryTimeline()` (`salary-decisions/salary-timeline.ts`) hợp nhất hợp đồng ACTIVE và
+  quyết định: mỗi ngày lấy nguồn có ngày bắt đầu muộn nhất; `unitSegments()` trả đơn
+  vị, cơ sở, vùng, cost center kế thừa và số ngày để phân bổ (TC-P07).
+- Hồi tố: hiệu lực ≤ `date_to` của `payroll_period` LOCKED thuộc cơ sở nhân viên →
+  `retro_candidate` PENDING (UAT-11); kỳ khóa không đổi. Xử lý chênh lệch ở change thưởng/hồi tố.
+- BR-08 (TC-P08): điều chuyển xuống vùng thấp hơn cùng ngày giảm lương thỏa thuận trả
+  `CROSS_REGION_SALARY_DECREASE`; lưu điều chuyển cần `salaryWarningReason`, lưu quyết
+  định cần `warningAcknowledgement`; lý do ghi audit/quyết định.
+- Giao diện: tab "Quyết định lương" trong hồ sơ nhân viên; trang mới **Bảng lương**
+  (`#/payroll`) với tab "Ứng viên hồi tố".
+- Kiểm chứng: `npm run verify:salary-decisions` — 7 ca HTTP/PostgreSQL cách ly.
+
+### Bảo hiểm bắt buộc (FR-8.1, 8.2; BR-47…50)
+
+- `insurance_rate` (migration `20261026120000_social_insurance`): tỷ lệ NLĐ/DN theo loại
+  và vùng tùy chọn, chi tiết quỹ con JSON, sàn = lương tối thiểu vùng, trần =
+  hệ số × `BASE_SALARY_MONTH` (BHXH/BHYT) hoặc × tối thiểu vùng (BHTN). Thêm bản
+  mới đóng bản mở; chồng trả `EFFECTIVE_OVERLAP`; thiếu căn cứ trả
+  `INSURANCE_LEGAL_BASIS_REQUIRED`. Tham số mô phỏng: `UNION_FEE_RATE`,
+  `UNION_FEE_CAP`, `INSURANCE_TRAINED_FLOOR_ADDON`, `UNPAID_LEAVE_INSURANCE_EXEMPT_DAYS`.
+- Engine thuần `social-insurance/insurance-engine.ts`: `insuranceEligibility()` (mã
+  `CONTRACT_UNDER_1_MONTH`, `PROBATION_ONLY`, `UNPAID_LEAVE_14_DAYS`, `RETIREE`,
+  `FOREIGNER_NO_UNEMPLOYMENT`…), `insurableSalary()` (vết trước/sau kẹp từng loại),
+  `insuranceContribution()` (làm tròn từng khoản), `checkCp07()`.
+- Lương đóng BH lấy theo mức hiệu lực ngày cuối tháng từ dòng thời gian lương (lương
+  thỏa thuận + cấu phần có cờ `is_insurable`); engine lương truyền thêm phụ cấp từ
+  phương án. Ngày nghỉ không lương đếm từ dòng đơn nghỉ đã duyệt `isPaid=false`.
+- Giả định mô phỏng: mọi NLĐ thuộc diện BHXH là đoàn viên (đoàn phí 1% có trần).
+- `insurance_contribution` lưu vết mã hóa do engine lương ghi.
+- Quyền mới KT: `insurance.read`, `insurance.manage`. Giao diện: tab "Mức đóng BH" trong
+  trang Bảng lương, có chạy thử theo nhân viên/tháng.
+- Kiểm chứng: `npm run verify:social-insurance` — 7 ca engine + 6 ca HTTP/PostgreSQL.
+
+### Thuế TNCN (FR-8.4; BR-52…56)
+
+- `tax_ruleset` + `pit_bracket` (migration `20261026130000_personal_income_tax`): mỗi bộ
+  là một phiên bản trọn gói theo đối tượng `RESIDENT_PROGRESSIVE` / `RESIDENT_FLAT_10` /
+  `NON_RESIDENT`, chế độ miễn `PREMIUM_ONLY` / `ELIGIBLE_PAYMENT`, thông số JSON và biểu
+  tháng/năm. Seed sáu bộ mô phỏng: lũy tiến 2025/2026, 10% (ngưỡng 2 triệu / 5 triệu,
+  dưới ngưỡng chỉ khấu trừ khi yêu cầu), không cư trú trước/từ 01/07/2026. Định mức ăn ca
+  là tham số `PIT_MEAL_EXEMPT_MONTH` căn cứ `PAYMENT_DATE` (730.000 đ → 1.200.000 đ từ
+  01/07/2026).
+- Engine thuần `personal-income-tax/pit-engine.ts`: `selectTaxContext()` theo ngày chi và
+  `REPLAY_FILED`; `splitExemptions()` (phần miễn + chịu thuế luôn bằng số trả; thiếu căn
+  cứ → `TAX_EXEMPTION_EVIDENCE_MISSING`); `progressive()` / `flat10()` /
+  `nonResident20()`; `grossUp()` chia đôi trên đồng nguyên, sai số ≤ 1 đồng.
+- Đối tượng lấy từ hồ sơ thuế hiệu lực tại ngày chi (`TAX_PROFILE_MISSING` khi thiếu) và
+  HĐ ≥ 3 tháng; số NPT từ `eligibleDependentCount()` của kỳ thuế.
+- `tax_withholding`: một bản DRAFT theo `paymentKey`; tính lại cập nhật bản nháp;
+  LOCKED/FILED không ghi đè (`WITHHOLDING_LOCKED`), điều chỉnh là bản ghi mới có
+  `original_withholding_id`. Chi tiết và dòng miễn thuế mã hóa.
+- Quyền mới KT: `tax.read`, `tax.manage`. Giao diện: tab "Quy tắc thuế TNCN" trong Bảng lương.
+- Kiểm chứng: `npm run verify:pit` — 13 ca engine (TC-T01…T13, TC-P03, 100 mức NET
+  NFR-04) và 7 ca HTTP/PostgreSQL.
+
+### Engine bảng lương (FR-7.2; BR-15, 38…46)
+
+- Pipeline thuần `payroll/payroll-engine.ts` theo 06 §6.2: kiểm tra đầu vào
+  (`PAY_PLAN_MISSING`, `PAYROLL_INPUT_MISSING`, `PAYROLL_INPUT_CONFLICT`,
+  `PAYROLL_SOURCE_DUPLICATE`) → lương theo phương án (nguồn CONFIRMED đã ghim kết quả
+  công thức; dòng TIME/ALLOWANCE chưa có nguồn thì tính từ dòng thời gian lương ×
+  công được trả ÷ `PAYROLL_STANDARD_WORKDAYS`, tách đoạn theo quyết định lương) → OT với
+  đơn giá giờ = Σ cấu phần `is_ot_base` ÷ giờ bình thường đã khóa → phụ cấp đêm →
+  khoản cộng thêm (điểm cắm `extraEarnings`) → BH (`SocialInsuranceService.compute`) →
+  phân loại khoản thu nhập + thuế (`PitService.calculate`, lương gốc giờ đêm tách một lần)
+  → khấu trừ khác → điều chỉnh (điểm cắm `extraAdjustments`) → thực lĩnh làm tròn đồng.
+- Chạy chỉ khi mọi kỳ công của cơ sở giao kỳ lương đã LOCKED (`PERIOD_NOT_LOCKED`) và kỳ
+  lương có ngày chi dự kiến. Nguồn được nạp một lần: snapshot khóa (ngày công,
+  `payrollTime`), bucket OT LOCKED, phương án, nguồn CONFIRMED, timeline lương, đơn vị,
+  tham số theo ngày nghiệp vụ kỳ gốc, bộ thuế.
+- Runner nền theo lô 200 nhân viên, tiến độ trong `payroll_run`, dừng an toàn giữa lô,
+  lỗi cô lập (`payroll_run_error`, nhân viên ERROR), chạy lại một phần bằng `employeeIds`.
+  Mỗi nhân viên thay thế trọn dòng trong một giao dịch; `insurance_contribution` và
+  `tax_withholding` nháp (`paymentKey = payroll:<kỳ>:<nhân viên>`) cập nhật, không nhân đôi.
+- Cổng CP-01…CP-09 + `TAX_EXCEPTION` tổng hợp trên toàn bảng mỗi lần chạy
+  (`compliance_check_result`); chỉ CP-08 (WARNING, ngưỡng `PAYROLL_VARIANCE_THRESHOLD`)
+  được xác nhận từng nhân viên; không có ghi đè BLOCKING. CP-04 dùng
+  `DEDUCTION_MAX_NET_RATIO` và chỉ xét khi có khấu trừ.
+- Hash nguồn từng nhân viên và toàn lần chạy; chạy lại cùng nguồn cho kết quả và hash
+  trùng tuyệt đối (TC-P06). Số tiền, tổng, vết mã hóa; drill-down ghi audit, từ chối
+  ngoài phạm vi/loại trừ có audit `ACCESS_DENIED`.
+- Quyền mới KT: `payroll.read`, `payroll.calculate`. Giao diện: tab "Bảng lương" trong
+  trang Bảng lương (chạy tính, tiến độ, lỗi, cổng CP, bảng nháp, drill-down).
+- Kiểm chứng: `npm run verify:payroll` — 16 ca engine (FIX-01…09, TC-I01/02/03/07/08/10,
+  TC-P01/01b/01c/02/06/07, CP-04/05/08) và 8 ca HTTP/PostgreSQL (khóa công thật, lỗi cô
+  lập, BH/thuế nháp, cổng CP, drill-down, chạy lại idempotent, chạy lại một phần, loại trừ).
+- Benchmark `npm run benchmark:payroll` (engine thuần, 3.000 NV/4 cơ sở, BH + thuế thật):
+  **1,95 giây** (0,65 ms/NV) trên i5-12450H, Node 22.16. Chưa gồm nạp/ghi PostgreSQL;
+  phép đo NFR-07 đầy đủ trên môi trường nghiệm thu thuộc change `add-r1-acceptance-hardening`.
+
+### Duyệt và khóa kỳ lương (FR-7.5.1…7.5.3; BR-43; UAT-10, UAT-20)
+
+- Migration `20261026150000_payroll_approval_lock`: trạng thái `APPROVED`/`LOCKED` cho
+  `payroll_sheet` (+ `approved_source_hash`, người/thời điểm duyệt và khóa), cờ
+  `payroll_period.is_initial`, bảng `payroll_sheet_history` và `payroll_snapshot`
+  (nội dung mã hóa, `content_hash`, kết quả CP và tham số pháp lý đã áp dụng). Lịch sử và
+  snapshot chỉ thêm; trigger chặn sửa bảng LOCKED và UPDATE/DELETE `payroll_employee`,
+  `payroll_line`, `payroll_line_input`, DELETE `insurance_contribution` thuộc bảng đã khóa;
+  `tax_withholding` LOCKED đã có trigger riêng. Tham số `PAYROLL_DUE_WARNING_DAYS` = 3
+  (SIMULATION). Quyền mới KT: `payroll.approve`, `payroll.lock`.
+- **Duyệt** (`PayrollApprovalService.approve`): bảng DRAFT, đúng revision, lần tính gần nhất
+  COMPLETED và khớp hash nguồn, không nhân viên ERROR, không vi phạm BLOCKING, mọi CP-08 đã
+  xác nhận; trả `PAYROLL_APPROVAL_BLOCKED` kèm danh sách. Lịch sử ghi tổng (mã hóa) và hash.
+- **Về nháp**: `PayrollSourceEvents.changed()` được gọi trong giao dịch của đầu vào lương
+  (xác nhận/trả lô đã xác nhận), phương án lương, quyết định lương, mức đóng BH và bộ quy tắc
+  thuế; bảng APPROVED của kỳ OPEN liên quan về DRAFT với `AUTO_DRAFT` + audit. Lưới an toàn:
+  khi khóa, hash nguồn và hash tham số được tính lại; lệch ⇒ về DRAFT và trả
+  `PAYROLL_SOURCE_CHANGED`.
+- **Khóa** (`lock`): cần token từ `POST /api/auth/reauthenticate` (HMAC gắn `sessionId`, hạn
+  5 phút, `REAUTH_REQUIRED` khi thiếu/hết hạn/khác phiên). Trong một giao dịch Serializable
+  khóa hàng `payroll_sheet` và `payroll_period`, kiểm tra revision, hash nguồn, kỳ trước cùng
+  cơ sở đã LOCKED trừ kỳ `is_initial` (`PREV_PERIOD_NOT_LOCKED`), ghi snapshot chuẩn hóa +
+  SHA-256, chuyển bảng và kỳ lương sang LOCKED, khóa `tax_withholding` nháp, cộng
+  `tax_deduction_usage` năm, ghi lịch sử và audit. Kỳ đã khóa không mở lại; chạy tính trả
+  `PAYROLL_PERIOD_LOCKED`; quyết định lương hồi tố tạo ứng viên hồi tố, không chạm snapshot.
+- **Cảnh báo hạn chi**: `GET /api/payroll/periods` trả `dueWarning { daysLeft, overdue,
+  threshold }` cho kỳ chưa khóa còn ≤ `PAYROLL_DUE_WARNING_DAYS` ngày đến ngày chi dự kiến.
+- **PDF bằng chứng tuân thủ** (pdfkit, phông Be Vietnam Pro): kỳ, cơ sở, thời điểm/người khóa,
+  hash snapshot và hash nguồn, chín mã CP (CP-08 kèm số đã xác nhận), tham số pháp lý đã áp
+  dụng; dựng từ snapshot, không tính lại; metadata `Keywords` chứa `snapshot-sha256:<hash>`.
+- Giao diện: tab "Bảng lương" hiển thị trạng thái, điều kiện chưa đạt, nút Duyệt / Trả về
+  nháp / Khóa kỳ lương (hộp xác nhận, nhập lại mật khẩu), lịch sử, mã băm snapshot và tải PDF;
+  cảnh báo các kỳ sắp đến hạn chi. Form tạo kỳ nhận đầu vào lương có ô "Kỳ khởi tạo của cơ sở".
+- Kiểm chứng: `npm run verify:payroll-lock` — 10 ca HTTP/PostgreSQL thật: TC-K06, khóa công
+  TT → QĐ → KT, duyệt bị chặn bởi nhân viên lỗi rồi thành công, UAT-10, lưới an toàn hash,
+  token xác thực lại (sai mật khẩu, khác phiên) + kỳ trước chưa khóa + snapshot, trigger
+  bất biến và không khóa/tính lại, TC-I09, UAT-20 (PDF chứa hash), cảnh báo hạn chi.
+
+### Phiếu lương và chi lương (FR-7.6.1…7.6.3, FR-7.5.4; BR-60…62; UAT-01, NFR-10)
+
+- Migration `20261026160000_payroll_output`: `payslip_export` (job nền), `payslip` (mỗi lần phát hành/lỗi,
+  chỉ thêm), `bank_file_template` (phiên bản theo ngân hàng, chỉ thêm), `salary_payment_batch` /
+  `salary_payment_item` (chỉ hủy được lô EXPORTED; chỉ mục unique một nhân viên/kỳ trong lô hiệu lực),
+  `payroll_adjustment` (khoản chờ vào kỳ mở kế tiếp; đã áp dụng thì bất biến), cột
+  `tax_withholding.context_flag`. Trigger thuế cho phép bản LOCKED chuyển PROJECTED → ACTUAL đúng một lần.
+  Tham số mô phỏng `LATE_PAYMENT_RATE` = 0,005/năm, `LATE_PAYMENT_GRACE_DAYS` = 15,
+  `PAYSLIP_PASSWORD_RULE` = `EMPLOYEE_CODE+ID_LAST4+DOB_DDMMYYYY`; mẫu Vietcombank XLSX mô phỏng. Quyền
+  KT mới: `payroll.payslips`, `payroll.payment`.
+- Snapshot khóa kỳ lương bổ sung họ tên, đơn vị/số công từng đoạn (`unitWork`), số lượng và tham chiếu
+  từng dòng, danh sách điều chỉnh đã dùng; phiếu lương chỉ đọc snapshot, in lại sau nhiều tháng vẫn khớp.
+- **Phiếu lương** (`payroll-output/payslip-renderer.ts`, thuần): thu nhập (lương chính kèm số công, phụ cấp,
+  OT kèm giờ, phụ cấp đêm, thưởng), BH + đoàn phí, thuế, khấu trừ, điều chỉnh ghi kỳ gốc, thực lĩnh; PDF
+  A4 pdfkit, AES-256 (PDF 1.7 ext 3, `/AESV3`), mật khẩu tính khi tạo tệp, không lưu, cho in, chặn sửa.
+  Thiếu giấy tờ/ngày sinh → `PAYSLIP_PASSWORD_DATA_MISSING` cho riêng người đó. Bản in dựng trên trình
+  duyệt từ JSON, không tạo tệp ở máy chủ. Mỗi lần in/xuất ghi `payslip` + audit.
+- **Xuất hàng loạt**: job nền theo lô 50, tiến độ, lỗi từng tệp (`DANH_SACH_LOI.csv` trong gói), gói zip
+  mã hóa AES-256-GCM bằng `HR_DATA_KEY` trong thư mục tạm, chỉ người tạo tải một lần trong 24 giờ rồi xóa.
+  Lỗi tạo tệp không đổi dữ liệu nghiệp vụ (NFR-43). Đo `npm run benchmark:payslips`: **1.100 phiếu
+  lương có mật khẩu + nén trong 49 giây** (44,6 ms/phiếu, gói 31 MB) trên i5-12450H, Node 26; chưa gồm đọc
+  PostgreSQL. Ngưỡng NFR-10 là 10 phút.
+- **Mẫu file chi**: cột lấy từ tập trường cố định (STT, mã NV, tên thụ hưởng, số TK, mã/tên ngân hàng, chi
+  nhánh, số tiền, nội dung, mã cơ sở, mã kỳ) với định dạng giữ nguyên / IN HOA không dấu / số nguyên / 2
+  chữ số lẻ; CSV UTF-8 BOM hoặc XLSX (số TK dạng chữ); tùy chọn tách theo cơ sở (nhiều tệp → zip).
+- **Lô chi**: cần `reauthToken`; chỉ bảng LOCKED; số tiền = thực lĩnh snapshot (không trừ phí, BR-60);
+  tài khoản hiệu lực tại ngày chi dự kiến (`BANK_ACCOUNT_MISSING` liệt kê người thiếu); bỏ qua người đã
+  thuộc lô hiệu lực (`PAYMENT_NOTHING_TO_EXPORT`). File dựng lại từ dòng lô bất biến, đối chiếu mã băm nội
+  dung, không ghi đĩa; tải cần header `X-Reauth-Token`. Xuất file chỉ là EXPORTED.
+- **Ngày chi thực tế** (`/paid`): lô → PAID; `tax_withholding` LOCKED chưa khai → ACTUAL với ngày thực tế,
+  khác năm thuế so với ngày dự kiến → `TAX_CONTEXT_CHANGED` (bảng lương không mở khóa). Chậm > ngưỡng:
+  đền bù = thực lĩnh × số ngày chậm × lãi suất ÷ 365 (làm tròn đồng), ghi `payroll_adjustment`
+  `LATE_PAYMENT_COMPENSATION`, đưa bảng APPROVED liên quan về nháp. Chậm ≤ ngưỡng chỉ cảnh báo.
+- **Stage điều chỉnh của engine**: `EmployeeContext.adjustments` nạp các khoản CONFIRMED chưa áp dụng của
+  kỳ gốc trước kỳ đang tính; `pendingAdjustmentLines()` tạo dòng ADJUSTMENT riêng ghi "Kỳ gốc …", nằm
+  trong hash nguồn; khóa kỳ đánh dấu `applied_payroll_period_id`. Khoản đền bù sau thuế, không chịu thuế.
+- Giao diện: tab "Phiếu lương", "Chi lương", "Mẫu file ngân hàng" trong trang Bảng lương.
+- Kiểm chứng: `npm run verify:payroll-output` — 1 ca thuần (UAT-21 đơn vị/số công từng đoạn) và 9 ca
+  HTTP/PostgreSQL: UAT-01, PDF AES-256 không lưu mật khẩu, bản in, xuất hàng loạt có lỗi một tệp và tải một
+  lần, mẫu ngân hàng mới, lô chi (xác thực lại, thiếu TK, đúng thực lĩnh, hủy/xuất lại), chậm 20 ngày
+  (đền bù + `TAX_CONTEXT_CHANGED`), kỳ kế tiếp có dòng đền bù ghi kỳ gốc và chậm 3 ngày chỉ cảnh báo.
+
+### Thưởng và điều chỉnh hồi tố (FR-7.3.1, FR-7.2.6, FR-7.4.1, 7.4.2; BR-42, BR-45; UAT-11, TC-P09, TC-I07)
+
+- Migration `20261026170000_bonus_retro`: `bonus_plan` (loại, căn cứ, quyết định độc lập, nguồn KPI tham
+  chiếu, kỳ hưởng, kỳ lương chi, cấu phần tùy chọn, số tiền mã hóa hoặc công thức + biến), `bonus_allocation`
+  (unique đợt + nhân viên, biến và số tiền mã hóa, mã xung đột), `retro_calculation` (kết quả mã hóa + hash,
+  CALCULATED → CONFIRMED/DISCARDED một lần), thêm `retro_calculation_id`, `target_payroll_period_id` cho
+  `payroll_adjustment`. Trigger: người nhận chỉ bỏ được khi đợt còn nháp; đợt đã xác nhận chỉ chuyển hủy;
+  kết quả tính hồi tố bất biến. Quyền KT mới: `payroll.bonus`, `payroll.adjust`.
+- **Thưởng** (`payroll/bonus`): công thức dùng `formula-engine` (ví dụ `TARGET * KPI_RATE`,
+  `TARGET * ATTENDANCE_SCORE / 100`), giá trị thiếu báo `BONUS_INPUT_MISSING`, kết quả âm `BONUS_NEGATIVE`;
+  chọn người nhận theo nhân viên hoặc theo đơn vị (cả đơn vị con). Chống trùng P3: đợt có nguồn KPI trùng
+  tham chiếu dòng P3 trong phương án hoặc tham chiếu nghiệp vụ của đầu vào P3 đã xác nhận, không có quyết
+  định độc lập → `BONUS_P3_DOUBLE_COUNT`, chặn xác nhận. Xác nhận/hủy đưa bảng APPROVED của kỳ chi về nháp.
+- **Stage thưởng của engine** (bước 4): `EmployeeContext.bonuses` chỉ nạp phân bổ của đợt CONFIRMED có kỳ chi
+  là kỳ đang tính; `bonusLines()` tạo dòng BONUS trước tổng thu nhập, không tính vào lương đóng BH, phân
+  loại thuế theo cấu phần (mặc định chịu thuế) và chịu thuế theo ngày chi của kỳ.
+- **Hồi tố** (`payroll/retro`): `PayrollService.replay()` tái hiện kỳ đã khóa cho một nhân viên bằng đúng các
+  sự kiện khóa công của lần tính cuối, tham số theo ngày kỳ gốc, thưởng/bút toán kỳ đó đã dùng; chỉ nguồn đã
+  đổi (dòng thời gian lương) khác. Chênh lệch = tái hiện − snapshot theo từng dòng và tổng (thu nhập, BH NLĐ/DN,
+  đoàn phí, thuế, thực lĩnh). Thiếu snapshot/lần tính/sự kiện khóa hoặc tái hiện lỗi → `RETRO_SOURCE_UNAVAILABLE`,
+  không ước lượng, không ghi gì. Kết quả tạo bút toán DRAFT vào kỳ đang mở đầu tiên sau các kỳ gốc; xác nhận
+  (xác thực lại + `resultHash`) chuyển CONFIRMED, ứng viên RESOLVED; không xác nhận xóa bút toán nháp, ứng
+  viên vẫn chờ. Kỳ gốc và snapshot không đổi.
+- **Thuế khoản truy lĩnh**: bút toán mang `taxable { income, insuranceEmployee }`; engine đưa chênh lệch thu
+  nhập vào khoản chịu thuế của lần chi kỳ mở (bộ thuế theo ngày chi kỳ mở) và cộng chênh lệch BH NLĐ vào
+  khoản giảm trừ; dòng ADJUSTMENT = chênh thu nhập − BH − đoàn phí. Chênh lệch thuế kỳ gốc chỉ hiển thị
+  tham khảo kèm kỳ thuế, không sửa tờ khai. Truy thu (âm) giảm thực lĩnh, không hoàn thuế kỳ gốc (thuộc
+  quyết toán năm).
+- Giao diện: tab "Đợt thưởng" và "Hồi tố & điều chỉnh" (bảng chênh lệch theo kỳ gốc, xác nhận/không xác
+  nhận, danh sách bút toán đền bù/hồi tố) trong trang Bảng lương.
+- Kiểm chứng: `npm run verify:retro` — 4 ca thuần (FIX-08, điểm chuyên cần không trừ lương, TC-I07, thuế khoản
+  truy lĩnh + bảng chênh lệch) và 6 ca HTTP/PostgreSQL: TC-P09 hai kỳ khóa, hủy không để lại dữ liệu, UAT-11
+  xác nhận có xác thực lại, đợt thưởng (công thức, theo đơn vị, trùng người, trùng P3), kỳ mở có dòng
+  thưởng/truy lĩnh và thuế theo kỳ chi, `RETRO_SOURCE_UNAVAILABLE`.
+
+
+### Tra cứu nhật ký kiểm toán và thông báo trong ứng dụng (FR-1.6.1, 1.6.4, FR-1.3.3, FR-X.5; NFR-26)
+
+- **Phạm vi bản ghi**: `audit_log.scope_org_unit_id` (cột nullable thêm bằng ALTER, không sửa bản ghi cũ; trigger
+  chặn UPDATE/DELETE vẫn giữ). `AuditService.record()` tự suy đơn vị từ đối tượng (`audit/audit-scope.ts`:
+  bảng ánh xạ loại đối tượng → cột đơn vị/nhân viên; gợi ý `orgUnitId`/`teamOrgUnitId`… trong giá trị mới; truy
+  cập bị từ chối theo mã nhân viên). Truy vấn chỉ chạy khi mã là UUID nên không thể làm hỏng giao dịch của
+  người ghi. Đối tượng không thuộc đơn vị (tài khoản, tham số, bộ thuế…) để trống phạm vi → chỉ AD phạm vi công
+  ty thấy. Phạm vi tham gia mã băm khi có (bản ghi trước thay đổi vẫn kiểm được); giá trị cũ/mới được chuẩn hóa
+  qua JSON trước khi băm để băm đúng nội dung jsonb lưu.
+- **Tra cứu** `GET /api/audit/logs` (quyền `audit.read`, chỉ AD): lọc thời gian (mặc định 7 ngày, tối đa 93),
+  người thực hiện, hành động, loại/mã đối tượng, kết quả (`DENIED`, `EMPTY` = ngoài phạm vi…); phân trang con
+  trỏ theo `id`; khóa chứa tiền lương (`amount`, `salary`, `gross`, `net`, `cipher`…) bị che `***` ở mọi cấp.
+  `GET /api/audit/logs/export` xuất Excel tối đa 20.000 dòng và tự ghi audit `audit_log/EXPORT`.
+- **Toàn vẹn chuỗi**: `AuditSearchService.verifyChain()` duyệt theo lô 2.000 bản ghi tăng dần, so `prev_hash`
+  với băm bản ghi trước (`CHAIN_BROKEN`) và tính lại `record_hash` (`HASH_MISMATCH`); lưu
+  `audit_integrity_check` và thông báo AD công ty khi lỗi. Chạy 02:00 hằng ngày và
+  `POST /api/audit/integrity-checks` (AD công ty, có audit).
+- **Tác vụ định kỳ**: `DailyJobs` (trong tiến trình, khóa advisory để nhiều instance không chạy trùng) gồm kiểm
+  tra chuỗi, tham số sắp hết hạn, hạn chi lương (3 ngày, nhắc vận hành — không phải hạn pháp lý), xóa thông báo
+  quá 90 ngày. `POST /api/notifications/daily-jobs/run` (AD) chạy ngay.
+- **Thông báo**: bảng `notification` + `notification_recipient`; người nhận xác định khi phát theo vai trò,
+  quyền và phân công có phạm vi chứa đơn vị (tổ tiên-hoặc-chính nó) tại ngày nghiệp vụ, hoặc người được chỉ
+  định (người lập đề xuất); người thao tác không tự nhận. Phát **sau commit**; lỗi chỉ ghi log, không ảnh hưởng
+  nghiệp vụ. Bảng lương tự về nháp trong giao dịch người khác dùng `emitWhenCommitted` (chỉ phát khi lịch sử
+  DRAFT đã nhìn thấy; giao dịch rollback thì bỏ). Sự kiện: lịch ca chờ duyệt/được duyệt/trả lại, OT chờ duyệt/có
+  kết quả, xưởng đã chốt (KT), kỳ công trả lại (QĐ)/đã khóa (QĐ, KT), bảng lương về nháp, hạn chi, tham số sắp
+  hết hiệu lực, chuỗi audit bị can thiệp. Không email. `dedupeKey` chống lặp cho cảnh báo hằng ngày.
+- **API**: `GET /api/notifications` (`unreadOnly`, `before`), `GET /api/notifications/unread-count`,
+  `POST /api/notifications/read` (`ids` hoặc `all`, chỉ của chính mình). Liên kết là `linkKey` → route frontend;
+  màn hình đích kiểm tra lại quyền hiện hành.
+- **Tham số sắp hết hiệu lực**: `PARAMETER_EXPIRY_WARNING_DAYS` (seed 30, SIMULATION);
+  `GET /api/settings/parameters/expiring` liệt kê bản có `effective_to` trong N ngày mà chưa có bản cùng
+  mã/phạm vi/đối tượng/căn cứ bắt đầu đúng ngày kế tiếp.
+- Giao diện: chuông thông báo trên header (polling 60 giây, đánh dấu đã đọc), trang `#/audit` (tra cứu, xem giá
+  trị cũ/mới, xuất Excel, lịch sử và chạy kiểm tra toàn vẹn), cảnh báo tham số sắp hết hạn trong Thiết lập.
+- Kiểm chứng: `npm run verify:audit` — 1 ca thuần (che lương) và 5 ca HTTP/PostgreSQL: mọi bộ suy phạm vi chạy
+  không lỗi, AD Hà Nam không thấy bản ghi Bắc Ninh, lọc bị từ chối/ngoài phạm vi, phân trang con trỏ, xuất có
+  audit, kiểm tra hợp lệ rồi phát hiện bản ghi bị sửa khi tắt trigger kèm thông báo AD.
+  `npm run verify:notifications` — 5 ca: OT chờ duyệt chỉ tới QĐ xưởng chứa tổ, kết quả tới người lập, đánh dấu
+  đã đọc, đổi tên bảng thông báo vẫn duyệt OT thành công, thu hồi phạm vi thì mở liên kết bị 403, tham số sắp hết
+  hạn được cảnh báo một lần và hết cảnh báo khi có bản kế tiếp.
+
+### Biến động BH và đối chiếu C12 (FR-8.3.1…8.3.3; BR-51; US-21)
+
+- **Sinh danh sách** (`social-insurance/changes`): theo (cơ sở, tháng), mỗi nhân viên từng gắn với cơ sở trong khoảng
+  rà soát được tính lại trạng thái tháng N và N−1 bằng chính `SocialInsuranceService.compute()` (diện theo hợp đồng,
+  nghỉ không lương ≥ ngưỡng, hưu trí/người nước ngoài; lương đóng sau sàn/trần). Quy tắc thuần
+  `detectChange()`: nghỉ việc trong tháng → báo giảm `TERMINATION` hiệu lực ngày nghỉ (chỉ một lần); không diện → diện
+  là báo tăng (`NEW_HIRE`, `TRANSFER_IN`, `RETURN_TO_WORK`, `ELIGIBLE_CONTRACT`); diện → không diện là báo giảm (lý do
+  từ bộ tính BH, `MATERNITY` khi có đơn thai sản đã duyệt, `TRANSFER_OUT`); cùng diện mà lương đóng BHXH khác hoặc
+  đổi loại BH tham gia là điều chỉnh, kèm mức cũ/mới. Trạng thái đã kê khai từng người lưu vào `insurance_change_state`.
+- **Chốt**: DRAFT lập lại tùy ý; chốt yêu cầu `revision` + `contentHash` đã rà soát và tính lại khớp (nguồn đổi →
+  `INSURANCE_SOURCE_CHANGED`). Trigger chặn sửa/xóa danh sách, trạng thái, dòng và truy thu khi FINALIZED.
+- **Báo muộn và truy thu/thoái thu**: khi lập tháng N, các tháng đã chốt trong `INSURANCE_LATE_LOOKBACK_MONTHS` (seed 3,
+  SIMULATION) được tính lại; biến động chưa từng kê khai (ở danh sách tháng đó hoặc dòng muộn của danh sách đã chốt
+  sau) vào tháng N với `late` + `originMonth`. Mỗi tháng đã chốt từ tháng gốc đến N−1: (số đóng đúng − số đã kê khai)
+  theo từng loại BH, NLĐ/DN, dùng mức đóng hiệu lực của chính tháng đó → `ARREARS` (dương) hoặc `REFUND` (âm).
+- **Xuất**: cột theo `insurance_file_template` loại EXPORT (mẫu mô phỏng `BH-BIEN-DONG-MP`, thay bằng mẫu D02-LT khi được
+  xác nhận); gồm mã số BHXH giải mã, nhãn NHÁP khi chưa chốt; mỗi lần xuất có audit.
+- **C12**: KT nhập Excel/CSV, ánh xạ cột theo mẫu loại C12 (`C12-MP`: Mã số BHXH, Họ và tên, Mức lương đóng, Số phải đóng);
+  ghép **chỉ** theo blind index số sổ BHXH; so với `insurance_contribution` của bảng lương **LOCKED** cùng cơ sở/tháng
+  (BHXH + BHYT + BHTN, NLĐ + DN). Phân loại `AMOUNT_DIFF`, `SALARY_BASE_DIFF`, `MISSING_IN_C12`, `MISSING_IN_SYSTEM`
+  (không ghép được: chỉ gợi ý theo tên, không tự ghép). Lần nhập và chênh lệch mã hóa, chỉ-thêm.
+- **API**: `GET /api/social-insurance/change-lists?siteOrgUnitId&month`, `POST /change-lists/generate`,
+  `GET /change-lists/:id`, `POST /change-lists/:id/finalize`, `GET /change-lists/:id/export`, `GET /file-templates`,
+  `POST /c12-imports` (multipart `file`, `siteOrgUnitId`, `month`, `templateId` tùy chọn), `GET /c12-imports`,
+  `GET /c12-imports/:id`. Quyền `insurance.read`/`insurance.manage` của KT, phạm vi phải chứa cơ sở.
+- `InsuranceChangesService.terminationPreview()` cho biết dòng báo giảm nếu chấm dứt HĐ ở một ngày (dùng bởi luồng
+  chấm dứt hợp đồng, chưa ghi gì).
+- Giao diện: tab "Biến động BH" (lập/lập lại, chốt, xuất, chi tiết truy thu theo tháng gốc) và "Đối chiếu C12" trong trang
+  Bảng lương.
+- Hiệu năng: mỗi nhân viên cần tối đa (khoảng rà soát + 2) lần tính BH; với 3.000 người nên lập ngoài giờ cao điểm. Chưa
+  có benchmark riêng.
+- Kiểm chứng: `npm run verify:insurance-changes` — 1 ca thuần (nghỉ việc một lần, vào làm, thai sản/đi làm lại, tăng lương,
+  truy thu/thoái thu) và 4 ca HTTP/PostgreSQL: chỉ KT trong phạm vi; tháng 08–09 lập và chốt (vào làm 10/09); nghỉ việc
+  20/09 và HĐ hiệu lực từ 08 nhập sau khi chốt → dòng muộn tháng 10 kèm truy thu 08, 09 (BHXH 520.000/1.137.500 trên
+  6.500.000), tăng lương tháng 10 là điều chỉnh; hash rà soát cũ bị từ chối khi nguồn đổi; xuất có audit; C12 lệch tiền,
+  lệch lương đóng, thiếu hai phía, chỉ tính bảng lương đã khóa.
+
+### Cảnh báo hợp đồng và chấm dứt hợp đồng (FR-2.4.1, 2.4.2, FR-2.5.1, 2.5.2, FR-9.3.1, FR-6.2.3; BR-36, BR-58, BR-59; UAT-27; SQ-09)
+
+- **Cảnh báo** `GET /api/personnel/contract-alerts?days=30|60` (KT, `contract.read`, phạm vi + loại trừ): truy vấn, không
+  lưu, không đổi trạng thái. Nhóm `EXPIRING` (HĐ hiện hành kết thúc trong N ngày, N mặc định từ
+  `CONTRACT_EXPIRY_WARNING_DAYS` = 30), `PROBATION_ENDING`, `OVERDUE` (đã qua ngày kết thúc mà chưa có HĐ kế tiếp — giữ
+  nguyên trạng thái), `FIXED_TERM_LIMIT` (đã ký `FIXED_TERM_MAX_COUNT` HĐ xác định thời hạn liên tiếp kể từ HĐ không
+  xác định thời hạn gần nhất: lần sau phải là HĐ không xác định thời hạn). Có số ngày còn lại.
+- **Quyết định chấm dứt**: `POST /api/personnel/terminations` lập DRAFT (KT `contract.manage`), chỉ lưu đầu vào và
+  snapshot xem trước mã hóa + `previewHash`; HĐ, nhân sự, lương, BH không đổi (UAT-27). Mỗi nhân viên tối đa một quyết
+  định nháp/đã xác nhận (unique index một phần). `POST /:id/refresh` tính lại xem trước; `POST /:id/cancel` (có lý do)
+  chuyển CANCELLED, không để lại dữ liệu nghiệp vụ.
+- **Xem trước** (`TerminationService.preview`, quy tắc thuần `termination-rules.ts`): HĐ hiệu lực; thời gian làm việc
+  (tháng tròn từ ngày vào làm đến ngày sau ngày làm việc cuối) − tháng BHTN (bảng lương LOCKED có BHTN + số tháng KT nhập
+  ngoài hệ thống, bắt buộc chứng từ) − thời gian đã chi trợ cấp; năm = phần nguyên + tháng lẻ theo
+  `SEVERANCE_HALF_YEAR_FROM_MONTHS`/`SEVERANCE_FULL_YEAR_FROM_MONTHS` (1/6, NĐ 145/2020 Điều 8 — SIMULATION chờ xác
+  nhận); lương căn cứ = bình quân `SEVERANCE_SALARY_AVERAGE_MONTHS` (6) tháng theo HĐ/quyết định lương từ dòng thời gian
+  lương. Thôi việc (`RESIGNATION`, `CONTRACT_EXPIRY`, `MUTUAL_AGREEMENT`): `SEVERANCE_MONTHS_PER_YEAR` (0,5); mất việc
+  (`JOB_LOSS`): `JOB_LOSS_MONTHS_PER_YEAR` (1), tối thiểu `JOB_LOSS_MIN_MONTHS` (2) tháng lương; `OTHER`: không trợ cấp.
+  Phép năm chưa nghỉ = `availableDays` của quỹ phép tại ngày chấm dứt × (lương tháng ÷ `PAYROLL_STANDARD_WORKDAYS`).
+  Dòng báo giảm BH lấy từ `InsuranceChangesService.terminationPreview()`. Kỳ nhận khoản = kỳ lương OPEN gần nhất của
+  cơ sở có `dateTo` ≥ ngày chấm dứt.
+- **Xác nhận** `POST /:id/confirm` (`revision`, `previewHash`, `reauthToken`): một giao dịch, khóa dòng quyết định (lệnh
+  thứ hai chờ rồi nhận `TERMINATION_NOT_DRAFT`); tính lại xem trước, khác snapshot → `PREVIEW_CHANGED` (không ghi gì);
+  ghi `employment_contract.terminated_on` + `termination_decision_id` (HĐ không xác định thời hạn vẫn giữ `end_date`
+  NULL theo ràng buộc), `employee.termination_date` + `TERMINATED`; tạo `severance_allowance` (unique theo quyết định) và
+  `termination_payment_item` (unique theo quyết định + loại) gắn kỳ lương; bảng lương đã duyệt của kỳ về nháp; audit.
+  Trigger: dòng trợ cấp/khoản bất biến (chỉ được gắn kỳ một lần khi đang chờ), quyết định đã xác nhận/hủy là cuối cùng.
+- **Engine**: `terminationLines()` (bước 4) thêm dòng `TERMINATION` ngoài lương đóng BH; trợ cấp thôi việc/mất việc là
+  `NON_TAXABLE`; tiền phép chưa nghỉ là khoản thuế `UNUSED_LEAVE` có căn cứ là quyết định → bộ thuế 2026 (ELIGIBLE_PAYMENT)
+  xét miễn, bộ 2025 (PREMIUM_ONLY) tính thuế (TC-T13). `PayrollService.payableTerminations()` đọc khoản đã gắn kỳ; lần
+  chạy thường gắn khoản đang chờ của cơ sở; người có khoản được đưa vào danh sách tính.
+- Giao diện: trang `#/contracts` "Hợp đồng & chấm dứt" (KT): tab cảnh báo 30/60 ngày; tab chấm dứt — lập nháp, xem trước
+  chi tiết công thức, làm mới, xác nhận bằng mật khẩu, hủy.
+- Kiểm chứng: `npm run verify:termination` — 2 ca thuần (toán trợ cấp: 6 năm − 4 năm BHTN = 2 năm, mức tối thiểu mất
+  việc, không chi trùng thời gian đã trả, phép chưa nghỉ; engine: dòng không đóng BH, phân loại thuế) và 5 ca
+  HTTP/PostgreSQL: cảnh báo 25 ngày/thử việc/quá hạn không tự chấm dứt/đủ 2 HĐ/ngưỡng 60; UAT-27 nháp không đổi dữ liệu;
+  xác nhận cần xác thực lại, đồng thời hai lệnh chỉ một thành công, đúng một trợ cấp và hai khoản vào kỳ lương mở; nguồn
+  đổi chặn xác nhận tới khi làm mới; hủy không để lại dữ liệu. Chưa chạy trọn một kỳ lương có khoản chấm dứt qua HTTP;
+  stage engine được kiểm bằng ca thuần.
+
+### Phúc lợi (FR-9.1.1…9.1.3, 9.2.1, 9.2.2, 9.4.1; R1-AC-09; UAT-28)
+
+- **Danh mục** `benefit_catalog` (mã, loại trong 12 nhóm, công ty/cơ sở) + `benefit_catalog_version` (tên, mức hưởng, xử lý
+  thuế `TAXABLE`/`NON_TAXABLE`/`EXEMPT_UP_TO_LIMIT` + định mức, cờ vào lương, điều kiện hưởng, quyết định, trạng thái,
+  hiệu lực). Phiên bản không chồng (EXCLUDE gist), bất biến; bản đang mở chỉ được đóng một lần bởi bản kế tiếp. Seed
+  (`prisma/seed-welfare.cjs`) 12 phúc lợi mô phỏng `MP_*` cấp công ty, nhãn SIMULATION. Quyền `welfare.read/manage` (KT).
+- **Điều kiện hưởng** là JSON có schema đóng (`welfare/eligibility.ts`): `minServiceMonths`, `jobGradeCodes`,
+  `contractTypes`, `orgUnitIds` (gồm cây con); trường lạ bị từ chối (`ELIGIBILITY_INVALID`), không có biểu thức tự do.
+  Đánh giá tại ngày tham chiếu của lô: đang làm việc, thâm niên (tháng tròn), cấp bậc theo chức danh, loại HĐ hiệu lực,
+  đơn vị chính; trả về mọi điều kiện không đạt.
+- **Cấp phát**: `POST /api/welfare/allocations` (phúc lợi, mã kỳ như `2026-10`/`TET-2027`, ngày tham chiếu, đơn vị đối
+  tượng, kỳ lương OPEN nếu phúc lợi vào lương) lọc nhân viên đủ điều kiện thành danh sách dự kiến
+  (`benefit_allocation_candidate`). Thêm người chưa đủ điều kiện → `BENEFIT_NOT_ELIGIBLE` kèm điều kiện trượt, chỉ giữ khi
+  có lý do; thêm/bớt chạy lại kiểm tra cho cả danh sách và tăng `revision`. Danh sách dự kiến không được bảng lương hay
+  báo cáo chi phí đọc.
+- **Xác nhận** `POST /:id/confirm`: kiểm tra lại, khóa advisory theo (phúc lợi, kỳ), bỏ qua và báo người đã có
+  `benefit_allocation` cùng (phúc lợi, nhân viên, kỳ) ở bất kỳ lô nào (UAT-28; unique là lớp chặn cuối), ghi từng người
+  (số tiền mã hóa, xử lý thuế, đơn vị + cost center tại ngày tham chiếu, kỳ lương nếu vào lương), bảng lương đã duyệt
+  của kỳ về nháp, audit (`PARTIAL` khi có trùng). Lô đã xác nhận/hủy và dòng cấp phát bất biến (trigger).
+- **Engine**: `benefitLines()` (bước 4) thêm dòng `BENEFIT` không đóng BH; thuế: `TAXABLE` → thu nhập chịu thuế,
+  `NON_TAXABLE` → miễn, `EXEMPT_UP_TO_LIMIT` → miễn tới định mức, phần vượt chịu thuế.
+  `PayrollService.payableBenefits()` chỉ đọc cấp phát đã xác nhận gắn kỳ.
+- **Chi phí** `GET /api/welfare/costs?from=YYYY-MM&to=YYYY-MM` (+ `/export` Excel có audit): tổng hợp cấp phát đã xác nhận
+  theo tháng tham chiếu, cost center, loại; cộng `severance_allowance` của quyết định chấm dứt đã xác nhận (tháng hiệu
+  lực, cost center của nhân viên tại ngày đó) ở loại "Trợ cấp thôi việc"/"Trợ cấp mất việc làm"; lọc theo phạm vi KT.
+- Giao diện: trang `#/welfare` "Phúc lợi" (KT): danh mục (thêm phúc lợi có phiên bản), cấp phát (lọc danh sách, thêm/bớt
+  có lý do, xác nhận và cảnh báo dòng trùng), chi phí phúc lợi (xuất Excel).
+- Kiểm chứng: `npm run verify:welfare` — 2 ca thuần (schema điều kiện đóng, đánh giá; engine phân loại thuế và miễn đến
+  định mức) và 6 ca HTTP/PostgreSQL: 12 phúc lợi seed, phiên bản bất biến/không chồng; danh sách dự kiến lọc thâm niên
+  và không ghi cấp phát/chi phí; thêm người chưa đủ điều kiện cần lý do, sai revision bị từ chối; xác nhận ghi một lần,
+  gắn kỳ lương, lô cuối cùng; UAT-28 lô thứ hai báo trùng không ghi lần hai; hủy sạch; chi phí gồm trợ cấp thôi việc và
+  xuất có audit. Chưa chạy trọn một kỳ lương có phúc lợi qua HTTP; stage engine kiểm bằng ca thuần.
+
+### Quyết toán thuế TNCN năm (FR-8.5.1, 8.5.2; BR-55; R1-AC-08; TC-T10)
+
+- **Nhóm theo năm chi trả**: `TaxFinalizationService` lấy `tax_withholding` có `payment_date` trong năm (không theo tên kỳ
+  công: lương tháng 12/2025 chi 09/01/2026 thuộc năm 2026), bản ghi mới nhất theo `payment_key` (bản điều chỉnh thay
+  bản gốc nó liên kết); chỉ bản `ACTUAL` vào tổng hợp.
+- **Thuế năm** (`finalization/annual-tax.ts`, thuần): Σ thu nhập chịu thuế − (giảm trừ bản thân × 12 tháng
+  `PIT_FINALIZATION_SELF_DEDUCTION_MONTHS` + NPT × tổng số tháng đủ điều kiện từng tháng + Σ BH + hưu trí tự nguyện (trần
+  tháng × 12) + từ thiện + y tế/giáo dục (trần năm của bộ quy tắc)) → biểu **YEAR** của bộ lũy tiến hiệu lực 31/12 (2026:
+  120/360/720/1.200 triệu; 2025: 7 bậc 60…960 triệu — đã seed); chênh lệch = thuế năm − Σ đã khấu trừ → `PAYABLE`/
+  `REFUND`/`NONE`.
+- **Chuyển tiếp 2026**: mỗi lần chi thành một dòng `annual_tax_finalization_line`; lần chi 01/01–30/06/2026 là
+  `WITHHELD_ORIGINAL` giữ snapshot số đã khấu trừ/khai và bộ quy tắc gốc, còn lại `WITHHELD`; dòng `SETTLEMENT` ghi chênh
+  lệch. Không sửa bản ghi khấu trừ hay tờ khai nào.
+- **Ủy quyền**: chỉ lập cho người có hồ sơ thuế hiệu lực trong năm, cư trú, `finalization_authorized`, và mọi lần chi theo
+  biểu lũy tiến; người khác được liệt kê với lý do (`NO_TAX_PROFILE`, `NON_RESIDENT`, `NOT_AUTHORIZED`,
+  `NON_PROGRESSIVE_INCOME`).
+- **Kiểm tra dữ liệu**: chặn hoàn tất — `PROJECTED_PAYMENT_IN_YEAR` (còn lần chi dự kiến), `TAX_CONTEXT_CHANGED` (cờ khi ghi
+  ngày chi thực tế chưa xử lý); cảnh báo — `TAX_EXCEPTION_UNRESOLVED`, `DEPENDENT_EVIDENCE_MISSING`.
+- **Phiên bản**: `POST /api/pit/finalizations/run {year}` tạo phiên bản DRAFT mới cho người có nguồn đổi (so `source_hash`
+  gồm bản ghi khấu trừ, NPT, hồ sơ thuế, bộ quy tắc); nguồn không đổi thì không tạo. `POST /:id/complete {sourceHash}`
+  chuyển DONE khi không còn lỗi chặn, là phiên bản mới nhất và nguồn khớp (`FINALIZATION_SOURCE_CHANGED`). Trigger: DONE
+  và mọi dòng bất biến.
+- **Xuất** `GET /api/pit/finalizations/export?year=` (Excel, audit): trang "Tờ khai tổng hợp" và "Phụ lục cá nhân" theo cột
+  của `tax_finalization_template` (mẫu mô phỏng `QTT-TNCN-MP`, thay bằng mẫu hiện hành khi được xác nhận), có mã số thuế
+  giải mã, nhãn DỰ THẢO khi còn bản chưa hoàn tất. Không kê khai điện tử.
+- Giao diện: tab "Quyết toán TNCN" trong trang Bảng lương (lập/cập nhật dự thảo, danh sách không đủ điều kiện, chi tiết
+  biểu năm, kiểm tra dữ liệu, hoàn tất, xuất).
+- Kiểm chứng: `npm run verify:tax-finalization` — 1 ca thuần (540.000.000 → 66.000.000 theo biểu năm, hoàn thuế, trần hưu
+  trí) và 4 ca HTTP/PostgreSQL: lương tháng 12 chi tháng 1 vào năm sau, NPT 9 tháng, dòng `WITHHELD_ORIGINAL` cho nửa đầu
+  2026, bản ghi khấu trừ không đổi, danh sách không ủy quyền/khấu trừ 10%; khoản dự kiến chặn hoàn tất, chạy lại không đổi
+  không tạo phiên bản; DONE bất biến, điều chỉnh sau đó tạo phiên bản 2; năm 2025 dùng bộ 2025; xuất hai trang có audit.
+
+### Mẫu xoay ca, lập lịch theo mẫu và đổi ca sau duyệt (FR-3.1.3, 3.2.1, 3.3.1, 3.4.2; UAT-23; 06 §3.4 tình huống 6)
+
+- **Mẫu xoay ca** (`shift_rotation_pattern` + `shift_rotation_pattern_version`, AD `shift.manage`, theo cơ sở): chu kỳ
+  1–62 ngày, mỗi ngày là một ca hoặc `null` (nghỉ), nghỉ tối thiểu giữa hai ca (không thấp hơn
+  `SHIFT_MIN_REST_MINUTES`), hiệu lực không chồng, phiên bản bất biến. Ca phải thuộc chính sách của chính cơ sở (ca của
+  cơ sở hoặc của công ty); ca của cơ sở khác → `SHIFT_NOT_IN_SITE_POLICY` (UAT-23).
+- **Sinh lịch** `POST /api/shifts/plans/:id/generate` (lịch DRAFT/RETURNED của người lập): hàm thuần
+  `generateFromPattern()` với điểm bắt đầu chu kỳ từng người (`cycleOffset`), thay các lượt của những người đó trong
+  khoảng ngày. Trước khi lưu, `restViolations()` liệt kê **mọi** cặp ca thiếu nghỉ (`SHIFT_REST_VIOLATION` kèm từng
+  ngày), không lưu gì; sau đó qua đủ `ShiftsService.validate()` (trần giờ ngày/tuần, nghỉ giữa ca, OT, kỳ chốt/khóa).
+  `POST /:id/bulk-assign` phân một ca cho nhiều người × nhiều ngày; `POST /api/shifts/plans/copy-previous` tạo lịch nháp từ
+  lịch APPROVED kỳ trước theo `WEEKDAY` (cùng thứ) hoặc `CYCLE` (giữ pha chu kỳ), bỏ qua và liệt kê người không còn thuộc
+  đơn vị/đã nghỉ. Mọi lịch sinh ra là DRAFT, có lịch sử phiên bản (`GENERATE`, `BULK_ASSIGN`, `COPY_PREVIOUS`).
+- **Đổi ca** `POST /api/shifts/swaps` (TT, lịch đã duyệt): đối tượng riêng `shift_swap_request` PENDING (một đề xuất chờ cho
+  mỗi lượt phân ca); kiểm tra ca mới với mọi lịch khác của người đó (bỏ qua chính lượt bị thay), vi phạm →
+  `SHIFT_CONSTRAINT_VIOLATION`. Lịch đã duyệt giữ nguyên và tiếp tục được dùng ghép công cho tới khi duyệt.
+- **QĐ** `POST /swaps/:id/approve|return|reject` (không tự duyệt; trả lại/từ chối cần lý do): duyệt trong một giao dịch —
+  ngày thuộc kỳ CLOSED/LOCKED → `PERIOD_STATE_CONFLICT`, lịch không đổi; kiểm tra lại; cập nhật đúng dòng
+  `shift_schedule`, tăng revision lịch và ghi `shift_plan_history` (`SWAP`), `shift_swap_history` lưu ca trước/sau (bất
+  biến); `AttendanceService.reprocessScheduleDay()` ghép lại công ngày đó khi kỳ còn mở. Thông báo QĐ khi có đề xuất,
+  TT khi có kết quả.
+- Giao diện `#/shifts`: tab "Mẫu xoay ca", nút "Sao chép lịch kỳ trước", trong lịch nháp "Sinh theo mẫu xoay ca" và "Phân ca
+  hàng loạt", tab "Đổi ca" (TT đề xuất từ lịch chính thức; QĐ duyệt một thao tác hoặc trả lại/từ chối).
+- Kiểm chứng: `npm run verify:shifts` thêm `shift-swap.test.cjs` — 1 ca thuần (lệch chu kỳ, ngày nghỉ, ca đêm rồi ca sáng
+  thiếu nghỉ, ánh xạ ngày sao chép) và 5 ca HTTP/PostgreSQL: UAT-23 ca của cơ sở khác và nghỉ dưới mức pháp lý bị từ
+  chối; sinh lịch theo điểm bắt đầu từng người, vi phạm nghỉ báo đúng ngày và không lưu, phân hàng loạt; sao chép theo thứ
+  bỏ qua người đã nghỉ; đề xuất chưa duyệt vẫn dùng ca cũ, duyệt ghép lại công theo ca đêm mới với lượt quẹt 22:00/06:00
+  và lưu lịch sử; đổi ca vi phạm nghỉ bị từ chối, kỳ đã chốt chặn duyệt và giữ lịch.
+
+### Chế độ ốm đau, thai sản và tỷ lệ vắng mặt (FR-6.4.1, 6.5.1; BR-33, BR-35; UAT-25)
+
+- **Hồ sơ** `POST /api/leave/sickness-maternity` (KT `insurance.manage`, multipart): loại chế độ (`SICK`, `CHILD_SICK`,
+  `MATERNITY`, `PRENATAL`, `RECOVERY`), số chứng từ, cơ sở y tế, khoảng ngày, **tệp chứng từ bắt buộc** (PDF/JPEG/PNG ≤ 5 MB,
+  mã hóa, SHA-256), đơn nghỉ liên kết tùy chọn (đã duyệt, cùng loại, bao trùm khoảng ngày), số tháng đóng BHXH ngoài hệ
+  thống kèm chứng từ. Kiểm tra loại nghỉ tương ứng có phiên bản hiệu lực `si_paid` + `requires_document`; chồng ngày với
+  hồ sơ khác của cùng nhân viên → `RECORD_OVERLAP` kèm mã hồ sơ (EXCLUDE gist là lớp chặn cuối). Loại nghỉ hưởng BHXH có
+  `is_paid = false` nên bảng lương công ty không trả các ngày này.
+- **Dự tính** (`benefit-rules.ts`, thuần, nhãn "Dự tính", lưu vết tham số): số ngày = ngày làm việc (bỏ ngày nghỉ tuần
+  `WEEKLY_REST_DAYS`) cho ốm đau/con ốm/khám thai, ngày lịch cho thai sản/dưỡng sức; giới hạn bởi quyền hưởng còn lại trong
+  năm (`SICKNESS_DAYS_BY_SERVICE` theo năm đóng 0/15/30 → 30/40/60 ngày, `CHILD_SICK_DAYS_PER_YEAR`, `PRENATAL_…`,
+  `RECOVERY_…`; thai sản `MATERNITY_DAYS` theo lần). Thâm niên đóng = tháng BHXH trong bảng lương LOCKED + tháng ngoài hệ
+  thống. Mức = số ngày × tỷ lệ (`SICKNESS_BENEFIT_RATE` 75%, `MATERNITY_BENEFIT_RATE` 100%) × lương căn cứ ÷ 24 (ngày làm
+  việc, `SI_BENEFIT_STANDARD_DAYS`) hoặc ÷ 30 (ngày lịch); lương căn cứ = lương đóng BHXH tháng liền trước (ốm đau…) hoặc
+  bình quân 6 tháng đã khóa gần nhất (thai sản). Thai sản cần `MATERNITY_MIN_CONTRIBUTION_MONTHS` (6) tháng trong 12 tháng →
+  `NOT_ELIGIBLE`; thiếu lương đóng đã khóa → `INSUFFICIENT_DATA`, không tự giả định. Tất cả tham số mang nhãn SIMULATION.
+- **Thực chi** `POST /:id/payment` ghi số tiền quỹ BHXH đã chi, ngày, chứng từ; hiển thị chênh lệch so với dự tính. Trigger
+  chỉ cho cập nhật các trường thực chi; chứng từ và dự tính bất biến. Tải chứng từ có audit.
+- **Tỷ lệ vắng** `GET /api/leave/absence-rate?workshopOrgUnitId&dateFrom&dateTo` (`attendance.read`, phạm vi + loại trừ,
+  tối đa 93 ngày): từ `daily_attendance` của lịch APPROVED trong cây phân xưởng tại từng ngày; ngày vắng = Σ phút nghỉ đã
+  duyệt (bỏ nguồn ngày lễ) ÷ phút làm của ca (tối đa 1) + phần còn lại nếu ngày bị đánh dấu vắng không có đơn; tổng hợp theo
+  tổ, ngày, ô tổ×ngày và loại nghỉ (`UNEXCUSED` cho vắng không đơn); cảnh báo khi vượt `ABSENCE_RATE_WARNING_THRESHOLD`
+  (10%). Ngày công của kỳ đã khóa là bất biến nên kết quả đọc đúng dữ liệu đã khóa. Chỉ đọc — QĐ không duyệt đơn (BR-33).
+- Giao diện trong `#/leave`: tab "Ốm đau & thai sản" (KT) và "Tỷ lệ vắng" (bảng tổ × ngày tô đỏ khi vượt ngưỡng, theo loại).
+- Kiểm chứng: `npm run verify:sickness-maternity` (cũng trong `verify:leave`) — 1 ca thuần (ngày làm việc/ngày lịch, bậc
+  thâm niên, 10.000.000 × 75% ÷ 24 = 312.500/ngày, trần còn lại, thiếu dữ liệu, thai sản không đủ điều kiện) và 3 ca
+  HTTP/PostgreSQL: thiếu chứng từ bị từ chối, TT không được nhập, dự tính 937.500 từ lương đã khóa tháng 09 có vết, chồng
+  ngày chỉ ra hồ sơ cũ, thực chi và chênh lệch, hồ sơ bất biến; thai sản bình quân 6 tháng 9.000.000 → 54.000.000 và không đủ
+  6 tháng; tỷ lệ vắng tổ 30% (5 ngày phép + 1 vắng không đơn/20 ca), ô 50% cảnh báo, ngày lễ không tính, QĐ Hà Nam bị từ
+  chối với xưởng Bắc Ninh, QĐ không có quyền quyết định đơn nghỉ.
+
+### Báo cáo lõi 10.x (FR-10.0.1…10.4.1, FR-2.1.5, 2.1.7, FR-4.5.5; R1-AC-10; UAT-14, UAT-21, UAT-22; NFR-12)
+
+- **Khung** (`backend/src/reports`): registry `ReportDefinition { type, roles, permission, params, sensitive, asOf, run }`. Trước
+  mọi truy vấn: vai trò + quyền, phạm vi `ScopeService` (đơn vị ngoài phạm vi → 403), loại trừ nhân sự; cây tổ chức lấy
+  tại ngày cuối kỳ báo cáo (tên đơn vị cũ vẫn đúng sau khi đổi tên). Cột `sensitive: salary` cần `payroll.read`,
+  `personal` cần `employee.sensitive.read`, nếu không hiển thị `***` cả trong tệp. Mỗi kết quả có nhãn **Nháp**/**Chính
+  thức**, nguồn, mã băm nguồn, ghi chú; kỳ đã khóa đọc bản lưu (`attendance_period_lock_event`, `payroll_snapshot`),
+  không tính lại.
+- **API**: `GET /api/reports` (danh mục theo quyền), `GET /api/reports/:type/preview` (200 dòng đầu, tổng, cảnh báo vượt
+  `REPORT_ROW_WARNING_THRESHOLD`), `POST /api/reports/:type/export {params, format: XLSX|PDF}` tạo `report_run` RUNNING và
+  dựng tệp nền (mã hóa, SHA-256, thời lượng); `GET /api/reports/runs`, `/runs/:id`, `/runs/:id/download` (chỉ người yêu
+  cầu, kiểm tra lại quyền). Tệp có tiêu đề: trạng thái, kỳ, nguồn + mã băm, thời điểm và người xuất. Báo cáo chứa lương/dữ
+  liệu cá nhân ghi audit mỗi lần kết xuất. PDF A4 ngang bằng pdfkit (font Be Vietnam Pro).
+- **10.1**: `ATTENDANCE_MONTHLY` (ký hiệu từng ngày X/V/!/mã nghỉ, tổng công, giờ làm, giờ nghỉ có đơn, OT ngày thường/nghỉ
+  tuần/lễ/đêm từ `overtime_pay_bucket`, ngày lỗi), `OVERTIME_SUMMARY` (OT kỳ so trần tháng, lũy kế năm, còn huy động),
+  `LATE_EARLY` (ghi rõ không dùng trừ lương), `ATTENDANCE_EXCEPTIONS`, `WEEKLY_HOURS` (ghi rõ không phải chứng nhận
+  SMETA/BSCI/RBA). **10.2**: `WORKFORCE_CHANGES` (vào làm, nghỉ việc, điều chuyển đến/ra/trong xưởng; tỷ lệ nghỉ việc theo
+  bộ phận, thâm niên, loại HĐ). **Sổ quản lý lao động** `LABOR_REGISTER`: đủ 20 tiêu chí NĐ 145/2020 Điều 3 khoản 2; tiêu chí
+  5, 7, 17, 18, 19 chưa có nguồn để trống kèm ghi chú; cảnh báo OT năm vượt trần áp dụng/200 giờ.
+- **10.3**: `PAYROLL_PAYMENT` (từng nhóm thu nhập, khấu trừ, điều chỉnh kèm kỳ gốc, thực lĩnh; id để mở chi tiết trong trang
+  Bảng lương), `BONUS_PAYMENT`, `PAYROLL_FUND` (theo cơ sở/đơn vị, quy đổi người theo tỷ lệ ngày công), `COST_ALLOCATION`
+  (cost center × tài khoản 622/642 của đơn vị: lương, BH phần DN, KPCĐ theo tỷ lệ ngày công từng đoạn — UAT-21; chỉ xuất
+  tệp). **10.4**: `INSURANCE_CONTRIBUTIONS`, `INSURANCE_CHANGES`, `C12_RECONCILIATION`, `TAX_WITHHOLDING` (theo ngày chi thực
+  tế, dự kiến/thực tế, nhánh, bộ quy tắc, miễn/chịu theo khoản, liên kết bản gốc và chuyển tiếp 6 tháng đầu 2026),
+  `TAX_FINALIZATION_SUMMARY`, `LABOR_USAGE` (mẫu mô phỏng), `OT_ANNUAL` (nhóm ≤200/200–300/>300 giờ). Báo cáo thiếu nguồn
+  (chưa lập danh sách BH, chưa nhập C12, chưa tính lương) trả lỗi rõ thay vì số 0.
+- Giao diện `#/reports` "Báo cáo": chọn báo cáo theo nhóm, tham số, xem trước có nhãn Nháp/Chính thức, xuất Excel/PDF, lịch
+  sử kết xuất (tự cập nhật khi đang chạy).
+- Kiểm chứng: `npm run verify:reports` — 9 ca HTTP/PostgreSQL: danh mục theo quyền (AD không có báo cáo lương); UAT-14 TT
+  chỉ thấy tổ mình; UAT-22 QĐ Hà Nam yêu cầu toàn công ty bị 403 và chỉ thấy phạm vi; đi muộn/giờ tuần có ghi chú bắt
+  buộc; kỳ khóa in lại từ bản lưu (Chính thức, mã băm, số khác dữ liệu sống) giống hệt hai lần; bảng lương từ bản lưu
+  có kỳ gốc điều chỉnh; phân bổ 9/26 – 17/26 và KPCĐ; thuế tháng 01/2026 có lương tháng 12 chi 09/01; kết xuất nền Excel có
+  tiêu đề/nhãn/audit, PDF, chỉ người yêu cầu tải, cột CCCD bị che khi thiếu quyền; mọi báo cáo trong danh mục chạy được;
+  điều chuyển ra khỏi xưởng; tên đơn vị theo kỳ. `npm run benchmark:reports` (NFR-12): 3.000 nhân sự × 24 ngày công,
+  `ATTENDANCE_MONTHLY` XLSX hoàn tất 12,9 giây trên máy local (giới hạn 120 giây); các báo cáo khác chưa đo riêng.
+
+### Trợ lý nghiệp vụ AI-02 (docs 24; tắt mặc định)
+
+- **Corpus** `docs/ai-corpus`: 22 chunk hướng dẫn (5 TT, 4 QĐ, 8 KT, 5 AD) diễn giải từ docs 04/05/06/07/10/12/17/18, nhãn
+  SIMULATION; `manifest.json` khai báo `sourceId`, mục tài liệu gốc, vai trò, `requiredPermissions`, hiệu lực, `actions`
+  (actionKey), `pageKeys`, từ khóa, cùng **route registry** (actionKey → route + vai trò + quyền) và câu gợi ý theo vai trò.
+  `loadCorpus()` loại chunk thiếu quyền/vai trò, tệp hoặc actionKey lạ (cảnh báo), băm từng chunk, phiên bản corpus =
+  băm manifest đã kiểm. `npm run build:ai-corpus` in phiên bản/băm và kiểm bộ Q&A. `qa-set.json`: 22 câu (12 hợp lệ, 4 vượt
+  quyền, 2 thiếu nguồn, 2 injection, 2 hiệu lực/mô phỏng) có nguồn kỳ vọng/cấm.
+- **Endpoint** `POST /api/ai/business-assistant/answers {question, pageKey}` (phiên bắt buộc; vai trò/quyền/phạm vi lấy từ
+  phiên, không tin client), `GET /context` (bật/tắt, gợi ý đã lọc), `GET /guide` (hướng dẫn tĩnh, luôn dùng được). Thứ tự:
+  flag (`AI_DISABLED` 403) → độ dài → **PII** (CCCD/MST/số tài khoản/điện thoại/email → `PII_DETECTED`, không gọi model) →
+  giới hạn theo người dùng (429) → lọc corpus theo vai trò + quyền + hiệu lực **trước** truy xuất → truy xuất từ khóa/đề mục
+  (cụm từ khóa theo ranh giới từ, từ tiêu đề hiếm, ưu tiên nhẹ pageKey, ngưỡng) → không nguồn: `INSUFFICIENT_SOURCE` + hướng
+  dẫn tĩnh, **không gọi model** → cache → thiếu key/hết budget: `UNAVAILABLE` + hướng dẫn tĩnh → Gemini.
+- **GeminiProvider**: REST `generateContent` (header `x-goog-api-key`, không SDK), structured output JSON theo schema,
+  temperature 0,1, không tool/grounding/lịch sử; prompt đặt câu hỏi và nguồn trong JSON và nói rõ mọi chỉ dẫn bên trong là dữ
+  liệu. Timeout/429/lỗi/không phải JSON → `UNAVAILABLE` (`TIMEOUT`, `QUOTA`, `PROVIDER_ERROR`, `BAD_OUTPUT`), không retry.
+- **Validator** sau model: bước phải trích nguồn thuộc tập đã gửi (nguồn bịa bị loại), bỏ URL/HTML do model tạo, actionKey phải
+  thuộc nguồn đã gửi, có trong registry và người dùng có quyền mở; không còn bước → `INSUFFICIENT_SOURCE`. Trả kèm citations
+  (tiêu đề, mục, nhãn, băm), liên kết dựng từ registry, giới hạn (tự thêm nhãn mô phỏng và "không xem dữ liệu thực tế").
+- **Phiên và cache**: trước khi trả, kiểm tra lại phiên còn tồn tại và `scopeVersion` (băm vai trò/phạm vi/quyền/loại trừ đọc
+  lại từ DB) không đổi → 401 hoặc 409 `SCOPE_CHANGED`. Cache 10 phút trong tiến trình theo `scopeVersion` + corpus/prompt/model
+  + câu hỏi chuẩn hóa. Rate limit và budget ngày cũng trong tiến trình (mỗi instance).
+- **Audit** `ai_business_assistant/ASK`: kết quả, vai trò, scopeVersion, pageKey, source IDs + băm, nguồn được trích, phần bị
+  loại, corpus/prompt/model, độ trễ, token; **không** lưu câu hỏi/câu trả lời.
+- **Cấu hình** (`.env.example`, `docker-compose.yml`): `AI_BUSINESS_ASSISTANT_ENABLED=false`, `GEMINI_API_KEY`, `GEMINI_MODEL`
+  (mặc định `gemini-2.5-flash`, chưa ghim theo đo thật), `AI_TIMEOUT_MS`, `AI_MAX_OUTPUT_TOKENS`, `AI_RATE_LIMIT_PER_HOUR`,
+  `AI_DAILY_REQUEST_BUDGET`; tùy chọn `GEMINI_API_BASE`, `AI_CORPUS_DIR`. Image backend copy `docs/ai-corpus`.
+- Giao diện: nút "Trợ lý AI" trên header chỉ hiện khi bật; drawer bên phải (toàn màn hình khi hẹp) có nhãn "AI hướng dẫn từ tài
+  liệu hệ thống", vai trò/trang, gợi ý, nhắc không nhập PII, câu trả lời theo bước có nguồn, nút mở màn hình, giới hạn, hướng
+  dẫn tĩnh khi không trả lời được; nội dung bị xóa khi đổi tài khoản/đăng xuất (shell remount) hoặc khi quyền đổi.
+- Kiểm chứng: `npm run verify:ai-assistant` — build corpus + 1 ca thuần (loại chunk thiếu quyền, TT không truy xuất được tài liệu
+  khóa kỳ dù giả pageKey, tài liệu hết hiệu lực, PII, validator) và 7 ca HTTP với **Gemini giả lập cục bộ**: bộ 22 câu (trạng
+  thái, nguồn kỳ vọng, nguồn/liên kết cấm không gửi và không hiện, URL/HTML/nguồn bịa bị loại, nhãn mô phỏng; thiếu nguồn không
+  gọi model), prompt không chứa dữ liệu nhân sự, key chỉ ở header, PII chặn trước model, audit chỉ metadata, cache theo quyền,
+  timeout/quota/output hỏng → hướng dẫn tĩnh và nghiệp vụ vẫn chạy, thu hồi phiên/đổi quyền giữa chừng không trả kết quả; thiếu
+  key, rate limit; flag tắt. **Chưa chạy với Gemini thật** (không có key): nghiệm thu ngữ nghĩa AC-AI02-01…12 và đo
+  token/độ trễ vẫn NOT_EXECUTED trong docs 24.
+
+### Làm cứng và thu bằng chứng nghiệm thu R1 (FR-X.2, X.4, X.6; NFR-07…13, 31, 33; R1-AC-11, 12)
+
+- **CI** `.github/workflows/ci.yml`: mỗi push/PR chạy `static` (npm ci, typecheck, build, `lint:compliance`,
+  `verify:acceptance-tools`, `validate_release_scope.py`, `fr-coverage --check`), ma trận `verify` 6 nhóm song song
+  (foundation, attendance, leave, payroll-setup, payroll, operations) trên service PostgreSQL 18 sạch (migrate + seed
+  foundation, `.env` tạm sinh bởi `scripts/ci-env.sh` với khóa dùng một lần), và `acceptance` (runner, tải JSON kết quả
+  theo SHA). Lịch 02:00 chạy `benchmark:nightly`, lưu báo cáo 400 ngày. Workflow **chưa chạy trên GitHub thật**.
+- **Lint tuân thủ** `scripts/lint-compliance.cjs` (AST TypeScript, không cần mạng): `money-float` (parseFloat,
+  `Number(...)`/`toNumber()` trên tên tiền tệ trong module lương/BH/thuế/phúc lợi/chấm dứt), `legal-constant` (lương tối
+  thiểu vùng, giảm trừ gia cảnh, lương cơ sở, tỷ lệ BH 0,08/0,015/0,175…, 0,85 thử việc), `date-param-lookup`
+  (`new Date()` trong lời gọi tra tham số). Bỏ qua từng dòng bằng `// compliance-lint-ignore <rule>: <lý do>`. Mã nguồn sạch ở
+  `--strict`; lần chạy đầu phát hiện và đã sửa cộng tiền bằng float ở phiếu lương và quyết toán thuế.
+- **Bảng đối chiếu FR** `npm run fr:coverage` → `docs/acceptance/fr-coverage.md` từ manifest, docs 07 và
+  `docs/acceptance/function-map.json` (49 chức năng BFD + 10.0 + FR-X → mô-đun, nguồn, tệp test, bằng chứng). Kết quả:
+  152 FR M, MAPPED 149, PARTIAL 3 (FR-1.4.2, FR-2.1.3, FR-X.3), GAP 0; khoảng trống chuyển sang change `add-r1-gap-closure`.
+- **Runner nghiệm thu** `scripts/acceptance-runner.cjs`: `docs/acceptance/acceptance-map.json` ánh xạ 29 UAT + 59 TC
+  (TC-A/K/B/I/P/O/T/L) → tệp test + tên ca + FR; chạy `node --test` với reporter JUnit, xuất JSON có từng test, trạng thái
+  từng ca (`PASS`/`FAIL`/`NOT_AUTOMATED`/`MAP_DRIFT`/`NOT_RUN`), FR, SHA/nhánh/dirty, Node/PostgreSQL. `MAP_DRIFT` (tên test
+  trong bản đồ không còn khớp) làm lệnh thất bại. Lỗi ở thân test cha (setup/dọn dẹp) được đọc từ báo cáo TAP vì JUnit của
+  Node ghi `failures="0"` cho trường hợp này. TC-I12 chưa tự động hóa. Hồi quy 01/11/2026: 413/413 test, 87/88 ca đạt.
+- **Ghi nghiệm thu** `scripts/record-acceptance.cjs` — quy trình tại [19 §5.2](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md).
+- **Xoay khóa** (`common/data-crypto.ts`): `HR_DATA_KEY` là khóa `v1` (định dạng bản mã cũ giữ nguyên); khóa khác ghi tiền tố
+  `k<id>.`; blind index `b<version>.` theo khóa đang hoạt động; tệp phiếu lương tạm có header `HRK1`. `npm run keys:rotate`
+  mã hóa lại mọi cột `*_cipher` (mỗi bảng một giao dịch, tạm tắt trigger bất biến bằng `session_replication_role`) và tính
+  lại blind index CCCD/MST/sổ BHXH/tài khoản; `--check` đếm bản mã theo khóa và liệt kê khóa gỡ được.
+- **Sao lưu/khôi phục**: `deploy/backup/` (postgres:18.3-alpine + openssl) — `pg_dump -Fc` mỗi giờ, AES-256-CBC PBKDF2
+  200k vòng với `BACKUP_ENCRYPTION_KEY`, `.sha256`, giữ 48 giờ / bản đầu ngày 90 ngày / bản đầu tháng 36 tháng.
+  `scripts/restore-drill.cjs` giải mã → DB sạch → `pg_restore` → kiểm số migration, toàn chuỗi băm audit, hash từng snapshot
+  lương (giải mã + băm lại) và từng kỳ công khóa → đo RTO, ghi JSON + biên bản Markdown theo mẫu. Đã chạy trong
+  `payroll-lock.test.cjs` trên DB có kỳ công và kỳ lương đã khóa: VALID; sai khóa không khôi phục được.
+- **TLS** profile `tls`: nginx 1.28 (`deploy/nginx/tls.conf.template`, TLS 1.2/1.3, HSTS, chuyển hướng HTTP) trước
+  `frontend`; bật cùng `COOKIE_SECURE=true` và origin https trong `WEB_ORIGINS`. Cấu hình đã kiểm bằng `nginx -t`.
+- **Xác thực lại** cho `POST /settings/parameters` (NFR-33): thiếu/sai `reauthToken` → 403 `REAUTH_REQUIRED`; giao diện yêu
+  cầu nhập lại mật khẩu trong form thêm phiên bản.
+- **Benchmark ban đêm** `npm run benchmark:nightly` gọi `benchmark-payroll-engine` (NFR-07), `benchmark-attendance`
+  (NFR-08/09/13: 2.500 NV chèn bằng SQL, nhập tệp qua HTTP, p95 bảng công TT/QĐ), `benchmark-payslips` (NFR-10),
+  `benchmark-reports` (NFR-12) và subtest NFR-11 trong `payroll-run.test.cjs`; ghi `.local/benchmarks/<ngày>-<sha>.json` kèm
+  cấu hình máy, thoát 1 khi có NFR không đạt. Lần đo 01/11/2026: NFR-07…12 đạt, **NFR-13 không đạt** ở luồng nhập + ghép
+  đầy đủ (75 s; phần kiểm tra 1,3 s). Bảng số liệu tại [15 §2](15-yeu-cau-phi-chuc-nang.md).

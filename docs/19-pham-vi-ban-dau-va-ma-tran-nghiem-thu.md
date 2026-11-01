@@ -160,6 +160,25 @@ build/cấu hình/nguồn, test đã chạy, kết quả, lỗi và người ngh
 6. Phân biệt nghiệm thu đồ án bằng fixture với cho phép vận hành thật: PS còn thiếu bằng
    chứng/mẫu, hạ tầng và dữ liệu thật phải được hoàn tất trước thao tác thực tế liên quan.
 
+### 5.2. Thu bằng chứng và ghi trạng thái nghiệm thu
+
+Trạng thái `verification_status` của từng FR trong [manifest R1](config/hrtp-release-r1.json) chỉ được đổi qua
+`scripts/record-acceptance.cjs` (`npm run acceptance:record`), không sửa tay:
+
+1. Chạy `npm run acceptance` (hoặc `acceptance:all`) trên build đã commit; runner xuất JSON gồm từng test, 29 dòng UAT và
+   bộ TC theo [`acceptance-map.json`](acceptance/acceptance-map.json), FR liên quan, SHA build, cấu hình và kết quả.
+2. Nếu ghi FR-X.4, kèm biên bản diễn tập khôi phục (`npm run backup:restore-drill`, mẫu
+   [restore-drill-template](acceptance/restore-drill-template.md)).
+3. Người nghiệm thu chạy `acceptance:record --result … --accepted-by …`. Script từ chối khi thiếu tệp kết quả, build
+   có thay đổi chưa commit hoặc khác HEAD, thiếu người ký, hoặc manifest còn `NOT_IMPLEMENTED` mà không xác nhận
+   `--mark-implemented`. Mỗi FR: `PASS` khi mọi test và ca UAT/TC liên quan đã chạy và đạt; `FAIL` khi có lỗi;
+   `BLOCKED` khi FR nằm trong danh sách khoảng trống; còn lại giữ `NOT_EXECUTED`. Quyết định từng FR cùng lỗi, build và
+   người nghiệm thu được lưu ở `docs/acceptance/evidence/`.
+
+Bảng đối chiếu 152 FR M → chức năng → kiểm thử → UAT/TC sinh bởi `npm run fr:coverage` tại
+[fr-coverage](acceptance/fr-coverage.md). FR chỉ đáp ứng một phần được xử lý trong change `add-r1-gap-closure`.
+Đối soát hai kỳ liên tiếp (§5.1 mục 5) cần nguồn đối chứng thật của doanh nghiệp và chưa thực hiện.
+
 ## 6. Quy tắc thay đổi baseline
 
 **AI ưu tiên trong kế hoạch:** AI-02 trợ lý nghiệp vụ theo vai trò dùng Google Gemini

@@ -26,6 +26,8 @@ export class AuthController {
     response.clearCookie('hrtp_session', this.cookieOptions());
     return { ok: true };
   }
+  @Post('reauthenticate') @UseGuards(SessionGuard)
+  reauthenticate(@Body() body: { password?: unknown }, @Req() request: AuthRequest) { return this.auth.reauthenticate(request.user, request.sessionId, body?.password, request.ip); }
   @Post('logout') @UseGuards(SessionGuard)
   async logout(@Req() request: AuthRequest, @Res({ passthrough: true }) response: Response) {
     await this.auth.logout(request.sessionId, request.user.id, request.ip);

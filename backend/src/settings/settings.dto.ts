@@ -37,6 +37,8 @@ export class CreateParameterDto {
   @IsOptional() @IsString() @Matches(ISO_DATE) effectiveTo?: string;
   @IsString() @Matches(ISO_DATE) documentEffectiveDate!: string;
   @IsString() @Matches(/^\S(?:.|\r|\n)*$/) @MaxLength(4000) legalBasis!: string;
+  /** NFR-33: a legal parameter change needs a fresh password re-entry (POST /auth/reauthenticate). */
+  @IsString() @MaxLength(200) reauthToken!: string;
 }
 
 export class PolicyQueryDto {

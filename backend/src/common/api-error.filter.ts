@@ -18,7 +18,7 @@ export class ApiErrorFilter implements ExceptionFilter {
       const message = Array.isArray(value) ? value.join('; ') : typeof value === 'string' ? value : 'Yêu cầu không hợp lệ.';
       const status = error.getStatus();
       const codes: Record<number, string> = {400:'VALIDATION_ERROR',401:'UNAUTHENTICATED',403:'FORBIDDEN',404:'NOT_FOUND',409:'CONFLICT',429:'RATE_LIMITED'};
-      response.status(status).json({ code: typeof details.code === 'string' ? details.code : codes[status] ?? 'REQUEST_FAILED', message });
+      response.status(status).json({ code: typeof details.code === 'string' ? details.code : codes[status] ?? 'REQUEST_FAILED', message, ...(details.details && typeof details.details === 'object' ? { details: details.details } : {}) });
       return;
     }
     if ((error instanceof Prisma.PrismaClientKnownRequestError || error instanceof Prisma.PrismaClientUnknownRequestError) && error.message.includes("WORKSHOP_CLOSED_RETURN_REQUIRED")) {

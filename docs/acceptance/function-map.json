@@ -1,0 +1,566 @@
+{
+  "_comment": "BFD function → implementation evidence. Read by scripts/fr-coverage.cjs; each FR inherits its function's tests and adds any direct FR-x.y.z mention found in code, tests or OpenSpec.",
+  "functions": {
+    "1.1": {
+      "modules": [
+        "auth",
+        "settings/accounts"
+      ],
+      "tests": [
+        "foundation.test.cjs",
+        "accounts.test.cjs"
+      ],
+      "source": "commit 0c549c0..f7e10db (foundation)"
+    },
+    "1.2": {
+      "modules": [
+        "organization"
+      ],
+      "tests": [
+        "foundation.test.cjs",
+        "hr-foundation.test.cjs"
+      ],
+      "source": "foundation"
+    },
+    "1.3": {
+      "modules": [
+        "settings (legal parameters)"
+      ],
+      "tests": [
+        "hr-foundation.test.cjs",
+        "payroll-configuration.test.cjs"
+      ],
+      "source": "foundation"
+    },
+    "1.4": {
+      "modules": [
+        "shifts (site policy)"
+      ],
+      "tests": [
+        "shifts.test.cjs",
+        "shift-swap.test.cjs"
+      ],
+      "source": "00fc12b"
+    },
+    "1.5": {
+      "modules": [
+        "attendance/periods",
+        "payroll (periods)"
+      ],
+      "tests": [
+        "period-lock.test.cjs",
+        "attendance.test.cjs",
+        "payroll-lock.test.cjs"
+      ],
+      "source": "e178045"
+    },
+    "1.6": {
+      "modules": [
+        "audit"
+      ],
+      "tests": [
+        "foundation.test.cjs",
+        "audit-search.test.cjs"
+      ],
+      "source": "add-audit-search-and-in-app-notifications"
+    },
+    "2.1": {
+      "modules": [
+        "employees",
+        "payroll-profile"
+      ],
+      "tests": [
+        "hr-foundation.test.cjs",
+        "employee-payroll-profile.test.cjs"
+      ],
+      "source": "add-employee-payroll-profile"
+    },
+    "2.2": {
+      "modules": [
+        "personnel (contracts)"
+      ],
+      "tests": [
+        "hr-foundation.test.cjs",
+        "termination.test.cjs"
+      ],
+      "source": "foundation"
+    },
+    "2.3": {
+      "modules": [
+        "personnel",
+        "salary-decisions"
+      ],
+      "tests": [
+        "hr-foundation.test.cjs",
+        "salary-decisions.test.cjs"
+      ],
+      "source": "add-salary-change-decisions"
+    },
+    "2.4": {
+      "modules": [
+        "personnel/contract-alerts"
+      ],
+      "tests": [
+        "termination.test.cjs"
+      ],
+      "source": "add-contract-alerts-and-termination"
+    },
+    "2.5": {
+      "modules": [
+        "personnel/termination"
+      ],
+      "tests": [
+        "termination.test.cjs"
+      ],
+      "source": "add-contract-alerts-and-termination"
+    },
+    "3.1": {
+      "modules": [
+        "shifts",
+        "leave (holidays)"
+      ],
+      "tests": [
+        "shifts.test.cjs",
+        "leave.test.cjs"
+      ],
+      "source": "00fc12b"
+    },
+    "3.2": {
+      "modules": [
+        "shifts/rotation"
+      ],
+      "tests": [
+        "shifts.test.cjs",
+        "shift-swap.test.cjs"
+      ],
+      "source": "add-shift-rotation-and-swap"
+    },
+    "3.3": {
+      "modules": [
+        "shifts/swap"
+      ],
+      "tests": [
+        "shift-swap.test.cjs"
+      ],
+      "source": "add-shift-rotation-and-swap"
+    },
+    "3.4": {
+      "modules": [
+        "shifts (approval)"
+      ],
+      "tests": [
+        "shifts.test.cjs"
+      ],
+      "source": "00fc12b"
+    },
+    "4.1": {
+      "modules": [
+        "attendance (import, routing)"
+      ],
+      "tests": [
+        "attendance-parser.test.cjs",
+        "attendance.test.cjs"
+      ],
+      "source": "f7e10db"
+    },
+    "4.2": {
+      "modules": [
+        "attendance (engine)"
+      ],
+      "tests": [
+        "attendance-engine.test.cjs",
+        "attendance.test.cjs"
+      ],
+      "source": "f7e10db"
+    },
+    "4.3": {
+      "modules": [
+        "attendance/corrections"
+      ],
+      "tests": [
+        "attendance-corrections.test.cjs"
+      ],
+      "source": "f3521ca"
+    },
+    "4.4": {
+      "modules": [
+        "attendance/team-confirmation"
+      ],
+      "tests": [
+        "team-confirmation.test.cjs"
+      ],
+      "source": "c8e9e01"
+    },
+    "4.5": {
+      "modules": [
+        "attendance/workshop-closure",
+        "attendance/period-lock"
+      ],
+      "tests": [
+        "workshop-closure.test.cjs",
+        "period-lock.test.cjs"
+      ],
+      "source": "e178045"
+    },
+    "5.1": {
+      "modules": [
+        "overtime"
+      ],
+      "tests": [
+        "overtime.test.cjs"
+      ],
+      "source": "588e5f5"
+    },
+    "5.2": {
+      "modules": [
+        "overtime"
+      ],
+      "tests": [
+        "overtime.test.cjs"
+      ],
+      "source": "588e5f5"
+    },
+    "5.3": {
+      "modules": [
+        "overtime (caps)",
+        "overtime actual"
+      ],
+      "tests": [
+        "overtime.test.cjs",
+        "overtime-actual-engine.test.cjs",
+        "overtime-actual.test.cjs"
+      ],
+      "source": "8ff9801"
+    },
+    "5.4": {
+      "modules": [
+        "overtime-pay"
+      ],
+      "tests": [
+        "overtime-pay-engine.test.cjs",
+        "overtime-pay.test.cjs"
+      ],
+      "source": "add-overtime-pay"
+    },
+    "5.5": {
+      "modules": [
+        "overtime-pay (comp time disabled)"
+      ],
+      "tests": [
+        "overtime-pay.test.cjs",
+        "overtime-pay-engine.test.cjs"
+      ],
+      "source": "add-overtime-pay"
+    },
+    "6.1": {
+      "modules": [
+        "leave (catalog)"
+      ],
+      "tests": [
+        "leave.test.cjs"
+      ],
+      "source": "67de751"
+    },
+    "6.2": {
+      "modules": [
+        "leave (fund)"
+      ],
+      "tests": [
+        "leave-fund-engine.test.cjs",
+        "leave.test.cjs"
+      ],
+      "source": "67de751"
+    },
+    "6.3": {
+      "modules": [
+        "leave (requests)"
+      ],
+      "tests": [
+        "leave-requests.test.cjs"
+      ],
+      "source": "6325689"
+    },
+    "6.4": {
+      "modules": [
+        "leave/sickness-maternity"
+      ],
+      "tests": [
+        "sickness-maternity.test.cjs"
+      ],
+      "source": "add-sickness-maternity-and-absence-tracking"
+    },
+    "6.5": {
+      "modules": [
+        "leave/absence-rate"
+      ],
+      "tests": [
+        "sickness-maternity.test.cjs"
+      ],
+      "source": "add-sickness-maternity-and-absence-tracking"
+    },
+    "7.1": {
+      "modules": [
+        "salary-components",
+        "payroll-configuration",
+        "employee-pay-plans",
+        "payroll-inputs"
+      ],
+      "tests": [
+        "salary-components.test.cjs",
+        "payroll-formula-engine.test.cjs",
+        "payroll-configuration.test.cjs",
+        "employee-pay-plans.test.cjs",
+        "payroll-inputs.test.cjs"
+      ],
+      "source": "2125646..18c7683"
+    },
+    "7.2": {
+      "modules": [
+        "payroll (engine, run)"
+      ],
+      "tests": [
+        "payroll-engine.test.cjs",
+        "payroll-run.test.cjs"
+      ],
+      "source": "add-payroll-calculation-engine"
+    },
+    "7.3": {
+      "modules": [
+        "payroll-events (bonus)"
+      ],
+      "tests": [
+        "payroll-retro.test.cjs"
+      ],
+      "source": "add-bonus-and-retroactive-adjustments"
+    },
+    "7.4": {
+      "modules": [
+        "payroll-events (retro)"
+      ],
+      "tests": [
+        "payroll-retro.test.cjs",
+        "salary-decisions.test.cjs"
+      ],
+      "source": "add-bonus-and-retroactive-adjustments"
+    },
+    "7.5": {
+      "modules": [
+        "payroll (approval, lock)"
+      ],
+      "tests": [
+        "payroll-lock.test.cjs"
+      ],
+      "source": "add-payroll-approval-and-lock"
+    },
+    "7.6": {
+      "modules": [
+        "payroll-output"
+      ],
+      "tests": [
+        "payroll-output.test.cjs"
+      ],
+      "source": "add-payslips-and-payment-files"
+    },
+    "8.1": {
+      "modules": [
+        "social-insurance (parameters)"
+      ],
+      "tests": [
+        "social-insurance.test.cjs"
+      ],
+      "source": "add-social-insurance-calculation"
+    },
+    "8.2": {
+      "modules": [
+        "social-insurance (engine)"
+      ],
+      "tests": [
+        "social-insurance-engine.test.cjs",
+        "social-insurance.test.cjs"
+      ],
+      "source": "add-social-insurance-calculation"
+    },
+    "8.3": {
+      "modules": [
+        "social-insurance/changes",
+        "social-insurance/c12"
+      ],
+      "tests": [
+        "insurance-changes.test.cjs"
+      ],
+      "source": "add-insurance-change-reporting"
+    },
+    "8.4": {
+      "modules": [
+        "personal-income-tax"
+      ],
+      "tests": [
+        "pit-engine.test.cjs",
+        "pit.test.cjs"
+      ],
+      "source": "add-personal-income-tax-withholding"
+    },
+    "8.5": {
+      "modules": [
+        "personal-income-tax/finalization"
+      ],
+      "tests": [
+        "tax-finalization.test.cjs"
+      ],
+      "source": "add-annual-tax-finalization"
+    },
+    "9.1": {
+      "modules": [
+        "welfare (catalog)"
+      ],
+      "tests": [
+        "welfare.test.cjs"
+      ],
+      "source": "add-welfare-benefits"
+    },
+    "9.2": {
+      "modules": [
+        "welfare (allocation)"
+      ],
+      "tests": [
+        "welfare.test.cjs"
+      ],
+      "source": "add-welfare-benefits"
+    },
+    "9.3": {
+      "modules": [
+        "personnel/termination (allowances)"
+      ],
+      "tests": [
+        "termination.test.cjs"
+      ],
+      "source": "add-contract-alerts-and-termination"
+    },
+    "9.4": {
+      "modules": [
+        "welfare (costs)"
+      ],
+      "tests": [
+        "welfare.test.cjs"
+      ],
+      "source": "add-welfare-benefits"
+    },
+    "10.1": {
+      "modules": [
+        "reports (attendance)"
+      ],
+      "tests": [
+        "reports.test.cjs"
+      ],
+      "source": "add-core-reports"
+    },
+    "10.2": {
+      "modules": [
+        "reports (workforce)"
+      ],
+      "tests": [
+        "reports.test.cjs"
+      ],
+      "source": "add-core-reports"
+    },
+    "10.3": {
+      "modules": [
+        "reports (payroll fund, cost)"
+      ],
+      "tests": [
+        "reports.test.cjs"
+      ],
+      "source": "add-core-reports"
+    },
+    "10.4": {
+      "modules": [
+        "reports (insurance, tax, labour)"
+      ],
+      "tests": [
+        "reports.test.cjs"
+      ],
+      "source": "add-core-reports"
+    },
+    "10.0": {
+      "modules": [
+        "reports (registry, scope, export)"
+      ],
+      "tests": [
+        "reports.test.cjs"
+      ],
+      "source": "add-core-reports"
+    },
+    "X.1": {
+      "modules": [
+        "common/data-crypto (AES-256-GCM)"
+      ],
+      "tests": [
+        "employee-payroll-profile.test.cjs",
+        "hr-foundation.test.cjs",
+        "key-rotation.test.cjs"
+      ],
+      "source": "foundation, add-employee-payroll-profile"
+    },
+    "X.2": {
+      "modules": [
+        "common/data-crypto key ring",
+        "scripts/rotate-keys.cjs"
+      ],
+      "tests": [
+        "key-rotation.test.cjs"
+      ],
+      "source": "add-r1-acceptance-hardening"
+    },
+    "X.3": {
+      "modules": [
+        "DB immutability triggers",
+        "status + reason transitions"
+      ],
+      "tests": [
+        "foundation.test.cjs",
+        "attendance.test.cjs",
+        "payroll-configuration.test.cjs"
+      ],
+      "source": "toàn hệ thống"
+    },
+    "X.4": {
+      "modules": [
+        "docker-compose backup",
+        "scripts/restore-drill.cjs"
+      ],
+      "tests": [],
+      "evidence": [
+        "scripts/restore-drill.cjs",
+        "docker-compose.yml"
+      ],
+      "source": "add-r1-acceptance-hardening"
+    },
+    "X.5": {
+      "modules": [
+        "notifications"
+      ],
+      "tests": [
+        "notifications.test.cjs"
+      ],
+      "source": "add-audit-search-and-in-app-notifications"
+    },
+    "X.6": {
+      "modules": [
+        ".github/workflows/ci.yml",
+        "scripts/acceptance-runner.cjs"
+      ],
+      "tests": [],
+      "evidence": [
+        ".github/workflows/ci.yml",
+        "scripts/acceptance-runner.cjs",
+        "docs/acceptance/acceptance-map.json"
+      ],
+      "source": "add-r1-acceptance-hardening"
+    }
+  },
+  "gaps": {
+    "FR-1.4.2": "Có ngân hàng, chức danh/ngạch, loại hợp đồng (enum), loại phụ cấp (danh mục khoản lương); chưa có danh mục địa bàn và trình độ quản trị được.",
+    "FR-2.1.3": "Dữ liệu tuyển dụng, hợp đồng thử việc/chính thức, điều chuyển và chấm dứt đã có nhưng chưa có màn hình/API quá trình công tác hợp nhất theo thời gian.",
+    "FR-X.3": "Bản ghi nghiệp vụ không có API xóa cứng (trạng thái + lý do, trigger chặn DELETE ở bảng bất biến); các dòng nháp/phụ (ứng viên phúc lợi, phân bổ thưởng nháp, phiên đăng nhập) vẫn xóa vật lý khi dựng lại — cần rà soát từng bảng và chốt danh sách ngoại lệ."
+  }
+}

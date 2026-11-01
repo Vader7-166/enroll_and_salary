@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { OvertimeStatus, Prisma } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { businessDate } from "../auth/business-date";
 import type { AuthUser } from "../auth/auth.types";
 import { PrismaService } from "../database/prisma.service";
@@ -55,7 +56,7 @@ function historicalAccess(row: OvertimeSnapshot): Access {
 
 @Injectable()
 export class OvertimeService {
-  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService, private readonly notifications: NotificationsService) {}
 
   private transaction<T>(fn: (db: Db) => Promise<T>) {
     // ReadCommitted obtains a fresh snapshot after waiting for the shared period/shift lock.
@@ -249,7 +250,7 @@ export class OvertimeService {
   }
 
   async transition(user: AuthUser, id: string, action: OvertimeAction, dto: OvertimeActionDto, ipAddress?: string) {
-    return this.transaction(async db => {
+    const result = await this.transaction(async db => {
       const old = await this.get(db, id);
       const decision = ["APPROVE", "RETURN", "REJECT"].includes(action);
       const permission = decision ? "overtime.approve" : "overtime.plan";
@@ -271,6 +272,15 @@ export class OvertimeService {
       await this.record(db, user, row, action, old.status, reason, ipAddress);
       return { request: snapshot(row) };
     });
+    const request = result.request, payload = { requestId: request.id, teamOrgUnitId: request.teamOrgUnitId, status: request.status };
+    const labels: Partial<Record<OvertimeAction, string>> = { APPROVE: "đã được duyệt", RETURN: "bị trả lại", REJECT: "bị từ chối" };
+    if (action === "SUBMIT")
+      await this.notifications.emit({ type: "OVERTIME_PENDING", linkKey: "overtime", roles: ["QD"], permission: "overtime.approve", scopeOrgUnitId: request.teamOrgUnitId, actorId: user.id, payload,
+        title: "Đề xuất OT \"" + request.title + "\" ngày " + request.workDate + " của tổ " + request.teamOrgUnitCode + " chờ duyệt" });
+    else if (labels[action])
+      await this.notifications.emit({ type: "OVERTIME_DECIDED", linkKey: "overtime", userIds: [request.createdBy.id], actorId: user.id, payload,
+        title: "Đề xuất OT \"" + request.title + "\" ngày " + request.workDate + " " + labels[action] });
+    return result;
   }
 
   async list(user: AuthUser, query: OvertimeQueryDto) {

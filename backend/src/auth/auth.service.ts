@@ -11,6 +11,7 @@ import { PrismaService } from '../database/prisma.service';
 import { businessDate } from './business-date';
 import type { AuthUser } from './auth.types';
 import { verifyPassword } from './password';
+import { issueReauthToken, reauthKey, REAUTH_TTL_MS } from './reauth';
 import { PasswordPolicyService } from './password-policy.service';
 import { ChangePasswordDto } from './accounts.dto';
 
@@ -143,6 +144,16 @@ export class AuthService {
         tx,
       );
     });
+  }
+
+  /** Re-enter the password for sensitive actions; returns a token valid 5 minutes for this session only. */
+  async reauthenticate(user: AuthUser, sessionId: string, password: unknown, ipAddress?: string) {
+    const account = await this.prisma.userAccount.findUnique({ where: { id: user.id }, select: { passwordHash: true, status: true } });
+    const valid = typeof password === 'string' && password.length <= 128 && account?.status === AccountStatus.ACTIVE && await verifyPassword(password, account.passwordHash);
+    await this.audit.record({ actorId: user.id, entityType: 'web_session', entityId: sessionId, action: 'REAUTHENTICATE', result: valid ? 'SUCCESS' : 'FAILED', ipAddress });
+    if (!valid) throw new ForbiddenException({ code: 'REAUTH_FAILED', message: 'Mật khẩu xác nhận không đúng.' });
+    const expiresAt = Date.now() + REAUTH_TTL_MS;
+    return { token: issueReauthToken(reauthKey(this.config.getOrThrow<string>('HR_DATA_KEY')), sessionId, expiresAt), expiresAt: new Date(expiresAt).toISOString() };
   }
 
   async changePassword(user: AuthUser, dto: ChangePasswordDto, ipAddress?: string) {

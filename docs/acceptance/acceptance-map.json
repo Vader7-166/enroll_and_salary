@@ -1,0 +1,1439 @@
+{
+ "_comment": "UAT (docs/14) and fixed TC set (docs/06 §11) → automated test cases (file + name substring) and FR. Read by scripts/acceptance-runner.cjs and scripts/fr-coverage.cjs. A case with no tests reports NOT_AUTOMATED.",
+ "cases": [
+  {
+   "id": "UAT-01",
+   "title": "Phát hành phiếu lương bảo mật",
+   "fr": [
+    "FR-7.6.1"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-output.test.cjs",
+     "name": "UAT-01"
+    },
+    {
+     "file": "payroll-output.test.cjs",
+     "name": "Single payslip is an AES-256 password PDF"
+    }
+   ]
+  },
+  {
+   "id": "UAT-02",
+   "title": "Ghép ca đêm bắc cầu và phụ cấp đêm 30%",
+   "fr": [
+    "FR-4.2.2",
+    "FR-4.2.3",
+    "FR-4.2.4"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance.test.cjs",
+     "name": "Real import pairs overnight"
+    },
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-A02"
+    },
+    {
+     "file": "attendance-engine.test.cjs",
+     "name": "counts paid and unpaid 22:00–06:00"
+    }
+   ]
+  },
+  {
+   "id": "UAT-03",
+   "title": "OT đêm ngày nghỉ tuần 270%",
+   "fr": [
+    "FR-5.4.2"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-O01 / UAT-03"
+    }
+   ]
+  },
+  {
+   "id": "UAT-04",
+   "title": "Ghi vết sửa dữ liệu công",
+   "fr": [
+    "FR-4.3.2",
+    "FR-1.6.1",
+    "FR-1.6.3"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance-corrections.test.cjs",
+     "name": "stores protected evidence"
+    },
+    {
+     "file": "attendance-corrections.test.cjs",
+     "name": "approves exactly once"
+    },
+    {
+     "file": "foundation.test.cjs",
+     "name": "Audit history cannot be updated or deleted"
+    }
+   ]
+  },
+  {
+   "id": "UAT-05",
+   "title": "Chặn duyệt lương dưới tối thiểu vùng",
+   "fr": [
+    "FR-7.2.10",
+    "FR-1.3.1"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-run.test.cjs",
+     "name": "Compliance gates: CP-01 blocks B"
+    },
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-P01"
+    }
+   ]
+  },
+  {
+   "id": "UAT-05b",
+   "title": "Không chặn nhầm khi khác vùng",
+   "fr": [
+    "FR-7.2.10",
+    "FR-1.3.1"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-run.test.cjs",
+     "name": "Compliance gates: CP-01 blocks B"
+    },
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-P01 / P01b"
+    }
+   ]
+  },
+  {
+   "id": "UAT-06",
+   "title": "Tách OT qua nửa đêm và loại ngày",
+   "fr": [
+    "FR-5.4.3",
+    "FR-5.4.4"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-O04 / UAT-06"
+    }
+   ]
+  },
+  {
+   "id": "UAT-07",
+   "title": "Chặn chốt xưởng khi còn ngày ERR",
+   "fr": [
+    "FR-4.5.1",
+    "FR-4.5.2"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "team-confirmation.test.cjs",
+     "name": "unexplained ERR block"
+    },
+    {
+     "file": "workshop-closure.test.cjs",
+     "name": "does not close while one team remains unconfirmed"
+    },
+    {
+     "file": "workshop-closure.test.cjs",
+     "name": "cross-checks use annual OT"
+    }
+   ]
+  },
+  {
+   "id": "UAT-08",
+   "title": "Chặn OT thiếu căn cứ đồng ý",
+   "fr": [
+    "FR-5.1.2"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime.test.cjs",
+     "name": "Scope, members, consent"
+    }
+   ]
+  },
+  {
+   "id": "UAT-09",
+   "title": "Vượt trần OT không duyệt được",
+   "fr": [
+    "FR-5.3.1",
+    "FR-5.3.2",
+    "FR-5.3.3"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime.test.cjs",
+     "name": "Daily, monthly, yearly caps"
+    }
+   ]
+  },
+  {
+   "id": "UAT-10",
+   "title": "Bảng lương về nháp khi dữ liệu đổi",
+   "fr": [
+    "FR-7.5.1"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-lock.test.cjs",
+     "name": "UAT-10"
+    }
+   ]
+  },
+  {
+   "id": "UAT-11",
+   "title": "Hồi tố sau khi kỳ đã khóa",
+   "fr": [
+    "FR-2.3.3",
+    "FR-7.4.1",
+    "FR-7.4.2"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "salary-decisions.test.cjs",
+     "name": "UAT-11"
+    },
+    {
+     "file": "payroll-retro.test.cjs",
+     "name": "UAT-11"
+    },
+    {
+     "file": "payroll-retro.test.cjs",
+     "name": "TC-P09"
+    }
+   ]
+  },
+  {
+   "id": "UAT-12",
+   "title": "Tái hiện khoản chi cũ với tham số cũ",
+   "fr": [
+    "FR-8.4.4",
+    "FR-1.3.2"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T04 / TC-T05"
+    },
+    {
+     "file": "hr-foundation.test.cjs",
+     "name": "Dated legal version preserves historical value"
+    }
+   ]
+  },
+  {
+   "id": "UAT-13",
+   "title": "Gross-up lương NET",
+   "fr": [
+    "FR-8.4.5",
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "pit.test.cjs",
+     "name": "UAT-13"
+    },
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-P03 / UAT-13"
+    }
+   ]
+  },
+  {
+   "id": "UAT-14",
+   "title": "Phân quyền theo tổ",
+   "fr": [
+    "FR-1.1.2",
+    "FR-10.0.1"
+   ],
+   "group": "R1-AC-01",
+   "tests": [
+    {
+     "file": "reports.test.cjs",
+     "name": "UAT-14"
+    }
+   ]
+  },
+  {
+   "id": "UAT-15",
+   "title": "Exclusion list trả rỗng",
+   "fr": [
+    "FR-1.1.3"
+   ],
+   "group": "R1-AC-01",
+   "tests": [
+    {
+     "file": "leave-requests.test.cjs",
+     "name": "excluded people disappear from list and detail"
+    },
+    {
+     "file": "attendance.test.cjs",
+     "name": "Historical exclusions and current assignment"
+    },
+    {
+     "file": "leave.test.cjs",
+     "name": "without list leakage"
+    }
+   ]
+  },
+  {
+   "id": "UAT-16",
+   "title": "Nhập tệp chấm công",
+   "fr": [
+    "FR-4.1.3",
+    "FR-4.1.4"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance.test.cjs",
+     "name": "Reject whole batch"
+    },
+    {
+     "file": "attendance.test.cjs",
+     "name": "Exact repeated records do not rewrite days"
+    }
+   ]
+  },
+  {
+   "id": "UAT-17",
+   "title": "Nghỉ phép có ngày lễ xen giữa",
+   "fr": [
+    "FR-6.3.3"
+   ],
+   "group": "R1-AC-06",
+   "tests": [
+    {
+     "file": "leave-requests.test.cjs",
+     "name": "five scheduled days with one scoped holiday"
+    }
+   ]
+  },
+  {
+   "id": "UAT-18",
+   "title": "Chặn khấu trừ vượt 30% NET",
+   "fr": [
+    "FR-7.2.4"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "CP-04 / CP-05"
+    }
+   ]
+  },
+  {
+   "id": "UAT-19",
+   "title": "Snapshot bất biến",
+   "fr": [
+    "FR-4.5.4",
+    "FR-1.5.3"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "period-lock.test.cjs",
+     "name": "locks canonical full evidence once"
+    },
+    {
+     "file": "period-lock.test.cjs",
+     "name": "LOCKED period rejects"
+    },
+    {
+     "file": "reports.test.cjs",
+     "name": "A locked period re-prints from its snapshot"
+    }
+   ]
+  },
+  {
+   "id": "UAT-20",
+   "title": "Bằng chứng tuân thủ CP-01…CP-09",
+   "fr": [
+    "FR-7.2.10",
+    "FR-7.5.2"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-lock.test.cjs",
+     "name": "UAT-20"
+    }
+   ]
+  },
+  {
+   "id": "UAT-21",
+   "title": "Điều chuyển liên tỉnh giữa kỳ",
+   "fr": [
+    "FR-2.3.1",
+    "FR-2.3.2",
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-02",
+   "tests": [
+    {
+     "file": "payroll-output.test.cjs",
+     "name": "UAT-21"
+    },
+    {
+     "file": "reports.test.cjs",
+     "name": "UAT-21"
+    },
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-P07"
+    },
+    {
+     "file": "salary-decisions.test.cjs",
+     "name": "TC-P07"
+    }
+   ]
+  },
+  {
+   "id": "UAT-22",
+   "title": "Phân quyền theo cơ sở",
+   "fr": [
+    "FR-1.1.2",
+    "FR-10.0.1"
+   ],
+   "group": "R1-AC-01",
+   "tests": [
+    {
+     "file": "reports.test.cjs",
+     "name": "UAT-22"
+    }
+   ]
+  },
+  {
+   "id": "UAT-23",
+   "title": "Ca riêng theo cơ sở",
+   "fr": [
+    "FR-1.4.1",
+    "FR-3.1.3"
+   ],
+   "group": "R1-AC-03",
+   "tests": [
+    {
+     "file": "shift-swap.test.cjs",
+     "name": "UAT-23"
+    }
+   ]
+  },
+  {
+   "id": "UAT-24",
+   "title": "Hai kỳ liên tiếp và ca qua ngày chốt",
+   "fr": [
+    "FR-1.5.1",
+    "FR-1.5.2",
+    "FR-4.1.1",
+    "FR-4.2.3"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance.test.cjs",
+     "name": "Mixed cutoff file routes"
+    },
+    {
+     "file": "attendance.test.cjs",
+     "name": "Locked destination retains late log"
+    },
+    {
+     "file": "period-lock.test.cjs",
+     "name": "initialization/precedessor gates"
+    },
+    {
+     "file": "hr-foundation.test.cjs",
+     "name": "concurrent period overlap"
+    }
+   ]
+  },
+  {
+   "id": "UAT-25",
+   "title": "Đơn nghỉ một cấp duyệt và tỷ lệ vắng",
+   "fr": [
+    "FR-6.3.2",
+    "FR-6.5.1"
+   ],
+   "group": "R1-AC-06",
+   "tests": [
+    {
+     "file": "leave-requests.test.cjs",
+     "name": "decisions enforce TT permission"
+    },
+    {
+     "file": "sickness-maternity.test.cjs",
+     "name": "UAT-25"
+    }
+   ]
+  },
+  {
+   "id": "UAT-26",
+   "title": "Thuế TNCN theo hiệu lực và từng bậc",
+   "fr": [
+    "FR-8.4.1",
+    "FR-8.4.2",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T03 / UAT-26"
+    },
+    {
+     "file": "pit.test.cjs",
+     "name": "TC-T03 / UAT-26"
+    }
+   ]
+  },
+  {
+   "id": "UAT-27",
+   "title": "Chấm dứt hợp đồng",
+   "fr": [
+    "FR-2.5.1",
+    "FR-2.5.2",
+    "FR-9.3.1"
+   ],
+   "group": "R1-AC-02",
+   "tests": [
+    {
+     "file": "termination.test.cjs",
+     "name": "UAT-27 draft"
+    },
+    {
+     "file": "termination.test.cjs",
+     "name": "UAT-27 confirm"
+    }
+   ]
+  },
+  {
+   "id": "UAT-28",
+   "title": "Cấp phát phúc lợi trùng",
+   "fr": [
+    "FR-9.2.1"
+   ],
+   "group": "R1-AC-09",
+   "tests": [
+    {
+     "file": "welfare.test.cjs",
+     "name": "UAT-28"
+    }
+   ]
+  },
+  {
+   "id": "TC-A01",
+   "title": "Khử quẹt trùng",
+   "fr": [
+    "FR-4.2.1"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance-engine.test.cjs",
+     "name": "suppresses consecutive duplicates"
+    }
+   ]
+  },
+  {
+   "id": "TC-A02",
+   "title": "Ca C 8 giờ đêm",
+   "fr": [
+    "FR-4.2.4"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-A02"
+    }
+   ]
+  },
+  {
+   "id": "TC-A03",
+   "title": "Ca C thiếu lượt ra → ERR",
+   "fr": [
+    "FR-4.2.6"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance-engine.test.cjs",
+     "name": "reports missing and absent shifts"
+    }
+   ]
+  },
+  {
+   "id": "TC-A04",
+   "title": "Ca C qua ngày chốt về kỳ cũ",
+   "fr": [
+    "FR-4.2.3"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance.test.cjs",
+     "name": "Mixed cutoff file routes"
+    }
+   ]
+  },
+  {
+   "id": "TC-A04b",
+   "title": "OT nối tiếp ca C qua ngày chốt",
+   "fr": [
+    "FR-4.2.2"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "overtime-actual.test.cjs",
+     "name": "Import extends overnight exit to approved OT"
+    }
+   ]
+  },
+  {
+   "id": "TC-A04c",
+   "title": "Vào sớm ngày trước cho ca 00:00",
+   "fr": [
+    "FR-4.2.3"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance-engine.test.cjs",
+     "name": "clips a previous-date early check-in"
+    }
+   ]
+  },
+  {
+   "id": "TC-A04d",
+   "title": "File hỗn hợp, nhập lại không sinh thêm công",
+   "fr": [
+    "FR-4.1.1"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance.test.cjs",
+     "name": "Mixed cutoff file routes"
+    },
+    {
+     "file": "attendance.test.cjs",
+     "name": "Exact repeated records do not rewrite days"
+    }
+   ]
+  },
+  {
+   "id": "TC-A04e",
+   "title": "Kỳ cũ LOCKED → hồ sơ muộn",
+   "fr": [
+    "FR-1.5.3"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance.test.cjs",
+     "name": "Locked destination retains late log"
+    }
+   ]
+  },
+  {
+   "id": "TC-A04f",
+   "title": "Lượt AUTO mơ hồ → ngoại lệ",
+   "fr": [
+    "FR-4.2.2"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "attendance-engine.test.cjs",
+     "name": "marks AUTO punches matching both schedule windows"
+    }
+   ]
+  },
+  {
+   "id": "TC-K01",
+   "title": "Mở kỳ sau khi kỳ trước chưa khóa",
+   "fr": [
+    "FR-1.5.1"
+   ],
+   "group": "R1-AC-01",
+   "tests": [
+    {
+     "file": "attendance.test.cjs",
+     "name": "planned destination waits then processes on open"
+    }
+   ]
+  },
+  {
+   "id": "TC-K02",
+   "title": "Chống chồng kỳ",
+   "fr": [
+    "FR-1.5.1"
+   ],
+   "group": "R1-AC-01",
+   "tests": [
+    {
+     "file": "hr-foundation.test.cjs",
+     "name": "concurrent period overlap"
+    }
+   ]
+  },
+  {
+   "id": "TC-K03",
+   "title": "Chưa qua cửa sổ Ra → không chốt",
+   "fr": [
+    "FR-4.5.2"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "team-confirmation.test.cjs",
+     "name": "includes the overnight collection window"
+    }
+   ]
+  },
+  {
+   "id": "TC-K04",
+   "title": "KT trả kỳ có lý do",
+   "fr": [
+    "FR-1.5.2"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "period-lock.test.cjs",
+     "name": "QD return requires a reason"
+    }
+   ]
+  },
+  {
+   "id": "TC-K05",
+   "title": "PREV_PERIOD_NOT_LOCKED chỉ khi khóa",
+   "fr": [
+    "FR-1.5.2"
+   ],
+   "group": "R1-AC-01",
+   "tests": [
+    {
+     "file": "period-lock.test.cjs",
+     "name": "initialization/precedessor gates"
+    }
+   ]
+  },
+  {
+   "id": "TC-K06",
+   "title": "Kỳ lương cần mọi nguồn công đã khóa",
+   "fr": [
+    "FR-7.2.1"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-run.test.cjs",
+     "name": "TC-K06"
+    },
+    {
+     "file": "payroll-lock.test.cjs",
+     "name": "TC-K06"
+    }
+   ]
+  },
+  {
+   "id": "TC-K07",
+   "title": "Đồng thời ghi và khóa",
+   "fr": [
+    "FR-1.5.2"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "period-lock.test.cjs",
+     "name": "LOCKED period rejects stale commands"
+    },
+    {
+     "file": "workshop-closure.test.cjs",
+     "name": "concurrent close produces one immutable history row"
+    }
+   ]
+  },
+  {
+   "id": "TC-K08",
+   "title": "Thiếu nguồn/xác nhận → không chốt",
+   "fr": [
+    "FR-4.5.2"
+   ],
+   "group": "R1-AC-04",
+   "tests": [
+    {
+     "file": "period-lock.test.cjs",
+     "name": "collection, confirmation, and frozen workshop freshness"
+    },
+    {
+     "file": "team-confirmation.test.cjs",
+     "name": "unresolved source records"
+    }
+   ]
+  },
+  {
+   "id": "TC-B01",
+   "title": "Tắt quy đổi OT vẫn trả tiền",
+   "fr": [
+    "FR-5.5.1"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-B01"
+    },
+    {
+     "file": "overtime-pay.test.cjs",
+     "name": "TC-B01..B03"
+    }
+   ]
+  },
+  {
+   "id": "TC-B02",
+   "title": "Nghỉ bù lễ không bị cờ quy đổi ảnh hưởng",
+   "fr": [
+    "FR-5.5.1"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay.test.cjs",
+     "name": "TC-B01..B03"
+    }
+   ]
+  },
+  {
+   "id": "TC-B03",
+   "title": "Số dư quỹ cũ giữ đối soát",
+   "fr": [
+    "FR-5.5.1"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay.test.cjs",
+     "name": "TC-B01..B03"
+    }
+   ]
+  },
+  {
+   "id": "TC-I01",
+   "title": "FIX-01…FIX-09",
+   "fr": [
+    "FR-7.1.4"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-I01"
+    },
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "FIX-01"
+    },
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "FIX-02"
+    }
+   ]
+  },
+  {
+   "id": "TC-I02",
+   "title": "MISSING/CONFIRMED_ZERO/NOT_APPLICABLE",
+   "fr": [
+    "FR-7.2.7"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-I02"
+    },
+    {
+     "file": "payroll-inputs.test.cjs",
+     "name": "MISSING never becomes zero"
+    }
+   ]
+  },
+  {
+   "id": "TC-I03",
+   "title": "Nhập trùng nguồn",
+   "fr": [
+    "FR-7.2.7"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-I03"
+    },
+    {
+     "file": "payroll-inputs.test.cjs",
+     "name": "source key idempotency"
+    }
+   ]
+  },
+  {
+   "id": "TC-I04",
+   "title": "Hai version đơn giá nối tiếp",
+   "fr": [
+    "FR-7.1.2"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-configuration.test.cjs",
+     "name": "successors use inclusive history"
+    }
+   ]
+  },
+  {
+   "id": "TC-I05",
+   "title": "Sai đơn vị, ngoài miền",
+   "fr": [
+    "FR-7.2.7"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-inputs.test.cjs",
+     "name": "units, exact decimals, formula bounds"
+    }
+   ]
+  },
+  {
+   "id": "TC-I06",
+   "title": "Nguồn chưa nghiệm thu không dùng chính thức",
+   "fr": [
+    "FR-7.2.7"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-inputs.test.cjs",
+     "name": "confirmation exposes only active confirmed"
+    }
+   ]
+  },
+  {
+   "id": "TC-I07",
+   "title": "Chồng phương án/cộng trùng",
+   "fr": [
+    "FR-7.1.4"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-I07"
+    },
+    {
+     "file": "payroll-retro.test.cjs",
+     "name": "TC-I07"
+    }
+   ]
+  },
+  {
+   "id": "TC-I08",
+   "title": "Khoán tổ có bảng phân bổ",
+   "fr": [
+    "FR-7.1.4"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-I08"
+    },
+    {
+     "file": "payroll-inputs.test.cjs",
+     "name": "team allocations require explicit balanced totals"
+    }
+   ]
+  },
+  {
+   "id": "TC-I09",
+   "title": "Sửa đầu vào sau duyệt/sau khóa",
+   "fr": [
+    "FR-7.5.1"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-lock.test.cjs",
+     "name": "TC-I09"
+    }
+   ]
+  },
+  {
+   "id": "TC-I10",
+   "title": "Đơn giá OT lương thời gian",
+   "fr": [
+    "FR-7.2.2"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-I10"
+    }
+   ]
+  },
+  {
+   "id": "TC-I11",
+   "title": "TT/QĐ không sửa đầu vào lương",
+   "fr": [
+    "FR-7.2.7"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-inputs.test.cjs",
+     "name": "mixed employee scope, dated exclusions"
+    },
+    {
+     "file": "payroll-inputs.test.cjs",
+     "name": "read-only KT can inspect"
+    }
+   ]
+  },
+  {
+   "id": "TC-I12",
+   "title": "Bộ mô phỏng giữ SIMULATION",
+   "fr": [
+    "FR-7.1.4"
+   ],
+   "group": "R1-AC-12",
+   "tests": []
+  },
+  {
+   "id": "TC-L01",
+   "title": "Nghỉ 5 ngày có 1 ngày lễ",
+   "fr": [
+    "FR-6.3.3"
+   ],
+   "group": "R1-AC-06",
+   "tests": [
+    {
+     "file": "leave-requests.test.cjs",
+     "name": "five scheduled days with one scoped holiday"
+    }
+   ]
+  },
+  {
+   "id": "TC-L02",
+   "title": "Quỹ phép pro-rata",
+   "fr": [
+    "FR-6.2.1"
+   ],
+   "group": "R1-AC-06",
+   "tests": [
+    {
+     "file": "leave-fund-engine.test.cjs",
+     "name": "prorates 12/14/16 day entitlements"
+    },
+    {
+     "file": "leave.test.cjs",
+     "name": "confirmed months prorate employment"
+    }
+   ]
+  },
+  {
+   "id": "TC-O01",
+   "title": "Hệ số OT TC-O01",
+   "fr": [
+    "FR-5.4.2",
+    "FR-5.4.4"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-O01"
+    }
+   ]
+  },
+  {
+   "id": "TC-O02",
+   "title": "Hệ số OT TC-O02",
+   "fr": [
+    "FR-5.4.2",
+    "FR-5.4.4"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-O02"
+    }
+   ]
+  },
+  {
+   "id": "TC-O03",
+   "title": "Hệ số OT TC-O03",
+   "fr": [
+    "FR-5.4.2",
+    "FR-5.4.4"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-O03"
+    }
+   ]
+  },
+  {
+   "id": "TC-O04",
+   "title": "Hệ số OT TC-O04",
+   "fr": [
+    "FR-5.4.2",
+    "FR-5.4.4"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-O04"
+    }
+   ]
+  },
+  {
+   "id": "TC-O05",
+   "title": "Hệ số OT TC-O05",
+   "fr": [
+    "FR-5.4.2",
+    "FR-5.4.4"
+   ],
+   "group": "R1-AC-05",
+   "tests": [
+    {
+     "file": "overtime-pay-engine.test.cjs",
+     "name": "TC-O05"
+    }
+   ]
+  },
+  {
+   "id": "TC-P01",
+   "title": "Lương TC-P01",
+   "fr": [
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-P01"
+    }
+   ]
+  },
+  {
+   "id": "TC-P02",
+   "title": "Lương TC-P02",
+   "fr": [
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-P02"
+    }
+   ]
+  },
+  {
+   "id": "TC-P03",
+   "title": "Lương TC-P03",
+   "fr": [
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-P03"
+    }
+   ]
+  },
+  {
+   "id": "TC-P06",
+   "title": "Lương TC-P06",
+   "fr": [
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-P06"
+    }
+   ]
+  },
+  {
+   "id": "TC-P07",
+   "title": "Lương TC-P07",
+   "fr": [
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-engine.test.cjs",
+     "name": "TC-P07"
+    }
+   ]
+  },
+  {
+   "id": "TC-P08",
+   "title": "Lương TC-P08",
+   "fr": [
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "salary-decisions.test.cjs",
+     "name": "TC-P08"
+    }
+   ]
+  },
+  {
+   "id": "TC-P09",
+   "title": "Lương TC-P09",
+   "fr": [
+    "FR-7.2.3"
+   ],
+   "group": "R1-AC-07",
+   "tests": [
+    {
+     "file": "payroll-retro.test.cjs",
+     "name": "TC-P09"
+    }
+   ]
+  },
+  {
+   "id": "TC-T01",
+   "title": "Thuế TC-T01",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T01"
+    }
+   ]
+  },
+  {
+   "id": "TC-T02",
+   "title": "Thuế TC-T02",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T02"
+    }
+   ]
+  },
+  {
+   "id": "TC-T03",
+   "title": "Thuế TC-T03",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T03"
+    }
+   ]
+  },
+  {
+   "id": "TC-T04",
+   "title": "Thuế TC-T04",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T04 / TC-T05"
+    }
+   ]
+  },
+  {
+   "id": "TC-T05",
+   "title": "Thuế TC-T05",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T04 / TC-T05"
+    }
+   ]
+  },
+  {
+   "id": "TC-T06",
+   "title": "Thuế TC-T06",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T06"
+    }
+   ]
+  },
+  {
+   "id": "TC-T07",
+   "title": "Thuế TC-T07",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T07"
+    }
+   ]
+  },
+  {
+   "id": "TC-T08",
+   "title": "Thuế TC-T08",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T08"
+    }
+   ]
+  },
+  {
+   "id": "TC-T09",
+   "title": "Thuế TC-T09",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T09"
+    }
+   ]
+  },
+  {
+   "id": "TC-T10",
+   "title": "Thuế TC-T10",
+   "fr": [
+    "FR-8.5.1"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "tax-finalization.test.cjs",
+     "name": "TC-T10"
+    }
+   ]
+  },
+  {
+   "id": "TC-T11",
+   "title": "Thuế TC-T11",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T11"
+    }
+   ]
+  },
+  {
+   "id": "TC-T12",
+   "title": "Thuế TC-T12",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T12"
+    }
+   ]
+  },
+  {
+   "id": "TC-T13",
+   "title": "Thuế TC-T13",
+   "fr": [
+    "FR-8.4.3",
+    "FR-8.4.4"
+   ],
+   "group": "R1-AC-08",
+   "tests": [
+    {
+     "file": "pit-engine.test.cjs",
+     "name": "TC-T13"
+    }
+   ]
+  }
+ ]
+}

@@ -1,5 +1,6 @@
 import { HistoryOutlined, PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AbsenceRatePanel, SiBenefitsPanel } from "./SiBenefitPanels";
 import { Alert, Button, Checkbox, Descriptions, Drawer, Empty, Form, Input, InputNumber, Modal, Pagination, Select, Space, Spin, Table as AntTable, Tabs, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -516,6 +517,8 @@ export function LeaveWorkspace({ user }: { user: AuthUser }) {
     user.permissions.includes("leave.read") ? { key: "requests", label: "Đơn nghỉ", children: <LeaveRequestsWorkspace canPlan={user.permissions.includes("leave.request")} /> } : null,
     user.permissions.includes("leave.read") ? { key: "catalog", label: "Loại nghỉ & chính sách", children: <CatalogWorkspace canConfigure={canConfigure} /> } : null,
     canReadFunds ? { key: "funds", label: "Quỹ phép", children: <FundsWorkspace canManage={user.permissions.includes("leave.balance.manage")} /> } : null,
+    user.roles.includes("KT") && user.permissions.includes("insurance.read") ? { key: "si-benefits", label: "Ốm đau & thai sản", children: <SiBenefitsPanel canManage={user.permissions.includes("insurance.manage")} /> } : null,
+    user.permissions.includes("attendance.read") ? { key: "absence", label: "Tỷ lệ vắng", children: <AbsenceRatePanel /> } : null,
   ].filter(Boolean) as { key: string; label: string; children: React.ReactNode }[], [canConfigure, canReadFunds, user.permissions]);
   return <section className="workspace leave-workspace" aria-labelledby="leave-title"><div className="page-heading"><div><p className="eyebrow">NGHỈ PHÉP / QUỸ PHÉP</p><Title id="leave-title" level={1}>Nghỉ & quỹ phép</Title><Paragraph type="secondary">Quản lý danh mục, chính sách và sổ quỹ phép theo đúng phạm vi quyền được cấp.</Paragraph></div></div><Tabs activeKey={tab} onChange={setTab} items={tabs} /></section>;
 }

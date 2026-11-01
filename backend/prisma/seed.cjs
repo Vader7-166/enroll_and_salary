@@ -1,6 +1,8 @@
 const { seedHrSettings } = require("./seed-hr-settings.cjs");
 const { seedRealistic } = require("./seed-realistic.cjs");
 const { seedLeave } = require("./seed-leave.cjs");
+const { seedWelfare } = require("./seed-welfare.cjs");
+const { seedPayrollProfiles } = require("./seed-payroll-profile.cjs");
 const { PrismaClient } = require("@prisma/client");
 const { createHash, randomBytes } = require("node:crypto");
 const {
@@ -17,8 +19,10 @@ const url = new URL(process.env.DATABASE_URL);
 const statePath = resolve(__dirname, "../../.local/postgres.json");
 const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, "utf8")) : null;
 const managedDemo = state && url.port === String(state.port) && url.username === "hrtp_demo" && url.pathname === "/hrtp_demo";
+// An isolated database may live on a named host (e.g. the docker compose "db" service).
+const isolatedHost = process.env.SEED_ALLOW_ISOLATED === "true" ? process.env.SEED_DB_HOST : undefined;
 if (
-  !["127.0.0.1", "localhost"].includes(url.hostname) ||
+  !["127.0.0.1", "localhost", isolatedHost].filter(Boolean).includes(url.hostname) ||
   (!managedDemo && process.env.SEED_ALLOW_ISOLATED !== "true")
 )
   throw new Error(
@@ -48,7 +52,39 @@ function id(key) {
     hex.slice(20)
   );
 }
-const definitions = [
+// SEED_ADMIN_USERNAME/SEED_ADMIN_PASSWORD replace the five demo accounts with one
+// company-wide admin. The password only applies when the account is first created.
+const adminUsername = process.env.SEED_ADMIN_USERNAME?.trim();
+const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+if (adminUsername || adminPassword) {
+  if (!adminUsername || !adminPassword)
+    throw new Error("Set both SEED_ADMIN_USERNAME and SEED_ADMIN_PASSWORD, or neither.");
+  // Employee codes are "OP-" + username and limited to 32 characters.
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{2,28}$/.test(adminUsername))
+    throw new Error("SEED_ADMIN_USERNAME must be 3-29 characters: letters, digits, '.', '_' or '-'.");
+  // Mirrors the default PasswordPolicyService rules.
+  const minLength = Number(process.env.AUTH_PASSWORD_MIN_LENGTH ?? 12);
+  if (
+    adminPassword.length < minLength ||
+    adminPassword.length > 128 ||
+    !/\p{Lu}/u.test(adminPassword) ||
+    !/\p{Ll}/u.test(adminPassword) ||
+    !/[0-9]/.test(adminPassword) ||
+    !/[^\p{L}\p{N}\s]/u.test(adminPassword)
+  )
+    throw new Error(
+      "SEED_ADMIN_PASSWORD must be " + minLength + "-128 characters with upper and lower case letters, a digit and a symbol.",
+    );
+}
+const definitions = adminUsername ? [
+  {
+    username: adminUsername,
+    role: "AD",
+    scope: "COMPANY",
+    name: process.env.SEED_ADMIN_NAME?.trim() || "Quản trị hệ thống",
+    unit: "HQ-HN-D2",
+  },
+] : [
   {
     username: "tt.bn",
     role: "TT",
@@ -90,16 +126,18 @@ const credentialsPath = resolve(
     resolve(__dirname, "../../.local/demo-accounts.json"),
 );
 async function seed() {
-  const existing = existsSync(credentialsPath)
+  const existing = !adminUsername && existsSync(credentialsPath)
     ? JSON.parse(readFileSync(credentialsPath, "utf8")).accounts
     : [];
   const credentials = definitions.map((d) => ({
     ...d,
     password:
+      adminPassword ||
       existing.find((a) => a.username === d.username)?.password ||
       randomBytes(18).toString("base64url"),
   }));
-  for (const account of credentials) {
+  // An existing env admin keeps its current password, so no credential record is needed.
+  if (!adminUsername) for (const account of credentials) {
     if (
       !existing.some((a) => a.username === account.username) &&
       (await prisma.userAccount.findUnique({
@@ -135,8 +173,8 @@ async function seed() {
       const permissions = {
         TT: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.plan", "attendance.read", "attendance.explain", "attendance.confirm", "overtime.read", "overtime.plan", "leave.read", "leave.request", "leave.balance.read"],
         QD: ["employee.read", "employee.history", "organization.read", "period.read", "shift.read", "shift.approve", "attendance.read", "attendance.review", "overtime.read", "overtime.approve", "leave.read", "leave.balance.read"],
-        KT: ["employee.read", "employee.create", "employee.history", "employee.transfer", "contract.read", "contract.manage", "organization.read", "period.read", "shift.read", "attendance.read", "attendance.lock", "overtime.read", "leave.read", "leave.balance.read", "leave.balance.manage", "payroll.components.read", "payroll.components.manage", "payroll.inputs.read", "payroll.inputs.manage"],
-        AD: ["accounts.manage", "organization.read", "settings.manage", "period.manage", "period.read", "shift.read", "shift.manage", "attendance.read", "attendance.import", "leave.read", "leave.configure"],
+        KT: ["employee.read", "employee.create", "employee.history", "employee.transfer", "contract.read", "contract.manage", "organization.read", "period.read", "shift.read", "attendance.read", "attendance.lock", "overtime.read", "leave.read", "leave.balance.read", "leave.balance.manage", "payroll.components.read", "payroll.components.manage", "payroll.inputs.read", "payroll.inputs.manage", "payroll.profile.read", "payroll.profile.manage", "employee.sensitive.read", "insurance.read", "insurance.manage", "tax.read", "tax.manage", "payroll.read", "payroll.calculate", "payroll.approve", "payroll.lock", "payroll.payslips", "payroll.payment", "payroll.bonus", "payroll.adjust", "welfare.read", "welfare.manage"],
+        AD: ["accounts.manage", "audit.read", "organization.read", "settings.manage", "period.manage", "period.read", "shift.read", "shift.manage", "attendance.read", "attendance.import", "leave.read", "leave.configure", "payroll.profile.read"],
       };
       for (const [code, name] of [
         ["TT", "Tổ trưởng"],
@@ -316,7 +354,7 @@ async function seed() {
         "HQ-HN-D2",
         "A",
       );
-      await tx.employeeExclusion.upsert({
+      if (credentials.some((a) => a.username === "kt.all")) await tx.employeeExclusion.upsert({
         where: { id: id("exclusion:vip") },
         update: {},
         create: {
@@ -328,25 +366,35 @@ async function seed() {
       });
       await seedHrSettings(tx, id, from);
       await seedLeave(tx, id("org:COMPANY"), from);
-      if (dataset === "realistic") realisticSummary = await seedRealistic(tx, id, from);
+      await seedWelfare(tx, id, id("org:COMPANY"), from);
+      if (dataset === "realistic") {
+        realisticSummary = await seedRealistic(tx, id, from);
+        realisticSummary.payrollProfiles = await seedPayrollProfiles(tx);
+      }
     },
     { timeout: 60000 },
   );
-  mkdirSync(dirname(credentialsPath), { recursive: true });
-  if (!existsSync(credentialsPath))
-    writeFileSync(
-      credentialsPath,
-      JSON.stringify(
-        { context: "ACADEMIC_SIMULATION", accounts: credentials },
-        null,
-        2,
-      ),
-      { flag: "wx", mode: 0o600 },
-    );
+  // The env admin's password already lives in the environment; never copy it to disk.
+  if (!adminUsername) {
+    mkdirSync(dirname(credentialsPath), { recursive: true });
+    if (!existsSync(credentialsPath))
+      writeFileSync(
+        credentialsPath,
+        JSON.stringify(
+          { context: "ACADEMIC_SIMULATION", accounts: credentials },
+          null,
+          2,
+        ),
+        { flag: "wx", mode: 0o600 },
+      );
+  }
   if (realisticSummary) console.log("Fictional enterprise snapshot: " + JSON.stringify(realisticSummary));
   console.log(
-    "Seed complete: four sites, four roles, five demo accounts; " +
-      (await prisma.employee.count()) + " employees currently stored. Credentials: " + credentialsPath,
+    adminUsername
+      ? "Seed complete: four sites, four roles, admin account " + adminUsername + "; " +
+          (await prisma.employee.count()) + " employees currently stored."
+      : "Seed complete: four sites, four roles, five demo accounts; " +
+          (await prisma.employee.count()) + " employees currently stored. Credentials: " + credentialsPath,
   );
 }
 seed()

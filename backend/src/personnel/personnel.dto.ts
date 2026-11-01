@@ -45,4 +45,6 @@ export class CreateTransferDto {
   @IsString() @MinLength(1) @MaxLength(80) decisionNumber!: string;
   @Matches(ISO_DATE, { message: "decisionDate phải có dạng YYYY-MM-DD." }) decisionDate!: string;
   @IsString() @MinLength(1) @MaxLength(4_000) reason!: string;
+  /** BR-08 confirmation when moving to a lower wage region with a lower agreed salary the same day. */
+  @IsOptional() @IsString() @MaxLength(2_000) salaryWarningReason?: string;
 }

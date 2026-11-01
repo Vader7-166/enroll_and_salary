@@ -463,3 +463,15 @@ h2.ant-typography { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
   .payroll-input-editor .ant-alert { flex-wrap: wrap; }
   .payroll-input-editor .ant-alert-action { flex-basis: 100%; margin-inline-start: 0; margin-top: 12px; }
 }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.notification-panel { width: min(380px, calc(100vw - 32px)); max-height: 480px; overflow-y: auto; }
+.notification-head { width: 100%; justify-content: space-between; margin-bottom: 4px; }
+.notification-item { cursor: pointer; padding: 8px 4px !important; }
+.notification-item:hover { background: var(--divider); }
+.notification-item.unread { border-left: 3px solid var(--ant-color-primary, #1677ff); padding-left: 8px !important; }
+.audit-value { max-width: 360px; max-height: 160px; overflow: auto; margin: 0; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+.plain-list { margin: 4px 0 0; padding-left: 18px; }
+.assistant-text { white-space: pre-line; margin: 4px 0 8px !important; }
+.assistant-steps { margin: 0; padding-left: 20px; }
+.assistant-steps li { margin-bottom: 6px; }
+.assistant-tag { margin-left: 6px; }
