@@ -1,4 +1,5 @@
 const { test } = require("node:test");
+const { dropDatabase } = require("./http-harness.cjs");
 const assert = require("node:assert/strict");
 const { PrismaClient } = require("@prisma/client");
 const { randomUUID, createHash } = require("node:crypto");
@@ -520,9 +521,7 @@ test(
         await stopped;
       }
       if (db) await db.$disconnect();
-      await admin.$executeRawUnsafe(
-        'DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE)',
-      );
+      await dropDatabase(name);
       await admin.$disconnect();
       rmSync(credentialsPath, { force: true });
     }

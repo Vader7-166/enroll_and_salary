@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const { dropDatabase } = require('./http-harness.cjs');
 const assert = require('node:assert/strict');
 const { PrismaClient } = require('@prisma/client');
 const { randomUUID } = require('node:crypto');
@@ -202,7 +203,7 @@ test('Shift scheduling on isolated PostgreSQL and HTTP API', { timeout: 120000 }
   } finally {
     if (server && server.exitCode === null) { const stopped = new Promise(r => server.once('exit', r)); server.kill(); await stopped; }
     if (db) await db.$disconnect();
-    await admin.$executeRawUnsafe('DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE)');
+    await dropDatabase(name);
     await admin.$disconnect(); rmSync(credentialsPath, { force: true });
   }
 });
