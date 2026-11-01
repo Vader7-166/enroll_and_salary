@@ -6,3 +6,7 @@ node_modules/
 !.env.example
 .local/
 *.log
+
+# Encrypted database backups and local TLS material never go to git.
+backups/
+deploy/certs/
