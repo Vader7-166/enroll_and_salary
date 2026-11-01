@@ -45,13 +45,13 @@ function minutes(value: number): string {
 
 function rawStateTag(state: RawPunchState) {
   const color: Record<RawPunchState, string> = {
-    PROCESSED: "green", WAITING: "gold", LATE: "orange", UNMATCHED: "red", AMBIGUOUS: "volcano", SUPPRESSED: "default",
+    PROCESSED: "success", WAITING: "warning", LATE: "warning", UNMATCHED: "error", AMBIGUOUS: "error", SUPPRESSED: "default",
   };
   return <Tag className="attendance-state" color={color[state]}>{rawStateLabels[state]}</Tag>;
 }
 
 function batchStatus(batch: Batch) {
-  const color = batch.status === "REJECTED" ? "red" : batch.status === "ACCEPTED_WITH_EXCEPTIONS" ? "orange" : "green";
+  const color = batch.status === "REJECTED" ? "error" : batch.status === "ACCEPTED_WITH_EXCEPTIONS" ? "warning" : "success";
   const label = batch.status === "REJECTED" ? "Từ chối" : batch.status === "ACCEPTED_WITH_EXCEPTIONS" ? "Có ngoại lệ" : "Đã nhận";
   return <Tag className="attendance-state" color={color}>{label}</Tag>;
 }
@@ -209,7 +209,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
      { title: "Công", dataIndex: "workUnits", width: 84, align: "right" as const },
      { title: "Nghỉ đã duyệt", width: 150, render: (_: unknown, row: DailyRow) => row.leave.symbols?.length ? <>{row.leave.symbols.map(s=><Tag key={s}>{s}</Tag>)}<span className="table-subtext">{minutes(row.leave.minutes??0)}</span></> : "—" },
     { title: "Làm việc", width: 102, align: "right" as const, render: (_: unknown, row: DailyRow) => minutes(row.workedMinutes) },
-    { title: "Ngoại lệ", width: 210, render: (_: unknown, row: DailyRow) => row.flags.length ? <Space size={[4, 4]} wrap>{row.flags.map(flag => <Tag className="attendance-state" color="orange" key={flag}>{attendanceFlagLabels[flag] ?? "Ngoại lệ cần rà soát"}</Tag>)}</Space> : <Tag className="attendance-state" color="green">Đủ</Tag> },
+    { title: "Ngoại lệ", width: 210, render: (_: unknown, row: DailyRow) => row.flags.length ? <Space size={[4, 4]} wrap>{row.flags.map(flag => <Tag className="attendance-state" color="warning" key={flag}>{attendanceFlagLabels[flag] ?? "Ngoại lệ cần rà soát"}</Tag>)}</Space> : <Tag className="attendance-state" color="success">Đủ</Tag> },
     { title: "Giải trình", width: 135, render: (_: unknown, row: DailyRow) => row.correctionId ? <Button type="link" onClick={(event) => { event.stopPropagation(); setFocusCorrectionId(row.correctionId ?? undefined); setTab("corrections"); }}>Đã giải trình/điều chỉnh</Button> : <Text type="secondary">Chưa có</Text> },
   ];
   const rawColumns = [

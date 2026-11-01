@@ -48,7 +48,7 @@ function minutes(value: number): string {
 }
 
 function flagTags(flags: string[]) {
-  return flags.length ? <Space size={[4, 4]} wrap>{flags.map(flag => <Tag className="attendance-state" key={flag} color={flag === "UNAPPROVED_WORK" || flag === "APPROVED_NOT_WORKED" ? "volcano" : "gold"}>{FLAG_LABELS[flag] ?? "Ngoại lệ cần rà soát"}</Tag>)}</Space> : <Text type="secondary">Không có</Text>;
+  return flags.length ? <Space size={[4, 4]} wrap>{flags.map(flag => <Tag className="attendance-state" key={flag} color={flag === "UNAPPROVED_WORK" || flag === "APPROVED_NOT_WORKED" ? "error" : "warning"}>{FLAG_LABELS[flag] ?? "Ngoại lệ cần rà soát"}</Tag>)}</Space> : <Text type="secondary">Không có</Text>;
 }
 
 function RawPunchTable({ punches }: { punches: RawRow[] }) {
@@ -74,7 +74,7 @@ function SegmentTable({ detail }: { detail: OvertimeActualDetail }) {
     { title: "Kết thúc", dataIndex: "endAt", render: vietnamTime, width: 150 },
     { title: "Ngày / đêm", dataIndex: "kind", width: 100, render: value => value === "NIGHT" ? "Đêm" : "Ngày" },
     { title: "Thời lượng", dataIndex: "minutes", align: "right", width: 100, render: minutes },
-    { title: "Đủ điều kiện", dataIndex: "eligible", width: 130, render: value => <Tag className="attendance-state" color={value ? "green" : "default"}>{value ? "Có" : "Không"}</Tag> },
+    { title: "Đủ điều kiện", dataIndex: "eligible", width: 130, render: value => <Tag className="attendance-state" color={value ? "success" : "default"}>{value ? "Có" : "Không"}</Tag> },
     { title: "Đăng ký liên quan", dataIndex: "requestIds", width: 250, render: (ids: string[]) => ids.length ? ids.map(id => requestTitles.get(id) ?? "Không tìm thấy tên đăng ký").join(", ") : "—" },
   ];
   return <Table<OvertimeActualDetail["segments"][number]> rowKey={segment => `${segment.startAt}-${segment.endAt}-${segment.calendarDate}`} components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={detail.segments} pagination={false} scroll={{ x: 1000 }} locale={{ emptyText: "Không có phân đoạn thực tế." }} />;

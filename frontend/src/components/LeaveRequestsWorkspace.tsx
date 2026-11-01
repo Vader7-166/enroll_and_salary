@@ -10,7 +10,7 @@ const { Title, Paragraph, Text } = Typography;
 const needed = [{ required:true,message:"Trường này là bắt buộc." }];
 const unitLabels = { DAY:"Ngày", HALF:"Nửa ngày", HOUR:"Theo giờ" };
 const statusLabels: Record<LeaveRequestStatus,string> = { DRAFT:"Nháp", PENDING:"Chờ duyệt", RETURNED:"Trả lại", APPROVED:"Đã duyệt", REJECTED:"Từ chối", CANCELLED:"Đã hủy" };
-const statusColors: Record<LeaveRequestStatus,string> = { DRAFT:"default", PENDING:"processing", RETURNED:"warning", APPROVED:"success", REJECTED:"error", CANCELLED:"default" };
+const statusColors: Record<LeaveRequestStatus,string> = { DRAFT:"default", PENDING:"warning", RETURNED:"warning", APPROVED:"success", REJECTED:"error", CANCELLED:"default" };
 const actionLabels: Record<LeaveRequestAction,string> = { approve:"Duyệt đơn nghỉ", return:"Trả lại đơn nghỉ", reject:"Từ chối đơn nghỉ", cancel:"Hủy đơn nghỉ" };
 const historyLabels: Record<string,string> = { CREATE:"Lập nháp", UPDATE:"Sửa đơn", SUBMIT:"Gửi đơn", APPROVE:"Duyệt đơn", RETURN:"Trả lại", REJECT:"Từ chối", CANCEL:"Hủy đơn" };
 function today() { return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()); }

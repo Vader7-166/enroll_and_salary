@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { HTMLAttributes } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircleOutlined, LockOutlined } from "@ant-design/icons";
 import { Alert, Button, Checkbox, Descriptions, Drawer, Empty, Form, Grid, Input, Modal, Skeleton, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { AuthUser } from "../api/hrtp";
@@ -105,7 +106,7 @@ export function AttendancePeriodLockPanel({ user, periodId, onReviewWorkshop }: 
   </li>)}</ul>;
   const workshopColumns: ColumnsType<PeriodLockWorkshop> = [
     { title: "Phân xưởng", width: 260, render: (_, row) => <><strong>{row.workshop.code}</strong><span className="table-subtext">{row.workshop.name}</span></> },
-    { title: "Chốt của Quản đốc", width: 180, render: (_, row) => <><Tag color={row.state === "CLOSED" || row.state === "LOCKED" ? "success" : "warning"}>{workshopLabels[row.state] ?? "Cần rà soát"}</Tag><span className="table-subtext">Phiên bản {row.revision}</span></> },
+    { title: "Chốt của Quản đốc", width: 180, render: (_, row) => <><Tag color={row.state === "CLOSED" || row.state === "LOCKED" ? "default" : "warning"} className={row.state === "CLOSED" || row.state === "LOCKED" ? "status-locked" : undefined} icon={row.state === "CLOSED" ? <CheckCircleOutlined /> : row.state === "LOCKED" ? <LockOutlined /> : undefined}>{workshopLabels[row.state] ?? "Cần rà soát"}</Tag><span className="table-subtext">Phiên bản {row.revision}</span></> },
     { title: "Công / làm việc", width: 160, align: "right", render: (_, row) => <>{number.format(row.summary.workUnits)} công<span className="table-subtext">{number.format(row.summary.workedMinutes)} phút</span></> },
     { title: "OT duyệt / thực tế / đủ điều kiện", width: 240, align: "right", render: (_, row) => `${number.format(row.summary.overtimeApprovedMinutes)} / ${number.format(row.summary.overtimeActualMinutes)} / ${number.format(row.summary.overtimeEligibleMinutes)} phút` },
     { title: "Nghỉ đã duyệt", width: 150, align: "right", render: (_, row) => `${number.format(row.summary.leaveMinutes)} phút` },
@@ -116,7 +117,7 @@ export function AttendancePeriodLockPanel({ user, periodId, onReviewWorkshop }: 
     {review.isLoading && <Skeleton active paragraph={{ rows: 6 }} />}
     {review.isError && <Alert type="error" showIcon message="Không tải được rà soát kỳ công" description={errorMessage(review.error)} action={<Button onClick={refresh}>Thử lại</Button>} />}
     {current && !review.isError && <div className="team-confirmation-stack">
-      <div className="team-confirmation-status"><Tag color={current.period.status === "LOCKED" ? "success" : current.period.status === "CLOSED" ? "processing" : "warning"}>{statusLabels[current.period.status] ?? "Cần kiểm tra trạng thái"}</Tag><Text strong>{current.period.code} · {current.period.scopeName}</Text><Text type="secondary">{current.period.dateFrom} — {current.period.dateTo} · Phiên bản kỳ {current.revision}</Text></div>
+      <div className="team-confirmation-status"><Tag color={current.period.status === "CLOSED" || current.period.status === "LOCKED" ? "default" : current.period.status === "OPEN" ? "success" : "warning"} className={current.period.status === "CLOSED" || current.period.status === "LOCKED" ? "status-locked" : undefined} icon={current.period.status === "CLOSED" ? <CheckCircleOutlined /> : current.period.status === "LOCKED" ? <LockOutlined /> : undefined}>{statusLabels[current.period.status] ?? "Cần kiểm tra trạng thái"}</Tag><Text strong>{current.period.code} · {current.period.scopeName}</Text><Text type="secondary">{current.period.dateFrom} — {current.period.dateTo} · Phiên bản kỳ {current.revision}</Text></div>
       <Descriptions className="team-confirmation-summary" bordered size="small" column={{ xs: 1, sm: 2, xl: 3 }} items={[
         { key: "workshops", label: "Xưởng đã chốt hợp lệ", children: `${current.summary.closedWorkshops} / ${current.summary.workshops}` },
         { key: "people", label: "Nhân sự / ca đã xử lý", children: `${current.summary.employees} người · ${current.summary.processedDays}/${current.summary.scheduledDays} ca` },

@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<CorrectionStatus, string> = {
   DRAFT: "Nháp", PENDING: "Chờ duyệt", RETURNED: "Trả lại", REJECTED: "Từ chối", APPROVED: "Đã duyệt",
 };
 const STATUS_COLOR: Record<CorrectionStatus, string> = {
-  DRAFT: "default", PENDING: "processing", RETURNED: "warning", REJECTED: "error", APPROVED: "success",
+  DRAFT: "default", PENDING: "warning", RETURNED: "warning", REJECTED: "error", APPROVED: "success",
 };
 const HISTORY_LABEL: Record<string, string> = {
   CREATE: "Tạo", UPDATE: "Cập nhật", SUBMIT: "Gửi duyệt", APPROVE: "Duyệt", RETURN: "Trả lại", REJECT: "Từ chối", ADD_EVIDENCE: "Thêm bằng chứng",
@@ -367,7 +367,7 @@ function CorrectionDetail({
         {correction.items.map(item => <div className="correction-detail-item" key={item.id}>
           <Text strong>{item.employee.code} · {item.employee.fullName} · {item.orgUnitCode} · {item.workDate}</Text>
           <p>{item.intervals === null ? "Chỉ giải trình, giữ nguyên lượt quẹt gốc." : item.intervals.length ? item.intervals.map(interval => `${vietnamTime(interval.startAt)} – ${vietnamTime(interval.endAt)}`).join("; ") : "Xác nhận không có khoảng hiện diện."}</p>
-          {item.excuseLateEarly && <Tag color="gold">Có đề nghị miễn đi muộn/về sớm</Tag>}
+          {item.excuseLateEarly && <Tag color="warning">Có đề nghị miễn đi muộn/về sớm</Tag>}
           <div className="correction-snapshots"><SnapshotView title="Trước" value={item.before} /><SnapshotView title="Sau" value={item.after} /></div>
         </div>)}
       </div>
