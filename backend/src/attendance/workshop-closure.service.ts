@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { AuditService } from "../audit/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { AuthUser } from "../auth/auth.types";
 import { PrismaService } from "../database/prisma.service";
 import { LeaveAccessService } from "../leave/leave-access.service";
@@ -29,7 +30,7 @@ const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.Inp
 
 @Injectable()
 export class WorkshopClosureService {
-  constructor(private readonly prisma: PrismaService, private readonly access: LeaveAccessService, private readonly confirmations: TeamConfirmationService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly access: LeaveAccessService, private readonly confirmations: TeamConfirmationService, private readonly audit: AuditService, private readonly notifications: NotificationsService) {}
 
   private transaction<T>(work: (db: Db) => Promise<T>) {
     return this.prisma.$transaction(async db => {
@@ -164,7 +165,7 @@ export class WorkshopClosureService {
 
   async close(user: AuthUser, dto: WorkshopClosureDto, ip?: string) {
     this.assertQd(user);
-    return this.transaction(async db => {
+    const result = await this.transaction(async db => {
       const review = await this.build(db, user, dto, "attendance.review");
       if (review.revision !== dto.revision || review.sourceHash !== dto.sourceHash) throw new ConflictException("Nguồn hoặc xác nhận tổ đã thay đổi; tải lại trước khi chốt.");
       if (!review.canClose) throw new ConflictException("Chưa đủ điều kiện chốt phân xưởng: " + review.blockers.map(blocker => blocker.message).slice(0, 5).join(" "));
@@ -183,8 +184,13 @@ export class WorkshopClosureService {
       const periodClosed = relevant.length > 0 && relevant.every(workshopOrgUnitId => valid.get(workshopOrgUnitId));
       if (periodClosed) await db.businessPeriod.update({ where: { id: dto.periodId }, data: { status: "CLOSED", revision: { increment: 1 } } });
       await this.audit.record({ actorId: user.id, entityType: "attendance_workshop_closure", entityId: entry.id, action: "CLOSE", result: "SUCCESS", newValue: json({ periodId: dto.periodId, workshopOrgUnitId: dto.workshopOrgUnitId, revision: entry.revision, sourceHash: entry.sourceHash, summary: review.summary }), ipAddress: ip }, db);
-      return { id: entry.id, revision: entry.revision, sourceHash: entry.sourceHash, closedAt: entry.occurredAt.toISOString(), periodClosed };
+      return { id: entry.id, revision: entry.revision, sourceHash: entry.sourceHash, closedAt: entry.occurredAt.toISOString(), periodClosed, periodCode: currentPeriod.code, workshop: review.workshop };
     });
+    const { periodCode, workshop, ...response } = result;
+    await this.notifications.emit({ type: "WORKSHOP_CLOSED", linkKey: "attendance", roles: ["KT"], permission: "attendance.lock", scopeOrgUnitId: dto.workshopOrgUnitId, actorId: user.id,
+      payload: { periodId: dto.periodId, workshopOrgUnitId: dto.workshopOrgUnitId, closureId: result.id, periodClosed: result.periodClosed },
+      title: "Phân xưởng " + (workshop?.name ?? "") + " đã chốt bảng công kỳ " + periodCode + (result.periodClosed ? "; kỳ công đã đủ điều kiện khóa" : "") });
+    return response;
   }
 
   async return(user: AuthUser, dto: WorkshopReturnDto, ip?: string) {
