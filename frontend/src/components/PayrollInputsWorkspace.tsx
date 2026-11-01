@@ -1,6 +1,6 @@
 import { DownloadOutlined, FileAddOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, App, Button, Descriptions, Divider, Drawer, Empty, Form, Grid, Input, Modal, Pagination, Select, Skeleton, Space, Table, Tag, Tooltip, Typography, Upload } from "antd";
+import { Alert, App, Button, Checkbox, Descriptions, Divider, Drawer, Empty, Form, Grid, Input, Modal, Pagination, Select, Skeleton, Space, Table, Tag, Tooltip, Typography, Upload } from "antd";
 import type { FormInstance } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { UploadFile } from "antd/es/upload/interface";
@@ -67,17 +67,18 @@ function cleanBatch(values: BatchFormValues): PayrollBatchInput {
 }
 
 function PayrollPeriodEditor({ context, onClose, onSaved }: { context: PayrollInputContext; onClose: () => void; onSaved: (period: PayrollPeriod) => void }) {
-  const [form] = Form.useForm<{ code: string; siteOrgUnitId: string; dateFrom: string; dateTo: string; expectedPaymentDate?: string }>();
-  const mutation = useMutation({ mutationFn: (values: { code: string; siteOrgUnitId: string; dateFrom: string; dateTo: string; expectedPaymentDate?: string }) => payrollInputsApi.createPeriod(prune(values)), onSuccess: ({ period }) => onSaved(period) });
+  const [form] = Form.useForm<{ code: string; siteOrgUnitId: string; dateFrom: string; dateTo: string; expectedPaymentDate?: string; isInitial?: boolean }>();
+  const mutation = useMutation({ mutationFn: (values: { code: string; siteOrgUnitId: string; dateFrom: string; dateTo: string; expectedPaymentDate?: string; isInitial?: boolean }) => payrollInputsApi.createPeriod(prune(values)), onSuccess: ({ period }) => onSaved(period) });
   return <Modal open title="Tạo kỳ nhận đầu vào lương" okText="Tạo kỳ" cancelText="Hủy" confirmLoading={mutation.isPending} onCancel={() => !mutation.isPending && onClose()} onOk={() => form.submit()} destroyOnClose>
     <Form form={form} layout="vertical" requiredMark="optional" onFinish={(values) => mutation.mutate(values)} disabled={mutation.isPending}>
-      <Alert type="info" showIcon message="Đây là kỳ nhận đầu vào lương" description="Kỳ này độc lập với kỳ công. Trạng thái khóa kỳ lương do quy trình tính lương tương lai điều khiển; không có thao tác khóa ở màn hình này." />
+      <Alert type="info" showIcon message="Đây là kỳ nhận đầu vào lương" description="Kỳ này độc lập với kỳ công. Kỳ lương được duyệt và khóa ở màn hình Bảng lương; không có thao tác khóa ở màn hình này." />
       <div className="payroll-input-form-grid">
         <Form.Item name="code" label="Mã kỳ" rules={required}><Input autoComplete="off" placeholder="VD: INPUT-2026-10-BN" /></Form.Item>
         <Form.Item name="siteOrgUnitId" label="Cơ sở" rules={[{ required: true, message: "Chọn cơ sở." }]}><Select ref={preserveRequiredCombobox} showSearch optionFilterProp="label" options={context.managementUnits.filter((unit) => unit.type === "SITE").map((unit) => ({ value: unit.id, label: `${unit.code} · ${unit.name}` }))} /></Form.Item>
         <Form.Item name="dateFrom" label="Từ ngày" rules={[{ required: true, message: "Chọn ngày bắt đầu." }]}><Input type="date" /></Form.Item>
         <Form.Item name="dateTo" label="Đến ngày" dependencies={["dateFrom"]} rules={[{ required: true, message: "Chọn ngày kết thúc." }, ({ getFieldValue }) => ({ validator: (_, value) => !value || value >= getFieldValue("dateFrom") ? Promise.resolve() : Promise.reject(new Error("Ngày kết thúc không được trước ngày bắt đầu.")) })]}><Input type="date" /></Form.Item>
         <Form.Item name="expectedPaymentDate" label="Ngày chi trả dự kiến" className="form-span-2"><Input type="date" /></Form.Item>
+        <Form.Item name="isInitial" valuePropName="checked" className="form-span-2" extra="Chỉ đánh dấu kỳ lương đầu tiên của cơ sở trên hệ thống; kỳ khởi tạo được khóa mà không cần kỳ trước đã khóa."><Checkbox>Kỳ khởi tạo của cơ sở</Checkbox></Form.Item>
       </div>
       {mutation.isError && <Alert type="error" showIcon message="Không tạo được kỳ" description={errorMessage(mutation.error)} />}
     </Form>

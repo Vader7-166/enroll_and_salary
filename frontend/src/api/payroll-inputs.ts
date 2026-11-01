@@ -140,7 +140,7 @@ async function download(path: string): Promise<Blob> {
 export const payrollInputsApi = {
   context: () => api<PayrollInputContext>("/api/payroll-inputs/context"),
   periods: () => api<{ items: PayrollPeriod[] }>("/api/payroll-inputs/periods"),
-  createPeriod: (input: { code: string; siteOrgUnitId: string; dateFrom: string; dateTo: string; expectedPaymentDate?: string }) => api<{ period: PayrollPeriod }>("/api/payroll-inputs/periods", { method: "POST", body: JSON.stringify(input) }),
+  createPeriod: (input: { code: string; siteOrgUnitId: string; dateFrom: string; dateTo: string; expectedPaymentDate?: string; isInitial?: boolean }) => api<{ period: PayrollPeriod }>("/api/payroll-inputs/periods", { method: "POST", body: JSON.stringify(input) }),
   list: (filter: PayrollBatchFilter) => api<{ items: PayrollBatchSummary[]; total: number; page: number; pageSize: number }>("/api/payroll-inputs" + query(filter)),
   detail: (id: string) => api<{ item: PayrollBatch }>(`/api/payroll-inputs/${encodeURIComponent(id)}`),
   create: (input: PayrollBatchInput) => api<{ item: PayrollBatch; duplicate: boolean }>("/api/payroll-inputs", { method: "POST", body: JSON.stringify(input) }),

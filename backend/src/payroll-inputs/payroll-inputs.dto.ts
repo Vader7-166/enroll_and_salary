@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
 
 const DECIMAL = /^-?(?:0|[1-9]\d*)(?:\.\d{1,6})?$/;
 export const INPUT_TYPES = ["TIME","PRODUCT","PIECEWORK","COMMISSION","THREE_P","ALLOWANCE","BONUS","DEDUCTION","EMPLOYER_COST","ADJUSTMENT"] as const;
@@ -12,6 +12,8 @@ export class PayrollPeriodDto {
   @IsDateString() dateFrom!: string;
   @IsDateString() dateTo!: string;
   @IsOptional() @IsDateString() expectedPaymentDate?: string;
+  /** First payroll period of the site: locking skips the previous-period check. */
+  @IsOptional() @IsBoolean() isInitial?: boolean;
 }
 export class PayrollInputValueDto { @IsString() @Matches(/^[A-Z][A-Z0-9_]{0,79}$/) code!: string; @IsString() @MaxLength(32) unit!: string; @IsString() @Matches(DECIMAL) value!: string; }
 export class PayrollInputLineDto {

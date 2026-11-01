@@ -13,6 +13,7 @@ import { PrismaService } from "../database/prisma.service";
 import { effectiveAt } from "../organization/scope.service";
 import { cipherText, plainText } from "../personnel/contract-crypto";
 import { PayrollConfigurationService } from "../payroll-configuration/payroll-configuration.service";
+import { PayrollSourceEvents } from "../payroll-events/payroll-source-events.service";
 import type { PlanLineDto } from "../employee-pay-plans/employee-pay-plans.dto";
 import { INPUT_TYPES, PayrollBatchDto, type PayrollActionDto, type PayrollInputLineDto, type PayrollListQueryDto, type PayrollPeriodDto } from "./payroll-inputs.dto";
 
@@ -68,7 +69,7 @@ function issue(code: string, message: string, line?: PayrollInputLine): Issue {
 @Injectable()
 export class PayrollInputsService {
   private readonly key: Buffer;
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly configurations: PayrollConfigurationService, config: ConfigService) {
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly configurations: PayrollConfigurationService, private readonly events: PayrollSourceEvents, config: ConfigService) {
     this.key = Buffer.from(config.getOrThrow<string>("HR_DATA_KEY"), "base64");
   }
   private assert(user: AuthUser, permission: Permission) {
@@ -193,7 +194,7 @@ export class PayrollInputsService {
       this.requireSiteScope(user, dto.siteOrgUnitId, from, to, "payroll.inputs.manage", access);
       for (const at of points(from, to, access.versions)) if (!access.versions.some(v => v.orgUnitId === dto.siteOrgUnitId && v.type === "SITE" && v.effectiveFrom <= at && (!v.effectiveTo || v.effectiveTo >= at))) throw new BadRequestException("Kỳ đầu vào lương phải thuộc một cơ sở hiệu lực trên toàn khoảng.");
       if (await db.payrollPeriod.findFirst({ where: { siteOrgUnitId: dto.siteOrgUnitId, dateFrom: { lte: to }, dateTo: { gte: from } } })) this.conflict("Kỳ đầu vào lương chồng khoảng với kỳ đã có tại cơ sở.");
-      const period = await db.payrollPeriod.create({ data: { code: clean(dto.code, "Mã kỳ", 64), siteOrgUnitId: dto.siteOrgUnitId, dateFrom: from, dateTo: to, expectedPaymentDate: payment }, include: { siteOrgUnit: { include: { versions: true } } } });
+      const period = await db.payrollPeriod.create({ data: { code: clean(dto.code, "Mã kỳ", 64), siteOrgUnitId: dto.siteOrgUnitId, dateFrom: from, dateTo: to, expectedPaymentDate: payment, isInitial: dto.isInitial ?? false }, include: { siteOrgUnit: { include: { versions: true } } } });
       await this.audit.record({ actorId: user.id, entityType: "payroll_period", entityId: period.id, action: "CREATE", result: "SUCCESS", newValue: json({ code: period.code, dateFrom: dto.dateFrom, dateTo: dto.dateTo }), ipAddress: ip }, db);
       return { period: this.periodView(period) };
     });
@@ -426,6 +427,7 @@ export class PayrollInputsService {
       }
       const saved = await db.payrollInputBatch.findUniqueOrThrow({ where: { id }, include: INCLUDE });
       await this.record(db, user, saved, batch.status, action, reason, ip);
+      if (action === "CONFIRM" || (action === "RETURN" && batch.status === "CONFIRMED")) await this.events.changed(db, { payrollPeriodIds: [batch.payrollPeriodId], source: "PAYROLL_INPUT", reason: `${action} ${batch.sourceSystem}/${batch.sourceDocumentNo}/${batch.sourceVersion}`, actorId: user.id });
       return { item: this.view(await db.payrollInputBatch.findUniqueOrThrow({ where: { id }, include: INCLUDE }), true, true) };
     });
   }
