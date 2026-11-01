@@ -47,9 +47,16 @@ import { SalaryComponentsWorkspace } from "./components/SalaryComponentsWorkspac
 import { PayrollConfigurationWorkspace } from "./components/PayrollConfigurationWorkspace";
 import { EmployeePayPlansWorkspace } from "./components/EmployeePayPlansWorkspace";
 import { PayrollInputsWorkspace } from "./components/PayrollInputsWorkspace";
+import { PayrollWorkspace } from "./components/PayrollWorkspace";
+import { AuditWorkspace } from "./components/AuditWorkspace";
+import { ContractsWorkspace } from "./components/ContractsWorkspace";
+import { WelfareWorkspace } from "./components/WelfareWorkspace";
+import { ReportsWorkspace } from "./components/ReportsWorkspace";
+import { NotificationBell } from "./components/NotificationBell";
+import { AssistantButton } from "./components/AssistantDrawer";
 const { Header, Sider, Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
-type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "employee-pay-plans" | "payroll-inputs" | "health";
+type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "employee-pay-plans" | "payroll-inputs" | "payroll" | "audit" | "contracts" | "welfare" | "reports" | "health";
 const routeTitles: Record<Route, string> = {
   employees: "Nhân sự",
   accounts: "Tài khoản",
@@ -65,7 +72,21 @@ const routeTitles: Record<Route, string> = {
   "payroll-configuration": "Đơn giá & công thức",
   "employee-pay-plans": "Kế hoạch trả lương",
   "payroll-inputs": "Đầu vào lương",
+  payroll: "Bảng lương",
+  audit: "Nhật ký kiểm toán",
+  contracts: "Hợp đồng & chấm dứt",
+  welfare: "Phúc lợi",
+  reports: "Báo cáo",
 };
+
+function canSeePayroll(user: AuthUser): boolean {
+  return user.roles.includes("KT") && (user.permissions.includes("contract.read") || user.permissions.includes("payroll.read"));
+}
+
+/** The server filters the catalog; this only decides whether to show the menu entry. */
+function canSeeReports(user: AuthUser): boolean {
+  return ["attendance.read", "employee.read", "payroll.read", "insurance.read", "tax.read"].some(permission => user.permissions.includes(permission));
+}
 
 function currentRoute(user: AuthUser): Route {
   const route = window.location.hash.replace("#/", "") as Route;
@@ -77,6 +98,11 @@ function currentRoute(user: AuthUser): Route {
           : route === "leave" ? (user.permissions.includes("leave.read") || user.permissions.includes("leave.balance.read"))
           : route === "salary-components" || route === "payroll-configuration" || route === "employee-pay-plans" ? user.roles.includes("KT") && user.permissions.includes("payroll.components.read")
           : route === "payroll-inputs" ? user.roles.includes("KT") && user.permissions.includes("payroll.inputs.read")
+          : route === "payroll" ? canSeePayroll(user)
+          : route === "audit" ? user.permissions.includes("audit.read")
+          : route === "reports" ? canSeeReports(user)
+          : route === "welfare" ? user.roles.includes("KT") && user.permissions.includes("welfare.read")
+          : route === "contracts" ? user.roles.includes("KT") && user.permissions.includes("contract.read")
           : route === "accounts" ? user.permissions.includes("accounts.manage")
             : route === "settings" ? user.permissions.includes("settings.manage")
               : route === "periods" ? user.permissions.includes("period.read")
@@ -212,6 +238,11 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "payroll-configuration", icon: <BankOutlined />, label: "Đơn giá & công thức" } : null,
     user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "employee-pay-plans", icon: <BankOutlined />, label: "Kế hoạch trả lương" } : null,
     user.roles.includes("KT") && user.permissions.includes("payroll.inputs.read") ? { key: "payroll-inputs", icon: <BankOutlined />, label: "Đầu vào lương" } : null,
+    canSeePayroll(user) ? { key: "payroll", icon: <BankOutlined />, label: "Bảng lương" } : null,
+    canSeeReports(user) ? { key: "reports", icon: <AuditOutlined />, label: "Báo cáo" } : null,
+    user.roles.includes("KT") && user.permissions.includes("welfare.read") ? { key: "welfare", icon: <BankOutlined />, label: "Phúc lợi" } : null,
+    user.roles.includes("KT") && user.permissions.includes("contract.read") ? { key: "contracts", icon: <TeamOutlined />, label: "Hợp đồng & chấm dứt" } : null,
+    user.permissions.includes("audit.read") ? { key: "audit", icon: <AuditOutlined />, label: "Nhật ký kiểm toán" } : null,
     { key: "organization", icon: <ApartmentOutlined />, label: "Tổ chức" },
     { key: "health", icon: <AuditOutlined />, label: "Hệ thống" },
   ].filter(Boolean) as { key: Route; icon: React.ReactNode; label: string }[];
@@ -261,6 +292,16 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       <EmployeePayPlansWorkspace user={user} />
     ) : route === "payroll-inputs" ? (
       <PayrollInputsWorkspace user={user} />
+    ) : route === "payroll" ? (
+      <PayrollWorkspace user={user} />
+    ) : route === "reports" ? (
+      <ReportsWorkspace />
+    ) : route === "welfare" ? (
+      <WelfareWorkspace user={user} />
+    ) : route === "contracts" ? (
+      <ContractsWorkspace user={user} />
+    ) : route === "audit" ? (
+      <AuditWorkspace />
     ) : route === "organization" ? (
       <OrganizationPage />
     ) : (
@@ -308,6 +349,9 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             <span aria-hidden="true">/</span>
             <strong>{scope}</strong>
           </div>
+          <div className="header-actions">
+          <AssistantButton pageKey={route} onNavigate={(next) => navigate(next as Route)} />
+          <NotificationBell onOpen={(linkKey) => navigate(linkKey as Route)} />
           <Dropdown
             menu={{
               items: [
@@ -336,6 +380,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
               </span>
             </Button>
           </Dropdown>
+          </div>
         </Header>
         <Content id="main" className="app-content">
           {body}
