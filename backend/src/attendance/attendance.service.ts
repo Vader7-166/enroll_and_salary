@@ -428,8 +428,9 @@ export class AttendanceService {
         unapproved_minutes: actual.unapprovedMinutes, unworked_approved_minutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: { ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }, processed_at: new Date().toISOString() });
     }
     // Batched upsert that only proposes changed rows: unchanged results skip the per-row period/workshop guard triggers.
-    for (let offset = 0; offset < actualRecords.length; offset += 2000) {
-      const rows = JSON.stringify(actualRecords.slice(offset, offset + 2000));
+    // 500 rows per statement: both tables run per-row guard triggers and DATABASE_URL caps a statement at socket_timeout (3 s).
+    for (let offset = 0; offset < actualRecords.length; offset += 500) {
+      const rows = JSON.stringify(actualRecords.slice(offset, offset + 500));
       await db.$executeRaw`INSERT INTO overtime_actual (id,employee_id,org_unit_id,work_date,period_id,source_dates,adjustment_id,requested_minutes,approved_minutes,actual_minutes,eligible_minutes,day_minutes,night_minutes,unapproved_minutes,unworked_approved_minutes,flags,evidence,processed_at)
         SELECT x.id,x.employee_id,x.org_unit_id,x.work_date,x.period_id,x.source_dates,x.adjustment_id,x.requested_minutes,x.approved_minutes,x.actual_minutes,x.eligible_minutes,x.day_minutes,x.night_minutes,x.unapproved_minutes,x.unworked_approved_minutes,x.flags,x.evidence,x.processed_at
         FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,employee_id uuid,org_unit_id uuid,work_date date,period_id uuid,source_dates date[],adjustment_id uuid,requested_minutes numeric(12,6),approved_minutes numeric(12,6),actual_minutes numeric(12,6),eligible_minutes numeric(12,6),day_minutes numeric(12,6),night_minutes numeric(12,6),unapproved_minutes numeric(12,6),unworked_approved_minutes numeric(12,6),flags text[],evidence jsonb,processed_at timestamptz)
@@ -452,8 +453,9 @@ export class AttendanceService {
        if (!d.checkInAt && !d.checkOutAt && (leaveResults.get(d.scheduleId)?.minutes ?? 0) < scheduleById.get(d.scheduleId)!.workMinutes && Date.parse(scheduleById.get(d.scheduleId)!.endAt) > now.getTime()) d = {...d,status:"ERR",absent:false,flags:[...d.flags.filter(f=>f!=="ABSENT"),"AWAITING_SHIFT"]};
        return [{ id: randomUUID(), schedule_id: d.scheduleId, employee_id: d.employeeId, org_unit_id: d.orgUnitId, period_id: period.id, work_date: d.workDate, check_in_id: d.checkInId, check_out_id: d.checkOutId, effective_check_in_at: d.checkInAt, effective_check_out_at: d.checkOutAt, adjustment_id: d.adjustmentId ?? null, status: d.status, flags: d.flags, worked_minutes: d.workedMinutes, day_minutes: d.dayMinutes, night_minutes: d.nightMinutes, late_minutes: d.lateMinutes, early_minutes: d.earlyMinutes, absent: d.absent, work_units: d.workUnits, segments: d.segments, leave: leaveResults.get(d.scheduleId), rules: snapshots.get(d.scheduleId), processed_at: now.toISOString() }];
     });
-    for (let offset = 0; offset < dayRecords.length; offset += 2000) {
-      const rows = JSON.stringify(dayRecords.slice(offset, offset + 2000));
+    // 500 rows per statement: both tables run per-row guard triggers and DATABASE_URL caps a statement at socket_timeout (3 s).
+    for (let offset = 0; offset < dayRecords.length; offset += 500) {
+      const rows = JSON.stringify(dayRecords.slice(offset, offset + 500));
        await db.$executeRaw`INSERT INTO daily_attendance (id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,effective_check_in_at,effective_check_out_at,adjustment_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,leave,rules,processed_at)
         SELECT x.id,x.schedule_id,x.employee_id,x.org_unit_id,x.period_id,x.work_date,x.check_in_id,x.check_out_id,x.effective_check_in_at,x.effective_check_out_at,x.adjustment_id,x.status,x.flags,x.worked_minutes,x.day_minutes,x.night_minutes,x.late_minutes,x.early_minutes,x.absent,x.work_units,x.segments,x.leave,x.rules,x.processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,schedule_id uuid,employee_id uuid,org_unit_id uuid,period_id uuid,work_date date,check_in_id uuid,check_out_id uuid,effective_check_in_at timestamptz,effective_check_out_at timestamptz,adjustment_id uuid,status text,flags text[],worked_minutes numeric,day_minutes numeric,night_minutes numeric,late_minutes int,early_minutes int,absent boolean,work_units numeric,segments jsonb,leave jsonb,rules jsonb,processed_at timestamptz)
         LEFT JOIN daily_attendance d ON d.schedule_id = x.schedule_id
