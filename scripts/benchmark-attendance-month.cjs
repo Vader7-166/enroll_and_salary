@@ -8,11 +8,15 @@ const { PrismaClient } = require('@prisma/client');
 const { withServer } = require('../backend/test/http-harness.cjs');
 
 const EMPLOYEES = Number(process.argv[2] ?? 1100);
+// --with-history: every other already-ended day of the window also has punches (≈ 75k), processed once before measuring,
+// as in a site whose earlier weeks were imported. Without it only the measured days have punches.
+const WITH_HISTORY = process.argv.includes('--with-history');
 // Two thirds of the 90 s interactive-transaction timeout of AttendanceService. The first import is the worst case: it
 // writes every already-ended day of both periods (≈ 40k absent days here) for the first time.
 const BUDGET_MS = 60000;
 
 withServer('benchmark_attendance_month', async ({ request, ok, login, url }) => {
+  let historyProcessMs = null;
   const long = new URL(url); long.searchParams.set('socket_timeout', '600'); long.searchParams.set('pool_timeout', '60');
   const db = new PrismaClient({ datasourceUrl: long.href });
   const ad = await login('ad.demo');
@@ -39,6 +43,18 @@ withServer('benchmark_attendance_month', async ({ request, ok, login, url }) => 
     FROM org_assignment a JOIN employee e ON e.id = a.employee_id AND e.code LIKE 'BM%' JOIN shift_plan p ON p.team_org_unit_id = a.org_unit_id AND p.title = 'Benchmark tháng'
     CROSS JOIN generate_series(DATE '2026-09-26', DATE '2026-11-25', INTERVAL '1 day') d`);
   const schedules = Number((await db.$queryRawUnsafe(`SELECT count(*)::int AS n FROM shift_schedule`))[0].n);
+  if (WITH_HISTORY) {
+    const [{ id: batchId }] = await db.$queryRawUnsafe(`INSERT INTO attendance_import (id, site_id, reference_period_id, file_name, file_hash, mapping, status, total_rows, summary, errors, created_by_id)
+      VALUES (gen_random_uuid(), '${site.id}', '${periods[0].id}', 'history.sql', repeat('0', 64), '{}', 'ACCEPTED', 0, '{}', '[]', '${actor.id}') RETURNING id::text`);
+    await db.$executeRawUnsafe(`INSERT INTO raw_punch (id, site_id, employee_id, punched_at, device_code, direction, batch_id, row_number, source)
+      SELECT gen_random_uuid(), '${site.id}', employee_id, at, 'MAY01', dir, '${batchId}', row_number() OVER (), '[]'::jsonb FROM (
+        SELECT employee_id, start_at - INTERVAL '7 minutes' AS at, 'IN' AS dir FROM shift_schedule WHERE work_date BETWEEN DATE '2026-09-26' AND DATE '2026-10-31' AND work_date NOT IN (DATE '2026-10-05', DATE '2026-10-06')
+        UNION ALL SELECT employee_id, end_at + INTERVAL '5 minutes', 'OUT' FROM shift_schedule WHERE work_date BETWEEN DATE '2026-09-26' AND DATE '2026-10-31' AND work_date NOT IN (DATE '2026-10-05', DATE '2026-10-06')) p`);
+    const started = Date.now();
+    await ok('/attendance/process', ad, { siteId: site.id, referencePeriodId: periods[0].id });
+    historyProcessMs = Date.now() - started;
+  }
+  const punchesBefore = Number((await db.$queryRawUnsafe(`SELECT count(*)::int AS n FROM raw_punch`))[0].n);
   await db.$disconnect();
 
   const code = i => 'BM' + String(i).padStart(5, '0');
@@ -55,9 +71,9 @@ withServer('benchmark_attendance_month', async ({ request, ok, login, url }) => 
   };
   const first = await upload('2026-10-05', 'day-1');
   const second = await upload('2026-10-06', 'day-2');
-  const result = { employees: EMPLOYEES, schedules, budgetMs: BUDGET_MS, firstImport: { ms: first.ms, processed: first.summary?.processed }, secondImport: { ms: second.ms, processed: second.summary?.processed },
+  const result = { employees: EMPLOYEES, schedules, withHistory: WITH_HISTORY, punchesBefore, historyProcessMs, budgetMs: BUDGET_MS, firstImport: { ms: first.ms, processed: first.summary?.processed }, secondImport: { ms: second.ms, processed: second.summary?.processed },
     pass: first.ms <= BUDGET_MS && second.ms <= BUDGET_MS, node: process.version };
   console.log(JSON.stringify(result));
   assert.ok(first.summary?.processed >= first.rows * 0.99, 'every punch paired: ' + JSON.stringify(first.summary));
   if (!result.pass) process.exitCode = 1;
-}).catch(error => { console.error(error); process.exitCode = 1; });
+}, WITH_HISTORY ? { env: { ATTENDANCE_TRANSACTION_TIMEOUT_MS: '900000' } } : {}).catch(error => { console.error(error); process.exitCode = 1; });

@@ -211,6 +211,9 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
   };
   const rawDaysById = new Map(rawAttendance.days.map(day => [day.scheduleId, day]));
   const punchesById = new Map(input.punches.map(punch => [punch.id, punch]));
+  // Punches per employee in input order: scanning every punch for every (employee, day) group was quadratic.
+  const punchesByEmployee = new Map<string, EnginePunch[]>();
+  for (const punch of input.punches) { const list = punchesByEmployee.get(punch.employeeId); if (list) list.push(punch); else punchesByEmployee.set(punch.employeeId, [punch]); }
   const resolutionsById = new Map(attendance.punches.map(resolution => [resolution.punchId, resolution]));
   const contextsByGroup = new Map<string, Context[]>();
   for (const context of contexts) {
@@ -303,7 +306,7 @@ export function computeOvertimeAttendance(input: ActualEngineInput): ActualEngin
     const unworkedApprovedMinutes = roundMinutes(Math.max(0, approvedMinutes - eligibleMinutes));
     if (unapprovedMinutes > 0) flags.add("UNAPPROVED_WORK");
     if (unworkedApprovedMinutes > 0 && !flags.has("AWAITING_PUNCHES")) flags.add("APPROVED_NOT_WORKED");
-    const punchIds = input.punches.filter(punch => punch.employeeId === group.employeeId && relevantResolution(resolutionsById.get(punch.id)!, punchesById, groupContexts)).map(punch => punch.id);
+    const punchIds = (punchesByEmployee.get(group.employeeId) ?? []).filter(punch => relevantResolution(resolutionsById.get(punch.id)!, punchesById, groupContexts)).map(punch => punch.id);
     punchIds.push(...standalonePunches.map(punch => punch.id));
     for (const pair of rawPairs) {
       if (pair.checkInId) punchIds.push(pair.checkInId);

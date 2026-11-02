@@ -32,3 +32,19 @@ Lần nhập đầu vẫn ghi ~40.000 ngày vắng đã qua lần đầu tiên q
 
 Số truy vấn giảm ít vì mỗi request vẫn xác thực phiên (cố ý không cache) và đọc phiên bản cache; phần giảm chính là
 các truy vấn nặng nạp toàn bộ `org_unit_version`, vai trò, tham số và chính sách.
+
+## 3. Nhập công khi cửa sổ kỳ đã đầy lượt quẹt (`--with-history`)
+
+Cùng 1.100 nhân viên/67.100 lịch ca, thêm 74.800 lượt quẹt cho mọi ngày đã qua của hai kỳ (như cơ sở đã nhập các tuần trước),
+xử lý một lần rồi đo nhập một ngày. Đây là tình huống dữ liệu demo Bắc Ninh làm mọi lần nhập kỳ tháng 9 vượt cả 300 s.
+
+| Giai đoạn (lần nhập thứ hai) | Trước | Sau |
+|---|---|---|
+| Engine OT thực tế: lọc mọi lượt quẹt cho từng nhóm (nhân viên, ngày) | 119,3 s | 11,1 s (gom theo nhân viên) |
+| Tải lượt quẹt kèm xử lý/kỳ/lịch/kế hoạch (include lồng, IN 77k id) | 15,8–18,2 s | 8,7 s (một truy vấn JOIN) |
+| Duyệt OT thực tế (tổ tiên đơn vị dựng lại mỗi lần gọi; sao chép sâu bằng JSON) | 13,2–41,3 s | 2,3 s + ghi 9,3 s (memo, bỏ sao chép) |
+| Ghi trạng thái lượt quẹt `punch_processing` (ghi lại cả 77k dòng) | 7,6–14,3 s | 3,0 s (chỉ dòng đổi) |
+| **Tổng một lần nhập** | **> 300 s (hủy)** | **lần đầu 63,8 s · lần sau 52,8 s** |
+
+Lần nhập đầu còn vượt ngưỡng 60 s của NFR-08b khoảng 4 s; phần còn lại chủ yếu là ghi ngày công/OT thực tế qua trigger theo
+dòng và tính lại toàn bộ cửa sổ ba kỳ ở mỗi lần nhập (câu hỏi mở của change).

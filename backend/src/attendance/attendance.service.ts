@@ -18,6 +18,9 @@ import { visibleCorrectionViews } from "./correction-view";
 import { applyApprovedLeave, leavePairingSchedule, type ApprovedLeaveSource, type LeaveAttendance } from "./leave-attendance";
 
 type Db = Prisma.TransactionClient;
+// Import/processing transaction budget. 90 s by default; a local demo backfilling months at once may raise it
+// (ATTENDANCE_TRANSACTION_TIMEOUT_MS, validated in config/environment.ts) while the advisory lock blocks other imports.
+const IMPORT_TRANSACTION_TIMEOUT_MS = Number(process.env.ATTENDANCE_TRANSACTION_TIMEOUT_MS ?? 90000);
 type ParameterLookup = (paramCode: string, orgUnitId: string, asOf: Date) => Promise<{ id: string; value: Prisma.JsonValue } | null>;
 type Scope = { allowed: Set<string>; versions: Array<Prisma.OrgUnitVersionGetPayload<{ include: { orgUnit: true; site: true } }>> };
 const DAY = 86400000;
@@ -66,7 +69,7 @@ export class AttendanceService {
       // Same lock as period creation, scheduling and transfer; DB trigger also enforces OPEN.
       await db.$queryRaw`SELECT pg_advisory_xact_lock(8210472)::text AS lock`;
       return fn(db);
-    }, { isolationLevel: "Serializable", timeout: 90000 });
+    }, { isolationLevel: "Serializable", timeout: IMPORT_TRANSACTION_TIMEOUT_MS });
   }
 
   private async siteAccess(user: AuthUser, siteId: string, permission: string, db: Db = this.prisma, date = businessDate()) {
@@ -246,6 +249,37 @@ export class AttendanceService {
     return [...effective.values()];
   }
 
+  /**
+   * Raw punches of the window with their current processing, in the shape of
+   * `rawPunch.findMany({ include: { processing: { include: { period: { select: { status } }, schedule: { select: { workDate, plan: { select: { teamOrgUnitId } } } } } } } })`,
+   * ordered by punched_at, id. One joined query: the nested include issued IN lists of every punch id (≈ 17 s for 77k punches).
+   */
+  private async windowPunches(db: Db, siteId: string, employeeIds: string[] | null, rangeFrom: Date, rangeTo: Date, onlyIds?: Set<string>) {
+    type Row = { id: string; siteId: string; employeeId: string; punchedAt: Date; deviceCode: string; direction: string; batchId: string; rowNumber: number; source: Prisma.JsonValue; createdAt: Date;
+      pScheduleId: string | null; pPeriodId: string | null; pWorkDate: Date | null; pState: string | null; pReason: string | null; pProcessedAt: Date | null; pPunchId: string | null; pPeriodStatus: BusinessPeriod["status"] | null; pScheduleWorkDate: Date | null; pTeamOrgUnitId: string | null };
+    const rows = await db.$queryRaw<Row[]>`
+      SELECT r.id::text, r.site_id::text AS "siteId", r.employee_id::text AS "employeeId", r.punched_at AS "punchedAt", r.device_code AS "deviceCode", r.direction, r.batch_id::text AS "batchId", r.row_number AS "rowNumber", r.source, r.created_at AS "createdAt",
+             pp.punch_id::text AS "pPunchId", pp.schedule_id::text AS "pScheduleId", pp.period_id::text AS "pPeriodId", pp.work_date AS "pWorkDate", pp.state AS "pState", pp.reason AS "pReason", pp.processed_at AS "pProcessedAt",
+             bp.status AS "pPeriodStatus", ss.work_date AS "pScheduleWorkDate", sp.team_org_unit_id::text AS "pTeamOrgUnitId"
+        FROM raw_punch r
+        LEFT JOIN punch_processing pp ON pp.punch_id = r.id
+        LEFT JOIN business_period bp ON bp.id = pp.period_id
+        LEFT JOIN shift_schedule ss ON ss.id = pp.schedule_id
+        LEFT JOIN shift_plan sp ON sp.id = ss.plan_id
+       WHERE r.site_id = ${siteId}::uuid
+         AND (${employeeIds === null} OR r.employee_id = ANY(${employeeIds ?? []}::uuid[]))
+         AND ((r.punched_at >= ${rangeFrom.toISOString()}::timestamptz AND r.punched_at <= ${rangeTo.toISOString()}::timestamptz) OR r.id = ANY(${[...(onlyIds ?? [])]}::uuid[]))
+       ORDER BY r.punched_at ASC, r.id ASC`;
+    return rows.map(row => ({
+      id: row.id, siteId: row.siteId, employeeId: row.employeeId, punchedAt: row.punchedAt, deviceCode: row.deviceCode, direction: row.direction, batchId: row.batchId, rowNumber: row.rowNumber, source: row.source, createdAt: row.createdAt,
+      processing: row.pPunchId === null ? null : {
+        punchId: row.pPunchId, scheduleId: row.pScheduleId, periodId: row.pPeriodId, workDate: row.pWorkDate, state: row.pState!, reason: row.pReason, processedAt: row.pProcessedAt!,
+        period: row.pPeriodId === null ? null : { status: row.pPeriodStatus! },
+        schedule: row.pScheduleId === null ? null : { workDate: row.pScheduleWorkDate!, plan: { teamOrgUnitId: row.pTeamOrgUnitId! } },
+      },
+    }));
+  }
+
   private async processRows(user: AuthUser, siteId: string, reference: BusinessPeriod, db: Db, onlyIds?: Set<string>, permission = "attendance.import", pending: ApprovedAttendanceAdjustment[] = [], leaveTargets: Array<{employeeId:string;workDate:string}> = []): Promise<ImportSummary> {
     const current = await this.scope.load(user, permission, db);
     const periods = await db.businessPeriod.findMany({ where: { scopeOrgUnitId: reference.scopeOrgUnitId, periodType: "ATTENDANCE" }, orderBy: { dateFrom: "asc" } });
@@ -261,7 +295,7 @@ export class AttendanceService {
     // every site's schedules made each import scale with the whole company instead of the site.
     const siteUnitIds = [...new Set((await db.orgUnitVersion.findMany({ where: { siteId, effectiveFrom: { lte: shifted(to, 1) }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: shifted(from, -1) } }] }, select: { orgUnitId: true } })).map(v => v.orgUnitId))];
     const [raw, candidates, overtime, previousActuals] = await Promise.all([
-      db.rawPunch.findMany({ where: { siteId, ...employeeFilter, OR: [{ punchedAt: { gte: rangeFrom, lte: rangeTo } }, ...(onlyIds ? [{ id: { in: [...onlyIds] } }] : [])] }, include: { processing: { include: { period: { select: { status: true } }, schedule: { select: { workDate: true, plan: { select: { teamOrgUnitId: true } } } } } } }, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] }),
+      this.windowPunches(db, siteId, targets.length ? [...new Set(targets.map(i => i.employeeId))] : null, rangeFrom, rangeTo, onlyIds),
       db.shiftSchedule.findMany({ where: { ...employeeFilter, plan: { status: "APPROVED", teamOrgUnitId: { in: siteUnitIds } }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { plan: true, shift: true } }),
       db.overtimeRequest.findMany({ where: { ...(targets.length ? { members: { some: employeeFilter } } : {}), teamOrgUnitId: { in: siteUnitIds }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { members: targets.length ? { where: employeeFilter } : true } }),
       db.overtimeActual.findMany({ where: { ...employeeFilter, workDate: { gte: from, lte: to } }, select: { employeeId: true, orgUnitId: true, workDate: true } }),
@@ -283,7 +317,10 @@ export class AttendanceService {
     const allTargetPeriods = await db.businessPeriod.findMany({ where: { periodType: "ATTENDANCE", dateFrom: { lte: shifted(to, 3) }, dateTo: { gte: shifted(from, -1) } } });
     // Period ancestry must include parents outside the actor's writable scope.
     const hierarchy = await db.orgUnitVersion.findMany({ where: { effectiveFrom: { lte: shifted(to, 3) }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: shifted(from, -1) } }] }, select: { orgUnitId: true, parentId: true, effectiveFrom: true, effectiveTo: true } });
-    const periodParents = (unit: string, day: Date) => ancestors(unit, atDate(hierarchy, day));
+    // Pure in (unit, day) for this call, and called several times per schedule and per OT group: memoized, since each
+    // call filters the whole hierarchy and rebuilds the parent map. Callers only read the returned array.
+    const parentsByUnitDay = new Map<string, string[]>();
+    const periodParents = (unit: string, day: Date) => { const cacheKey = unit + ":" + key(day); let parents = parentsByUnitDay.get(cacheKey); if (!parents) { parents = ancestors(unit, atDate(hierarchy, day)); parentsByUnitDay.set(cacheKey, parents); } return parents; };
     const workshopHistory = await db.attendanceWorkshopClosure.findMany({where:{periodId:{in:allTargetPeriods.map(period=>period.id)}},orderBy:{revision:"desc"},select:{periodId:true,workshopOrgUnitId:true,action:true}});
     const closedWorkshops = new Map<string, boolean>();
     for(const entry of workshopHistory){const id=entry.periodId+":"+entry.workshopOrgUnitId;if(!closedWorkshops.has(id))closedWorkshops.set(id,entry.action==="CLOSE");}
@@ -388,11 +425,11 @@ export class AttendanceService {
       const { employeeId, orgUnitId, ...evidence } = actual;
       actualRecords.push({ id: randomUUID(), employee_id: employeeId, org_unit_id: orgUnitId, work_date: actual.workDate, period_id: period.id, source_dates: sourceDates.map(key), adjustment_id: actual.adjustmentId ?? null,
         requested_minutes: actual.requestedMinutes, approved_minutes: actual.approvedMinutes, actual_minutes: actual.actualMinutes, eligible_minutes: actual.eligibleMinutes, day_minutes: actual.dayMinutes, night_minutes: actual.nightMinutes,
-        unapproved_minutes: actual.unapprovedMinutes, unworked_approved_minutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: json({ ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }), processed_at: new Date().toISOString() });
+        unapproved_minutes: actual.unapprovedMinutes, unworked_approved_minutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: { ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }, processed_at: new Date().toISOString() });
     }
     // Batched upsert that only proposes changed rows: unchanged results skip the per-row period/workshop guard triggers.
-    for (let offset = 0; offset < actualRecords.length; offset += 500) {
-      const rows = JSON.stringify(actualRecords.slice(offset, offset + 500));
+    for (let offset = 0; offset < actualRecords.length; offset += 2000) {
+      const rows = JSON.stringify(actualRecords.slice(offset, offset + 2000));
       await db.$executeRaw`INSERT INTO overtime_actual (id,employee_id,org_unit_id,work_date,period_id,source_dates,adjustment_id,requested_minutes,approved_minutes,actual_minutes,eligible_minutes,day_minutes,night_minutes,unapproved_minutes,unworked_approved_minutes,flags,evidence,processed_at)
         SELECT x.id,x.employee_id,x.org_unit_id,x.work_date,x.period_id,x.source_dates,x.adjustment_id,x.requested_minutes,x.approved_minutes,x.actual_minutes,x.eligible_minutes,x.day_minutes,x.night_minutes,x.unapproved_minutes,x.unworked_approved_minutes,x.flags,x.evidence,x.processed_at
         FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,employee_id uuid,org_unit_id uuid,work_date date,period_id uuid,source_dates date[],adjustment_id uuid,requested_minutes numeric(12,6),approved_minutes numeric(12,6),actual_minutes numeric(12,6),eligible_minutes numeric(12,6),day_minutes numeric(12,6),night_minutes numeric(12,6),unapproved_minutes numeric(12,6),unworked_approved_minutes numeric(12,6),flags text[],evidence jsonb,processed_at timestamptz)
@@ -415,8 +452,8 @@ export class AttendanceService {
        if (!d.checkInAt && !d.checkOutAt && (leaveResults.get(d.scheduleId)?.minutes ?? 0) < scheduleById.get(d.scheduleId)!.workMinutes && Date.parse(scheduleById.get(d.scheduleId)!.endAt) > now.getTime()) d = {...d,status:"ERR",absent:false,flags:[...d.flags.filter(f=>f!=="ABSENT"),"AWAITING_SHIFT"]};
        return [{ id: randomUUID(), schedule_id: d.scheduleId, employee_id: d.employeeId, org_unit_id: d.orgUnitId, period_id: period.id, work_date: d.workDate, check_in_id: d.checkInId, check_out_id: d.checkOutId, effective_check_in_at: d.checkInAt, effective_check_out_at: d.checkOutAt, adjustment_id: d.adjustmentId ?? null, status: d.status, flags: d.flags, worked_minutes: d.workedMinutes, day_minutes: d.dayMinutes, night_minutes: d.nightMinutes, late_minutes: d.lateMinutes, early_minutes: d.earlyMinutes, absent: d.absent, work_units: d.workUnits, segments: d.segments, leave: leaveResults.get(d.scheduleId), rules: snapshots.get(d.scheduleId), processed_at: now.toISOString() }];
     });
-    for (let offset = 0; offset < dayRecords.length; offset += 500) {
-      const rows = JSON.stringify(dayRecords.slice(offset, offset + 500));
+    for (let offset = 0; offset < dayRecords.length; offset += 2000) {
+      const rows = JSON.stringify(dayRecords.slice(offset, offset + 2000));
        await db.$executeRaw`INSERT INTO daily_attendance (id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,effective_check_in_at,effective_check_out_at,adjustment_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,leave,rules,processed_at)
         SELECT x.id,x.schedule_id,x.employee_id,x.org_unit_id,x.period_id,x.work_date,x.check_in_id,x.check_out_id,x.effective_check_in_at,x.effective_check_out_at,x.adjustment_id,x.status,x.flags,x.worked_minutes,x.day_minutes,x.night_minutes,x.late_minutes,x.early_minutes,x.absent,x.work_units,x.segments,x.leave,x.rules,x.processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,schedule_id uuid,employee_id uuid,org_unit_id uuid,period_id uuid,work_date date,check_in_id uuid,check_out_id uuid,effective_check_in_at timestamptz,effective_check_out_at timestamptz,adjustment_id uuid,status text,flags text[],worked_minutes numeric,day_minutes numeric,night_minutes numeric,late_minutes int,early_minutes int,absent boolean,work_units numeric,segments jsonb,leave jsonb,rules jsonb,processed_at timestamptz)
         LEFT JOIN daily_attendance d ON d.schedule_id = x.schedule_id
@@ -449,9 +486,12 @@ export class AttendanceService {
       return { punch_id: p.punchId, schedule_id: s?.id ?? null, period_id: period?.id ?? null, work_date: s?.workDate ?? route?.workDate ?? null, state, reason, processed_at: now.toISOString() };
     });
     const writableStates = states.filter(state => !preservedProcessing.has(state.punch_id));
-    for (let offset = 0; offset < writableStates.length; offset += 500) {
-      const rows = JSON.stringify(writableStates.slice(offset, offset + 500));
-      await db.$executeRaw`INSERT INTO punch_processing (punch_id,schedule_id,period_id,work_date,state,reason,processed_at) SELECT punch_id,schedule_id,period_id,work_date,state,reason,processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(punch_id uuid,schedule_id uuid,period_id uuid,work_date date,state text,reason text,processed_at timestamptz)
+    for (let offset = 0; offset < writableStates.length; offset += 2000) {
+      const rows = JSON.stringify(writableStates.slice(offset, offset + 2000));
+      // Only changed resolutions are proposed: reprocessing a window re-resolves every punch of the adjacent periods.
+      await db.$executeRaw`INSERT INTO punch_processing (punch_id,schedule_id,period_id,work_date,state,reason,processed_at) SELECT x.punch_id,x.schedule_id,x.period_id,x.work_date,x.state,x.reason,x.processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(punch_id uuid,schedule_id uuid,period_id uuid,work_date date,state text,reason text,processed_at timestamptz)
+      LEFT JOIN punch_processing pp ON pp.punch_id = x.punch_id
+      WHERE pp.punch_id IS NULL OR (pp.schedule_id,pp.period_id,pp.work_date,pp.state,pp.reason) IS DISTINCT FROM (x.schedule_id,x.period_id,x.work_date,x.state,x.reason)
       ON CONFLICT (punch_id) DO UPDATE SET schedule_id=EXCLUDED.schedule_id,period_id=EXCLUDED.period_id,work_date=EXCLUDED.work_date,state=EXCLUDED.state,reason=EXCLUDED.reason,processed_at=EXCLUDED.processed_at`;
     }
     const summary = emptySummary();

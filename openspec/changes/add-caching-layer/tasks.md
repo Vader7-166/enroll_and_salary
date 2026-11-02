@@ -10,6 +10,14 @@
 - [x] 1.8 Đổi nhãn giao diện "Lần xử lý gần nhất"/"Lần đối chiếu gần nhất" thành "Kết quả cập nhật lúc"
 - [x] 1.9 Thêm `benchmark-attendance-month` vào `scripts/benchmark-nightly.cjs`
 
+## 1b. Cửa sổ kỳ đầy lượt quẹt (phát hiện khi nạp dữ liệu demo)
+
+- [x] 1b.1 `benchmark-attendance-month --with-history` (74.800 lượt quẹt sẵn trong cửa sổ); số nền > 300 s
+- [x] 1b.2 Engine OT thực tế: gom lượt quẹt theo nhân viên thay vì lọc toàn bộ cho từng nhóm (119 s → 11 s)
+- [x] 1b.3 Memo `periodParents(unit, day)`; bỏ sao chép sâu bằng JSON của bằng chứng OT thực tế
+- [x] 1b.4 Tải lượt quẹt của cửa sổ bằng một truy vấn JOIN cùng dạng dữ liệu (17 s → 8,7 s); ghi `punch_processing` theo diff; lô 2.000 dòng
+- [x] 1b.5 `ATTENDANCE_TRANSACTION_TIMEOUT_MS` (mặc định 90 s) cho lần nạp bù demo; số sau: 63,8 s lần đầu, 52,8 s lần sau
+
 ## 2. Đo lường
 
 - [x] 2.1 Chế độ `QUERY_METRICS=true`: đếm truy vấn và thời gian truy vấn theo route bằng Prisma query event, log có cấu trúc

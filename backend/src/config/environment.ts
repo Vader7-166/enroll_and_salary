@@ -26,6 +26,8 @@ export function validateEnvironment(config: Record<string, unknown>) {
     return value;
   };
   if (config.COOKIE_SECURE !== undefined && !['true', 'false'].includes(String(config.COOKIE_SECURE))) throw new Error('COOKIE_SECURE must be true or false.');
+  const importTimeout = Number(config.ATTENDANCE_TRANSACTION_TIMEOUT_MS ?? 90000);
+  if (!Number.isInteger(importTimeout) || importTimeout < 10000 || importTimeout > 900000) throw new Error('ATTENDANCE_TRANSACTION_TIMEOUT_MS must be an integer between 10000 and 900000.');
   for (const flag of ['CACHE_REFERENCE_ENABLED', 'QUERY_METRICS'])
     if (config[flag] !== undefined && !['true', 'false'].includes(String(config[flag]))) throw new Error(flag + ' must be true or false.');
   const origins = String(config.WEB_ORIGINS ?? 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173');

@@ -48,6 +48,8 @@ services:
       SEED_ADMIN_NAME: ${ADMIN_NAME:-}
       HR_DATA_KEYS: ${HR_DATA_KEYS:-}
       HR_DATA_KEY_ACTIVE: ${HR_DATA_KEY_ACTIVE:-v1}
+      # Attendance import transaction budget (ms). Keep 90000; raise only for a one-off demo backfill of many weeks.
+      ATTENDANCE_TRANSACTION_TIMEOUT_MS: ${ATTENDANCE_TRANSACTION_TIMEOUT_MS:-90000}
       AI_BUSINESS_ASSISTANT_ENABLED: ${AI_BUSINESS_ASSISTANT_ENABLED:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}

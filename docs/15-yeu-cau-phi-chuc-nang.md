@@ -47,7 +47,7 @@ không mặc định bổ sung email/đa ngôn ngữ hoặc tích hợp ngoài �
 |---|---|---|---|
 | NFR-07 | 1,5 s | Đạt (engine) | Engine lương + BH + thuế cho 3.000 NV/4 cơ sở, **không gồm đọc/ghi DB**; đo trọn luồng HTTP còn mở |
 | NFR-08 | 27,6 s | Đạt | Nhập + ghép tệp một ngày 4.500 lượt, 2.250 NV một cơ sở |
-| NFR-08b | lần đầu 56,7 s · lần sau 35,3 s (trước: > 90 s, hủy) | Đạt | 02/11/2026, 67.100 lịch ca, change `add-caching-layer`; xem `docs/acceptance/cache-benchmark-2026-11-02.md` |
+| NFR-08b | lần đầu 56,7 s · lần sau 35,3 s (trước: > 90 s, hủy); có sẵn 74.800 lượt quẹt: 63,8 s · 52,8 s (trước: > 300 s) | Đạt (không lịch sử) · **gần đạt** khi cửa sổ đầy (lần đầu vượt 3,8 s) | 02/11/2026, 67.100 lịch ca, change `add-caching-layer`; xem `docs/acceptance/cache-benchmark-2026-11-02.md` |
 | NFR-09 | p95 262 ms (tổ) / 292 ms (xưởng) | Đạt | 20 lần mỗi loại, bảng công 2.500 NV |
 | NFR-10 | 55,6 s | Đạt | 1.100 PDF có mật khẩu đóng gói, không gồm đọc DB |
 | NFR-11 | p95 116 ms | Đạt | 40 lần drill-down trên bảng lương của bộ kiểm thử (quy mô nhỏ) |
