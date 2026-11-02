@@ -76,7 +76,10 @@
     "acceptance:record": "node scripts/record-acceptance.cjs",
     "benchmark:attendance": "npm run build --workspace backend && node scripts/benchmark-attendance.cjs 2500",
     "benchmark:nightly": "npm run build --workspace backend && node scripts/benchmark-nightly.cjs",
-    "backup:restore-drill": "node scripts/restore-drill.cjs"
+    "backup:restore-drill": "node scripts/restore-drill.cjs",
+    "sim:history": "node tools/punch-simulator/history.cjs",
+    "sim:live": "node tools/punch-simulator/server.cjs",
+    "verify:punch-simulator": "npm run build --workspace backend && node tools/punch-simulator/test/smoke.cjs && node tools/punch-simulator/test/live.cjs"
   },
   "devDependencies": {
     "concurrently": "10.0.6"

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giả lập máy chấm công · HRTP</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --mute:#6b7685; --line:#e3e7ec; --brand:#0f766e; --brand-ink:#fff; --warn:#b45309; --bad:#b91c1c; --ok:#15803d; --chip:#eef2f6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  header { display:flex; align-items:center; gap:16px; padding:12px 20px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
+  header .sub { color:var(--mute); font-size:12px; }
+  main { max-width:1280px; margin:0 auto; padding:16px 20px 40px; display:grid; gap:16px; grid-template-columns:minmax(320px,400px) 1fr; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  section h2 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); margin:0 0 10px; font-weight:650; }
+  .col { display:grid; gap:16px; align-content:start; }
+  .clock { font:600 32px/1.1 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:-.01em; }
+  .clock small { display:block; font:500 12px system-ui; color:var(--mute); margin-top:4px; letter-spacing:0; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .row + .row { margin-top:8px; }
+  button { font:inherit; padding:7px 12px; border:1px solid var(--line); background:var(--card); border-radius:7px; cursor:pointer; color:var(--ink); }
+  button:hover:not(:disabled) { border-color:#b9c2cc; background:#fafbfc; }
+  button:disabled { opacity:.45; cursor:default; }
+  button.primary { background:var(--brand); color:var(--brand-ink); border-color:var(--brand); font-weight:600; }
+  button.primary:hover:not(:disabled) { background:#0b5f58; }
+  button.ev { padding:6px 10px; font-size:13px; }
+  input, select { font:inherit; padding:6px 9px; border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--ink); }
+  input[type=number] { width:64px; }
+  label { color:var(--mute); font-size:12px; display:flex; flex-direction:column; gap:3px; }
+  label.inline { flex-direction:row; align-items:center; gap:6px; font-size:13px; color:var(--ink); }
+  .chip { display:inline-block; padding:1px 8px; border-radius:999px; background:var(--chip); font-size:12px; color:#3b4654; }
+  .chip.ok { background:#dcfce7; color:#14532d; } .chip.warn { background:#fef3c7; color:#78350f; } .chip.bad { background:#fee2e2; color:#7f1d1d; } .chip.run { background:#ccfbf1; color:#134e4a; }
+  .banner { padding:9px 12px; border-radius:8px; font-size:13px; }
+  .banner.bad { background:#fee2e2; color:#7f1d1d; border:1px solid #fecaca; }
+  .banner.info { background:#e0f2fe; color:#0c4a6e; border:1px solid #bae6fd; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-weight:600; color:var(--mute); font-size:11px; letter-spacing:.04em; text-transform:uppercase; padding:4px 8px 6px; border-bottom:1px solid var(--line); }
+  td { padding:5px 8px; border-bottom:1px solid #f0f2f5; vertical-align:top; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .mono { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-size:12px; }
+  .scroll { max-height:280px; overflow:auto; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; }
+  .stat { border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .stat b { display:block; font-size:20px; font-variant-numeric:tabular-nums; }
+  .stat span { color:var(--mute); font-size:12px; }
+  .notes { font-size:12px; color:var(--mute); max-height:150px; overflow:auto; }
+  .notes div { padding:2px 0; border-bottom:1px dotted #eef0f3; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; } @media (max-width:900px){ .grid2 { grid-template-columns:1fr; } }
+  .sites { display:flex; gap:10px; flex-wrap:wrap; }
+  .hint { color:var(--mute); font-size:12px; margin-top:6px; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Giả lập máy chấm công</h1><div class="sub" id="api"></div></div>
+  <span id="conn" class="chip">chưa kết nối</span>
+  <span id="runstate" class="chip">dừng</span>
+</header>
+<main>
+  <div class="col">
+    <section id="loginBox">
+      <h2>1 · Kết nối HRTP</h2>
+      <div class="row">
+        <label>Tài khoản<input id="user" value="admin" autocomplete="username"></label>
+        <label>Mật khẩu<input id="pass" type="password" autocomplete="current-password"></label>
+        <button class="primary" id="btnLogin" style="align-self:flex-end">Đăng nhập</button>
+      </div>
+      <div class="hint">Cần tài khoản có quyền nhập chấm công (Admin). Mật khẩu chỉ nằm trong bộ nhớ tiến trình giả lập.</div>
+    </section>
+
+    <section>
+      <h2>2 · Đồng hồ giả lập</h2>
+      <div class="clock" id="clock">—<small id="clockSub"></small></div>
+      <div class="row" style="margin-top:12px">
+        <label>Bắt đầu từ (giờ VN)<input id="from" type="datetime-local"></label>
+        <label>Tốc độ<select id="speed"></select></label>
+      </div>
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="auto" checked> Tự tạo lịch ca nếu thiếu</label>
+      </div>
+      <div class="row" id="siteBox"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="btnStart">Bắt đầu</button>
+        <button id="btnPause">Tạm dừng</button>
+        <button id="btnJump" title="Tua đến 10 phút trước lượt quẹt kế tiếp">Tua đến lượt kế tiếp</button>
+        <button id="btnReset" title="Xóa hàng đợi và bắt đầu lại từ thời điểm trên">Đặt lại</button>
+      </div>
+      <div class="hint">×60 nghĩa là 1 giây thật = 1 phút giả lập; ×3600 chạy hết một ca trong vài giây. Chỉ tua tiến; muốn quay lại hãy Đặt lại.</div>
+    </section>
+
+    <section>
+      <h2>3 · Kích hoạt sự kiện</h2>
+      <div class="row"><label class="inline">Số người <input type="number" id="count" value="10" min="1" max="200"></label></div>
+      <div class="row">
+        <button class="ev" data-ev="late">Đi muộn (trong cửa sổ)</button>
+        <button class="ev" data-ev="veryLate">Đi muộn quá cửa sổ</button>
+        <button class="ev" data-ev="earlyLeave">Về sớm</button>
+        <button class="ev" data-ev="missOut">Quên quẹt ra</button>
+        <button class="ev" data-ev="missIn">Quên quẹt vào</button>
+        <button class="ev" data-ev="overtime">Ở lại tăng ca</button>
+        <button class="ev" data-ev="duplicate">Quẹt trùng</button>
+        <button class="ev" data-ev="badFile">Gửi tệp mã lạ</button>
+      </div>
+      <div class="hint">Sự kiện tác động lên các lượt quẹt đang chờ trong hàng đợi (vào/ra kế tiếp), nên bấm trước giờ ca để thấy rõ.</div>
+      <div class="row" style="margin-top:12px">
+        <label>Quẹt tay: mã nhân viên<input id="mcode" placeholder="vd. BN00004" style="width:130px"></label>
+        <label>Hướng<select id="mdir"><option>IN</option><option>OUT</option></select></label>
+        <button id="btnPunch" style="align-self:flex-end">Quẹt ngay</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Chuẩn bị lịch ca</h2>
+      <div class="row">
+        <label>Từ ngày<input id="pfrom" type="date"></label>
+        <label>Đến ngày<input id="pto" type="date"></label>
+        <button id="btnPrep" style="align-self:flex-end">Tạo lịch ca</button>
+      </div>
+      <div class="hint">Khối trực tiếp xoay A→B→C theo tuần (Nghệ An: A→B), khối gián tiếp làm hành chính T2–T7. Ngày đã có lịch được bỏ qua.</div>
+    </section>
+  </div>
+
+  <div class="col">
+    <div id="error" class="banner bad" hidden></div>
+    <section>
+      <h2>Tổng quan</h2>
+      <div class="stats" id="stats"></div>
+      <div class="row" id="tagged" style="margin-top:10px"></div>
+      <div style="margin-top:12px" class="scroll"><table><thead><tr><th>Cơ sở</th><th class="num">Lượt quẹt</th><th class="num">Tệp</th><th class="num">Đã ghép</th><th class="num">Chờ</th><th class="num">Nộp muộn kỳ</th><th class="num">Công OK*</th><th class="num">Công lỗi*</th><th class="num">Trùng</th><th class="num">Từ chối</th></tr></thead><tbody id="sites"></tbody></table></div>
+      <div class="hint">* Công OK/lỗi tính trên bảng công của hôm qua và hôm nay (giờ giả lập), đọc từ cơ sở dữ liệu. Ngày chưa kết thúc có thể tạm hiện lỗi cho tới khi đủ lượt quẹt ra. Nộp muộn kỳ: lượt quẹt thuộc kỳ công đã đóng.</div>
+    </section>
+    <div class="grid2">
+      <section><h2>Lô đã gửi</h2><div class="scroll"><table><thead><tr><th>Giờ</th><th>Cơ sở</th><th class="num">Dòng</th><th>Kết quả</th></tr></thead><tbody id="feed"></tbody></table></div></section>
+      <section><h2>Lượt quẹt gần nhất</h2><div class="scroll"><table><thead><tr><th>Giờ giả lập</th><th>Mã</th><th>Hướng</th><th>Ghi chú</th></tr></thead><tbody id="recent"></tbody></table></div></section>
+    </div>
+    <section><h2>Sắp tới trong hàng đợi <span class="chip" id="qsize">0</span></h2><div class="scroll"><table><thead><tr><th>Giờ giả lập</th><th>Mã</th><th>Hướng</th><th>Cơ sở</th><th>Ghi chú</th></tr></thead><tbody id="upcoming"></tbody></table></div></section>
+    <section><h2>Nhật ký</h2><div class="notes" id="notes"></div></section>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+let first = true, siteBoxBuilt = false;
+async function call(path, body) {
+  const res = await fetch(path, body === undefined ? {} : { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { show(data.message || 'Lỗi'); throw new Error(data.message); }
+  render(data); return data;
+}
+function show(message) { const e = $('error'); e.hidden = !message; e.textContent = message || ''; }
+function checkedSites() { const all = [...document.querySelectorAll('#siteBox input')]; const on = all.filter(i => i.checked).map(i => i.value); return on.length === all.length ? [] : on; }
+function render(s) {
+  $('api').textContent = 'API: ' + s.apiBase;
+  $('conn').textContent = s.connected ? 'đã kết nối: ' + s.user : 'chưa kết nối'; $('conn').className = 'chip ' + (s.connected ? 'ok' : 'warn');
+  $('runstate').textContent = s.running ? 'đang chạy ×' + s.speed : s.started ? 'tạm dừng' : 'chưa bắt đầu'; $('runstate').className = 'chip ' + (s.running ? 'run' : '');
+  $('clock').firstChild.nodeValue = s.simTime ?? '—';
+  $('clockSub').textContent = s.started ? (s.busy ? 'đang gửi lô…' : 'sẵn sàng') + ' · hàng đợi ' + s.queue + ' lượt' : 'đặt thời điểm bắt đầu rồi bấm Bắt đầu';
+  if (first) { $('speed').innerHTML = s.speeds.map(v => '<option value="' + v + '"' + (v === s.speed ? ' selected' : '') + '>×' + v + '</option>').join(''); first = false; }
+  if (first === false && !$('from').value) $('from').value = s.simInput ?? defaultFrom();
+  if (!siteBoxBuilt && s.sites.length) { $('siteBox').innerHTML = s.sites.map(x => '<label class="inline"><input type="checkbox" value="' + esc(x.code) + '" checked> ' + esc(x.code) + ' <span class="chip">' + x.employees + '</span></label>').join(''); siteBoxBuilt = true; }
+  $('loginBox').style.opacity = s.connected ? .6 : 1;
+  $('btnStart').textContent = s.started ? 'Tiếp tục' : 'Bắt đầu';
+  $('btnStart').disabled = !s.connected || s.running; $('btnPause').disabled = !s.running; $('btnJump').disabled = !s.started; $('btnReset').disabled = !s.connected;
+  for (const b of document.querySelectorAll('[data-ev]')) b.disabled = !s.started && b.dataset.ev !== 'badFile' || !s.connected;
+  $('btnPunch').disabled = !s.started; $('btnPrep').disabled = !s.connected;
+  if (document.activeElement !== $('speed')) $('speed').value = s.speed;
+  show(s.error);
+  const t = s.totals;
+  $('stats').innerHTML = [['Lượt quẹt đã gửi', t.punches], ['Tệp đã gửi', t.files], ['Đã ghép', t.processed], ['Chờ ghép', t.waiting], ['Trùng', t.duplicates], ['Bị từ chối', t.rejected], ['Công OK hôm nay*', s.today?.ok ?? 0], ['Công lỗi hôm nay*', s.today?.err ?? 0], ['Đến hạn, chưa gửi', s.overdue]]
+    .map(([k, v]) => '<div class="stat"><b>' + v.toLocaleString('vi-VN') + '</b><span>' + k + '</span></div>').join('');
+  const tags = Object.entries(s.tagged ?? {});
+  $('tagged').innerHTML = tags.length ? '<span class="hint">Lượt quẹt có sự kiện đã gửi:</span> ' + tags.map(([k, v]) => '<span class="chip warn">' + esc(k) + ' ' + v + '</span>').join(' ') : '';
+  $('sites').innerHTML = Object.entries(s.bySite).map(([k, v]) => '<tr><td>' + esc(k) + '</td>' + [v.punches, v.files, v.processed, v.waiting, v.late, s.today?.bySite?.[k]?.ok ?? 0, s.today?.bySite?.[k]?.err ?? 0, v.duplicates, v.rejected].map(n => '<td class="num">' + n.toLocaleString('vi-VN') + '</td>').join('') + '</tr>').join('') || '<tr><td colspan="10" class="hint">Chưa có lô nào được gửi.</td></tr>';
+  $('feed').innerHTML = s.feed.map(f => { const bad = f.status === 'REJECTED' || f.status === 'ERROR'; const cls = bad ? 'bad' : f.status === 'ACCEPTED' ? 'ok' : 'warn';
+    const detail = bad ? esc((f.errors[0]?.message ?? '').slice(0, 90)) : 'ghép ' + (f.summary.processed ?? 0) + ', chờ ' + (f.summary.waiting ?? 0) + ' · ' + f.ms + ' ms';
+    return '<tr><td class="mono">' + f.at + '</td><td>' + esc(f.site) + '</td><td class="num">' + f.rows + '</td><td><span class="chip ' + cls + '">' + (bad ? 'từ chối' : f.status === 'ACCEPTED' ? 'ổn' : 'có ngoại lệ') + '</span> <span class="hint">' + detail + '</span></td></tr>'; }).join('') || '<tr><td colspan="4" class="hint">Chưa có.</td></tr>';
+  $('recent').innerHTML = s.recent.map(r => '<tr><td class="mono">' + esc(r.at) + '</td><td class="mono">' + esc(r.code) + '</td><td>' + r.dir + '</td><td>' + (r.tag ? '<span class="chip warn">' + esc(r.tag) + '</span>' : '') + '</td></tr>').join('') || '<tr><td colspan="4" class="hint">Chưa có.</td></tr>';
+  $('qsize').textContent = s.queue;
+  $('upcoming').innerHTML = s.upcoming.map(r => '<tr><td class="mono">' + esc(r.at) + '</td><td class="mono">' + esc(r.code) + '</td><td>' + r.dir + '</td><td>' + esc(r.site) + '</td><td>' + (r.tag ? '<span class="chip warn">' + esc(r.tag) + '</span>' : '') + '</td></tr>').join('') || '<tr><td colspan="5" class="hint">Hàng đợi trống.</td></tr>';
+  $('notes').innerHTML = s.notes.map(n => '<div>' + esc(n) + '</div>').join('');
+}
+function defaultFrom() { const d = new Date(Date.now() + 7 * 3600e3); return d.toISOString().slice(0, 10) + 'T05:00'; }
+$('btnLogin').onclick = () => call('/api/login', { username: $('user').value, password: $('pass').value }).then(() => { $('pass').value = ''; }).catch(() => {});
+$('btnStart').onclick = () => call('/api/start', { from: $('from').value, speed: Number($('speed').value), sites: checkedSites(), autoPrepare: $('auto').checked }).catch(() => {});
+$('btnReset').onclick = () => call('/api/start', { reset: true, from: $('from').value, speed: Number($('speed').value), sites: checkedSites(), autoPrepare: $('auto').checked }).catch(() => {});
+$('btnPause').onclick = () => call('/api/pause', {}).catch(() => {});
+$('speed').onchange = () => call('/api/speed', { speed: Number($('speed').value) }).catch(() => {});
+$('btnJump').onclick = () => call('/api/jump', {}).catch(() => {});
+for (const b of document.querySelectorAll('[data-ev]')) b.onclick = () => call('/api/event', { type: b.dataset.ev, count: Number($('count').value) }).catch(() => {});
+$('btnPunch').onclick = () => call('/api/punch', { code: $('mcode').value, dir: $('mdir').value }).catch(() => {});
+$('btnPrep').onclick = () => call('/api/prepare', { from: $('pfrom').value, to: $('pto').value }).catch(() => {});
+$('pfrom').value = $('pto').value = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+async function poll() { try { const s = await (await fetch('/api/state')).json(); render(s); } catch {} setTimeout(poll, 1000); }
+poll();
+</script>
+</body>
+</html>

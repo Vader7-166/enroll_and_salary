@@ -25,6 +25,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    # Explicit tag: the simulator service reuses this image instead of building its own.
+    image: hrtp-backend:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -72,6 +74,43 @@ services:
         condition: service_healthy
     ports:
       - "${WEB_PORT:-8080}:80"
+
+  # Giả lập máy chấm công cho demo (tools/punch-simulator): http://127.0.0.1:4100
+  # Gửi lượt quẹt qua API nhập tệp thật của backend. Không dùng cho môi trường vận hành.
+  # Tắt riêng: docker compose stop simulator. Sinh dữ liệu lịch sử: docker compose exec simulator node history.cjs --dry-run
+  # Dùng lại image backend (Node 22 + Prisma client khớp schema) và gắn mã công cụ chỉ đọc, nên không tốn thêm image.
+  simulator:
+    image: hrtp-backend:latest
+    pull_policy: never
+    working_dir: /app/tools/punch-simulator
+    command: ["node", "server.cjs"]
+    volumes:
+      - ./tools/punch-simulator:/app/tools/punch-simulator:ro
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://hrtp_demo:${POSTGRES_PASSWORD}@db:5432/hrtp_demo?schema=public&connection_limit=3&connect_timeout=5&pool_timeout=10&socket_timeout=120
+      HRTP_SIM_DB_HOST: db
+      HRTP_SIM_API: http://backend:3000/api
+      HRTP_SIM_HOST: 0.0.0.0
+      HRTP_SIM_PORT: 4100
+      # Tự đăng nhập bằng Admin của seed; nếu mật khẩu đã đổi, đăng nhập trên giao diện hoặc đặt SIM_PASSWORD.
+      HRTP_SIM_USER: ${SIM_USERNAME:-${ADMIN_USERNAME}}
+      HRTP_SIM_PASSWORD: ${SIM_PASSWORD:-${ADMIN_PASSWORD}}
+      # true: đồng hồ tự chạy từ giờ hiện tại khi container khởi động (SIM_SPEED=1 là đúng thời gian thực).
+      HRTP_SIM_AUTOSTART: ${SIM_AUTOSTART:-false}
+      HRTP_SIM_SPEED: ${SIM_SPEED:-1}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "127.0.0.1:${SIM_PORT:-4100}:4100"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/api/state').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
 
   # Optional HTTPS front (task 5.1): docker compose --profile tls up -d
   # Needs deploy/certs/tls.crt + tls.key (scripts/dev-tls-cert.sh makes a self-signed pair for testing),
