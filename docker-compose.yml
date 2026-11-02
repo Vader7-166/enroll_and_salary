@@ -107,7 +107,9 @@ services:
       PGUSER: hrtp_demo
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: hrtp_demo
-      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?Set BACKUP_ENCRYPTION_KEY in .env for the backup profile}
+      # Not `:?` here: compose interpolates every service, so a required variable would block `docker compose up`
+      # even without the backup profile. backup.sh refuses to start without the key instead.
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-3600}
       BACKUP_KEEP_HOURS: ${BACKUP_KEEP_HOURS:-48}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-90}
