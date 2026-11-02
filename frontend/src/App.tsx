@@ -79,6 +79,38 @@ const routeTitles: Record<Route, string> = {
   reports: "Báo cáo",
 };
 
+type WorkspaceModule = "personnel" | "attendance" | "leave" | "payroll" | "admin";
+
+const routeModules: Record<Route, WorkspaceModule> = {
+  employees: "personnel",
+  organization: "personnel",
+  contracts: "personnel",
+  periods: "attendance",
+  shifts: "attendance",
+  attendance: "attendance",
+  overtime: "attendance",
+  leave: "leave",
+  "salary-components": "payroll",
+  "payroll-configuration": "payroll",
+  "employee-pay-plans": "payroll",
+  "payroll-inputs": "payroll",
+  payroll: "payroll",
+  welfare: "payroll",
+  reports: "payroll",
+  accounts: "admin",
+  settings: "admin",
+  health: "admin",
+  audit: "admin",
+};
+
+const workspaceModuleIcons: Record<WorkspaceModule, React.ReactNode> = {
+  personnel: <TeamOutlined />,
+  attendance: <CalendarOutlined />,
+  leave: <CalendarOutlined />,
+  payroll: <BankOutlined />,
+  admin: <ApartmentOutlined />,
+};
+
 function canSeePayroll(user: AuthUser): boolean {
   return user.roles.includes("KT") && (user.permissions.includes("contract.read") || user.permissions.includes("payroll.read"));
 }
@@ -252,6 +284,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   };
   const menu = (
     <Menu
+      theme="dark"
       selectedKeys={[route]}
       items={items}
       onClick={({ key }) => navigate(key as Route)}
@@ -308,7 +341,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       <SystemHealth />
     );
   return (
-    <Layout className="app-shell">
+    <Layout className="app-shell" data-module={routeModules[route]}>
       <a className="skip-link" href="#main">
         Đến nội dung chính
       </a>
@@ -317,7 +350,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
         width={240}
         breakpoint="lg"
         collapsedWidth={72}
-        theme="light"
+        theme="dark"
       >
         <div className="side-brand">
           <img src="/favicon.svg" alt="" width="32" height="32" />
@@ -345,6 +378,9 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             onClick={() => setOpen(true)}
           />
           <div className="header-location">
+            <span className="workspace-mark" aria-hidden="true">
+              {workspaceModuleIcons[routeModules[route]]}
+            </span>
             <Text type="secondary">{routeTitles[route]}</Text>
             <span aria-hidden="true">/</span>
             <strong>{scope}</strong>
@@ -382,7 +418,12 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           </Dropdown>
           </div>
         </Header>
-        <Content id="main" className="app-content">
+        <Content
+          id="main"
+          className="app-content"
+          data-module={routeModules[route]}
+        >
+          <span className="workspace-accent" aria-hidden="true" />
           {body}
         </Content>
       </Layout>

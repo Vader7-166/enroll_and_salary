@@ -16,7 +16,7 @@ const statusLabels: Record<OvertimeStatus, string> = {
   DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", RETURNED: "Trả lại", REJECTED: "Từ chối", CANCELLED: "Đã hủy",
 };
 const statusColors: Record<OvertimeStatus, string> = {
-  DRAFT: "default", PENDING: "processing", APPROVED: "success", RETURNED: "warning", REJECTED: "error", CANCELLED: "default",
+  DRAFT: "default", PENDING: "warning", APPROVED: "success", RETURNED: "warning", REJECTED: "error", CANCELLED: "default",
 };
 
 function vietnamToday(): string {

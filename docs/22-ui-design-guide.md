@@ -1,8 +1,8 @@
 # 22. UI design guide — HRTP
 
-Mã **HRTP-UI-01**, dựa trên hướng chủ dự án đã chọn: **Minimalism**, kết hợp **Bento
-grid ở dashboard**. Các token cụ thể bên dưới là chuẩn đề xuất để triển khai nhất quán,
-có thể điều chỉnh tập trung khi review giao diện. Đã có đăng nhập, nhân sự, hợp đồng/
+Mã **HRTP-UI-01**, dùng nền dữ liệu sáng, nhận diện **Navy + Indigo + Teal** và màu nhấn
+theo nhóm nghiệp vụ; **Bento grid chỉ ở dashboard**. Token bên dưới được quản lý
+tập trung để triển khai nhất quán. Đã có đăng nhập, nhân sự, hợp đồng/
 phụ lục và lịch sử điều chuyển; tham số/chính sách hiệu lực, tạo/mở kỳ công; danh mục ca,
 phân ca theo tổ/người/ngày, TT gửi và QĐ duyệt/trả lại, lịch chính thức và snapshot; tổ chức,
 tài khoản/thu hồi phiên và health nối API thật; nhập tệp/ghép quẹt, bảng công/ngoại lệ và truy vết nguồn; đăng ký/gửi/duyệt/trả lại/từ chối OT, hạn mức và snapshot; đối chiếu OT thực tế/đủ điều kiện và bằng chứng quẹt. Chưa tính tiền OT hoặc nghiệm thu toàn bộ UI/R1.
@@ -36,8 +36,9 @@ thích trình duyệt trên máy tính bảng tại xưởng. Các từ desktop/
 breakpoint chỉ kích thước viewport, không phải các ứng dụng riêng. Không thiết kế
 native app, hybrid app, màn hình cài PWA hoặc chế độ offline trong phạm vi này.
 
-- Sáng, rõ, tiết chế; nền xám nhẹ, nội dung trắng, xanh navy cho nhận diện và xanh dương
-  cho hành động. Không dùng blur, kính trong suốt hoặc hiệu ứng nổi/chìm trên dữ liệu.
+- Nền xám xanh nhẹ, nội dung trắng, sidebar navy và indigo cho hành động chính.
+  Teal/tím/cyan/slate phân biệt nhóm nghiệp vụ bằng icon và điểm nhấn nhỏ, không tô
+  cả bảng dữ liệu. Không dùng blur, kính trong suốt hoặc hiệu ứng nổi/chìm trên dữ liệu.
 - Trang nghiệp vụ dành phần lớn diện tích cho bảng và thao tác. Bento phục vụ tổng
   quan; không chuyển từng dòng nhân viên/lương thành card riêng ở desktop.
 - Một tiêu đề trang và một hành động chính tại mỗi vùng làm việc. Không lặp cùng bộ
@@ -56,17 +57,42 @@ native app, hybrid app, màn hình cài PWA hoặc chế độ offline trong ph�
 | Khoảng cách | Theo thang 4/8/12/16/24/32/48px trong JSON |
 | Bo góc | Điều khiển và bề mặt chuẩn 8px; badge dạng pill; không dùng bo góc lớn cho tất cả các khối |
 | Bề mặt | Viền phân chia nhẹ; bóng chỉ cần cho phần nổi như menu/modal/drawer |
-| Màu | Token JSON quản lý màu primary/text/nền/trạng thái; không tự thêm màu riêng cho từng module |
+| Màu | Token JSON quản lý màu primary/text/nền/trạng thái và `modules`; không thêm mã màu riêng vào component |
 
-Nền bề mặt trắng `#FFFFFF`, canvas `#F5F7FA`, chữ `#182230`, nhận diện navy `#172554`,
-primary `#1D4ED8`. Viền phân cách trang trí dùng divider; ranh giới điều khiển có ý
-nghĩa dùng colorBorder/focus đủ rõ. Không dùng divider nhạt làm chỉ dấu duy nhất của ô nhập.
+Nền bề mặt trắng `#FFFFFF`, canvas `#F4F7FC`, chữ `#0F172A`, chữ phụ `#475569`.
+Nhận diện navy `#172554`; primary `#4F46E5`, hover `#4338CA`, active `#3730A3`.
+Link dùng `#4338CA`; màu thông tin vẫn xanh dương `#1D4ED8`, không đồng nhất với primary.
+Viền phân cách dùng `#E2E8F0`; viền điều khiển dùng `#8191A7` (đậm hơn `#94A3B8`
+để đạt tương phản tối thiểu 3:1 trên nền trắng), focus dùng indigo. Không dùng divider
+nhạt làm chỉ dấu duy nhất của ô nhập.
+
+| Thành phần / nhóm | Màu chữ hoặc nhấn | Nền |
+|---|---|---|
+| Sidebar | `#E2E8F0` | `#172554` |
+| Menu được chọn | `#FFFFFF` | `#3730A3`, có chỉ dấu cạnh trái và chữ đậm |
+| Nút phụ có nhấn (`action-secondary`) | `#3730A3` | `#EEF2FF`; hủy/quay lại vẫn trung tính |
+| Header bảng | `#334155` | `#EEF2F8` |
+| Dòng hover / được chọn | Giữ màu chữ | `#F8FAFC` / `#EEF2FF` |
+| Nhân sự / tổ chức (`personnel`) | `#4338CA` | `#EEF2FF` |
+| Kỳ công / ca / chấm công / OT (`attendance`) | `#0F766E` | `#F0FDFA` |
+| Các trang lương (`payroll`) | `#6D28D9` | `#F5F3FF` |
+| Nghỉ & quỹ phép (`leave`) | `#0E7490` | `#ECFEFF` |
+| Tài khoản / thiết lập / hệ thống (`admin`) | `#475569` | `#F1F5F9` |
+
+`App` gắn `data-module` cho shell và vùng nội dung; `theme.ts` xuất CSS variables
+từ `modules` trong JSON. Màu nhóm chỉ dùng cho icon/điểm nhấn/khối tổng hợp, không
+đổi màu nút chính hoặc lấn át màu trạng thái. Không tô mọi số tiền xanh lá.
+Tag/Alert dùng semantic success/warning/error/info; chờ duyệt luôn warning, nháp
+và nguồn bị thay thế dùng neutral. `status-locked` dùng chữ `#334155` trên nền
+`#E2E8F0`, kèm nhãn và icon khác nhau cho CLOSED/LOCKED.
 
 ## 3. Khung ứng dụng và responsive
 
 Desktop: sidebar 240px, thu gọn 72px; header 64px; padding nội dung 24px. Sidebar nền
-trắng, logo/chữ nhận diện navy, mục đang chọn có nền info và nhãn rõ. Header có vị trí
-trang, thông báo trong ứng dụng và tài khoản; không làm header thành vùng KPI.
+navy, chữ sáng; mục đang chọn nền indigo và có chỉ dấu riêng. Menu dài cuộn trong
+sidebar; drawer điều hướng trên màn hình hẹp dùng cùng bảng màu. Header trắng có
+icon màu nhóm nghiệp vụ, vị trí trang, thông báo trong ứng dụng và tài khoản;
+không làm header thành vùng KPI.
 
 Vùng ngữ cảnh nghiệp vụ bên dưới tiêu đề hiển thị **cơ sở/đơn vị, kỳ đang xem và trạng
 thái kỳ**. Kỳ công/kỳ lương/ngày chi trả có nhãn riêng. Chuyển ngữ cảnh phải cảnh báo
@@ -165,7 +191,7 @@ Màu luôn kèm chữ/icon; nhãn Việt là lớp trình bày của enum API, k
 |---|---|---|
 | PLANNED | Lập kế hoạch | Neutral; lập/duyệt ca theo quyền, chưa ghi kết quả chính thức |
 | OPEN | Đang mở | Info; xử lý nghiệp vụ theo quyền và trạng thái xưởng |
-| CLOSED | Đã chốt | Warning; KT có thể trả lại có lý do trước khóa; không sửa trực tiếp |
+| CLOSED | Đã chốt | Locked (trung tính đậm) + icon đã chốt; KT có thể trả lại có lý do trước khóa; không sửa trực tiếp |
 | LOCKED | Đã khóa | Locked + icon khóa; chỉ đọc snapshot, điều chỉnh liên kết ở kỳ mở |
 | Chờ duyệt | Chờ duyệt | Warning; có người/đơn vị chịu trách nhiệm |
 | Đã duyệt | Đã duyệt | Success; vẫn phân biệt với khóa kỳ |

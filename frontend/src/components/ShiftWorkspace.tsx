@@ -12,7 +12,7 @@ import type { PlanFilters, PlanInput, PlanSlot, PlanStatus, ScheduleEntry, Shift
 
 const { Title, Paragraph, Text } = Typography;
 const statusLabels: Record<PlanStatus, string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", RETURNED: "Trả lại", CANCELLED: "Đã hủy" };
-const statusColors: Record<PlanStatus, string> = { DRAFT: "default", PENDING: "processing", APPROVED: "success", RETURNED: "warning", CANCELLED: "default" };
+const statusColors: Record<PlanStatus, string> = { DRAFT: "default", PENDING: "warning", APPROVED: "success", RETURNED: "warning", CANCELLED: "default" };
 const kindLabels: Record<Shift["kind"], string> = { ADMINISTRATIVE: "Hành chính", DAY: "Ca ngày", NIGHT: "Ca đêm" };
 const actionLabels: Record<string, string> = { CREATE: "Tạo lịch", UPDATE: "Sửa lịch", SUBMIT: "Gửi duyệt", APPROVE: "Duyệt", RETURN: "Trả lại", CANCEL: "Hủy lịch" };
 const timeFormatter = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });

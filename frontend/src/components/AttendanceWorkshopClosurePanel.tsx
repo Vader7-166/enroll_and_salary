@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { HTMLAttributes } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircleOutlined, LockOutlined } from "@ant-design/icons";
 import { Alert, Button, Checkbox, Descriptions, Drawer, Empty, Form, Grid, Input, Modal, Select, Space, Spin, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { AuthUser } from "../api/hrtp";
@@ -120,7 +121,7 @@ export function AttendanceWorkshopClosurePanel({ user, periodId, initialWorkshop
     {review.isLoading && workshopId && <Spin tip="Đang kiểm tra nguồn và xác nhận các tổ…"><div className="workshop-loading" /></Spin>}
     {review.isError && <Alert type="error" showIcon message="Không tải được đối soát phân xưởng" description={errorMessage(review.error)} action={<Button onClick={refresh}>Tải lại</Button>} />}
     {current && !review.isError && <div className="team-confirmation-stack">
-      <div className="team-confirmation-status"><Tag color={current.state === "CLOSED" ? "success" : current.state === "STALE" ? "warning" : "processing"}>{stateLabels[current.state]}</Tag><Text strong>{current.workshop.code} · {current.workshop.name}</Text><Text type="secondary">Kỳ {current.period.code} · {current.period.dateFrom} — {current.period.dateTo} · Phiên bản {current.revision}</Text><Tag>{current.period.status === "OPEN" ? "Kỳ đang mở" : current.period.status === "CLOSED" ? "Kỳ đã chốt, chưa khóa" : current.period.status === "LOCKED" ? "Kỳ đã khóa" : "Kỳ chưa mở"}</Tag></div>
+      <div className="team-confirmation-status"><Tag color={current.state === "CLOSED" ? "default" : current.state === "STALE" ? "warning" : "processing"} className={current.state === "CLOSED" ? "status-locked" : undefined} icon={current.state === "CLOSED" ? <CheckCircleOutlined /> : undefined}>{stateLabels[current.state]}</Tag><Text strong>{current.workshop.code} · {current.workshop.name}</Text><Text type="secondary">Kỳ {current.period.code} · {current.period.dateFrom} — {current.period.dateTo} · Phiên bản {current.revision}</Text><Tag color={current.period.status === "CLOSED" || current.period.status === "LOCKED" ? "default" : current.period.status === "OPEN" ? "success" : "warning"} className={current.period.status === "CLOSED" || current.period.status === "LOCKED" ? "status-locked" : undefined} icon={current.period.status === "CLOSED" ? <CheckCircleOutlined /> : current.period.status === "LOCKED" ? <LockOutlined /> : undefined}>{current.period.status === "OPEN" ? "Kỳ đang mở" : current.period.status === "CLOSED" ? "Kỳ đã chốt, chưa khóa" : current.period.status === "LOCKED" ? "Kỳ đã khóa" : "Kỳ chưa mở"}</Tag></div>
       <Descriptions className="team-confirmation-summary" size="small" bordered column={{ xs: 1, sm: 2, xl: 4 }} items={[
         { key: "teams", label: "Tổ đã xác nhận", children: `${current.teams.filter(row => row.state === "CONFIRMED").length} / ${current.teams.length}` },
         { key: "people", label: "Nhân sự / ca", children: `${current.summary.employees} người · ${current.summary.processedDays}/${current.summary.scheduledDays} ca` },
