@@ -18,6 +18,7 @@ import { visibleCorrectionViews } from "./correction-view";
 import { applyApprovedLeave, leavePairingSchedule, type ApprovedLeaveSource, type LeaveAttendance } from "./leave-attendance";
 
 type Db = Prisma.TransactionClient;
+type ParameterLookup = (paramCode: string, orgUnitId: string, asOf: Date) => Promise<{ id: string; value: Prisma.JsonValue } | null>;
 type Scope = { allowed: Set<string>; versions: Array<Prisma.OrgUnitVersionGetPayload<{ include: { orgUnit: true; site: true } }>> };
 const DAY = 86400000;
 const MINUTE = 60000;
@@ -177,10 +178,10 @@ export class AttendanceService {
     });
   }
 
-  async rules(db: Db, orgUnitId: string, date: Date): Promise<{ values: PairingRules; parameterIds: Record<string, string> }> {
+  async rules(db: Db, orgUnitId: string, date: Date, lookup: ParameterLookup = (code, unit, day) => this.settings.resolveLegalParameter(code, "ALL", "WORK_DATE", unit, day, db)): Promise<{ values: PairingRules; parameterIds: Record<string, string> }> {
     const values = {} as PairingRules, parameterIds: Record<string, string> = {};
     for (const name of Object.keys(ruleCodes) as Array<keyof PairingRules>) {
-      const row = await this.settings.resolveLegalParameter(ruleCodes[name], "ALL", "WORK_DATE", orgUnitId, date, db);
+      const row = await lookup(ruleCodes[name], orgUnitId, date);
       const number = row && (typeof row.value === "string" || typeof row.value === "number") ? Number(row.value) : NaN;
       if (!Number.isInteger(number) || number < 0 || number > 360 || (name === "duplicateWindowMinutes" && number === 0)) throw new InternalServerErrorException("Thiếu hoặc sai tham số ghép công: " + ruleCodes[name]);
       values[name] = number; parameterIds[name] = row!.id;
@@ -256,10 +257,13 @@ export class AttendanceService {
     const to = targets.length ? new Date(affectedDates.at(-1)! + "T00:00:00Z") : adjacent.at(-1)?.dateTo ?? reference.dateTo;
     const employeeFilter = targets.length ? { employeeId: { in: [...new Set(targets.map(i => i.employeeId))] } } : {};
     const rangeFrom = new Date(key(shifted(from, -1)) + "T00:00:00+07:00"), rangeTo = new Date(key(shifted(to, 3)) + "T00:00:00+07:00");
+    // Only units that belong to this site at some date of the window can pass the per-schedule site check below; loading
+    // every site's schedules made each import scale with the whole company instead of the site.
+    const siteUnitIds = [...new Set((await db.orgUnitVersion.findMany({ where: { siteId, effectiveFrom: { lte: shifted(to, 1) }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: shifted(from, -1) } }] }, select: { orgUnitId: true } })).map(v => v.orgUnitId))];
     const [raw, candidates, overtime, previousActuals] = await Promise.all([
       db.rawPunch.findMany({ where: { siteId, ...employeeFilter, OR: [{ punchedAt: { gte: rangeFrom, lte: rangeTo } }, ...(onlyIds ? [{ id: { in: [...onlyIds] } }] : [])] }, include: { processing: { include: { period: { select: { status: true } }, schedule: { select: { workDate: true, plan: { select: { teamOrgUnitId: true } } } } } } }, orderBy: [{ punchedAt: "asc" }, { id: "asc" }] }),
-      db.shiftSchedule.findMany({ where: { ...employeeFilter, plan: { status: "APPROVED" }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { plan: true, shift: true } }),
-      db.overtimeRequest.findMany({ where: { ...(targets.length ? { members: { some: employeeFilter } } : {}), workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { members: targets.length ? { where: employeeFilter } : true } }),
+      db.shiftSchedule.findMany({ where: { ...employeeFilter, plan: { status: "APPROVED", teamOrgUnitId: { in: siteUnitIds } }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { plan: true, shift: true } }),
+      db.overtimeRequest.findMany({ where: { ...(targets.length ? { members: { some: employeeFilter } } : {}), teamOrgUnitId: { in: siteUnitIds }, workDate: { gte: shifted(from, -1), lte: shifted(to, 1) } }, include: { members: targets.length ? { where: employeeFilter } : true } }),
       db.overtimeActual.findMany({ where: { ...employeeFilter, workDate: { gte: from, lte: to } }, select: { employeeId: true, orgUnitId: true, workDate: true } }),
     ]);
     const scopes = new Map<string, Scope>();
@@ -273,7 +277,9 @@ export class AttendanceService {
     const schedules: EngineSchedule[] = [], schedulePeriods = new Map<string, BusinessPeriod | null>();
     const byRules = new Map<string, { values: PairingRules; parameterIds: Record<string, string> }>();
     const rulesBySchedule: Record<string, PairingRules> = {}, snapshots = new Map<string, object>();
-    const ensureRules = async (unit: string, day: Date) => { const cacheKey = unit + ":" + key(day); let rules = byRules.get(cacheKey); if (!rules) { rules = await this.rules(db, unit, day); byRules.set(cacheKey, rules); } return rules; };
+    // One preload of units, regions and pairing parameters for the whole window instead of 15 queries per team and day.
+    const lookup = await this.settings.legalParameterResolver(Object.values(ruleCodes), "ALL", "WORK_DATE", shifted(from, -2), shifted(to, 4), db);
+    const ensureRules = async (unit: string, day: Date) => { const cacheKey = unit + ":" + key(day); let rules = byRules.get(cacheKey); if (!rules) { rules = await this.rules(db, unit, day, lookup); byRules.set(cacheKey, rules); } return rules; };
     const allTargetPeriods = await db.businessPeriod.findMany({ where: { periodType: "ATTENDANCE", dateFrom: { lte: shifted(to, 3) }, dateTo: { gte: shifted(from, -1) } } });
     // Period ancestry must include parents outside the actor's writable scope.
     const hierarchy = await db.orgUnitVersion.findMany({ where: { effectiveFrom: { lte: shifted(to, 3) }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: shifted(from, -1) } }] }, select: { orgUnitId: true, parentId: true, effectiveFrom: true, effectiveTo: true } });
@@ -359,10 +365,12 @@ export class AttendanceService {
     const computed = computeOvertimeAttendance({ schedules: pairingSchedules, requests, punches: selectedRaw.map(r => ({ id: r.id, employeeId: r.employeeId, punchedAt: r.punchedAt.toISOString(), direction: r.direction as PunchDirection })), assignments, rules: Object.fromEntries([...byRules].map(([k, r]) => [k, r.values])), adjustments });
     const result = computed.attendance;
     const leaveResults = new Map<string,LeaveAttendance>();
-    result.days = result.days.map(day=>{const schedule=schedules.find(s=>s.id===day.scheduleId)!; const applied=applyApprovedLeave(day,schedule,leaveBySchedule.get(day.scheduleId)!);leaveResults.set(day.scheduleId,applied.leave);return applied.day;});
+    const engineScheduleById = new Map(schedules.map(s => [s.id, s]));
+    result.days = result.days.map(day=>{const schedule=engineScheduleById.get(day.scheduleId)!; const applied=applyApprovedLeave(day,schedule,leaveBySchedule.get(day.scheduleId)!);leaveResults.set(day.scheduleId,applied.leave);return applied.day;});
     const actualRoutes = new Map<string, { workDate: string; period: BusinessPeriod | null; frozen: boolean }>();
     const actualExceptionKeys = new Set<string>();
     const previousActualKeys = new Set(previousActuals.map(row => row.employeeId + ":" + row.orgUnitId + ":" + key(row.workDate)));
+    const actualRecords: Array<Record<string, unknown>> = [];
     for (const actual of computed.actuals) {
       if (hiddenAdjustments.has(actual.employeeId + ":" + actual.orgUnitId + ":" + actual.workDate)) continue;
       const workDate = new Date(actual.workDate + "T00:00:00Z");
@@ -378,8 +386,20 @@ export class AttendanceService {
       if (!visible) continue;
       if (actual.flags.some(flag => flag !== "AWAITING_PUNCHES")) actualExceptionKeys.add(actual.employeeId + ":" + actual.workDate);
       const { employeeId, orgUnitId, ...evidence } = actual;
-      const values = { periodId: period.id, sourceDates, adjustmentId: actual.adjustmentId ?? null, requestedMinutes: actual.requestedMinutes, approvedMinutes: actual.approvedMinutes, actualMinutes: actual.actualMinutes, eligibleMinutes: actual.eligibleMinutes, dayMinutes: actual.dayMinutes, nightMinutes: actual.nightMinutes, unapprovedMinutes: actual.unapprovedMinutes, unworkedApprovedMinutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: json({ ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }), processedAt: new Date() };
-      await db.overtimeActual.upsert({ where: { employeeId_orgUnitId_workDate: { employeeId, orgUnitId, workDate } }, create: { employeeId, orgUnitId, workDate, ...values }, update: values });
+      actualRecords.push({ id: randomUUID(), employee_id: employeeId, org_unit_id: orgUnitId, work_date: actual.workDate, period_id: period.id, source_dates: sourceDates.map(key), adjustment_id: actual.adjustmentId ?? null,
+        requested_minutes: actual.requestedMinutes, approved_minutes: actual.approvedMinutes, actual_minutes: actual.actualMinutes, eligible_minutes: actual.eligibleMinutes, day_minutes: actual.dayMinutes, night_minutes: actual.nightMinutes,
+        unapproved_minutes: actual.unapprovedMinutes, unworked_approved_minutes: actual.unworkedApprovedMinutes, flags: actual.flags, evidence: json({ ...evidence, rules: byRules.get(orgUnitId + ":" + actual.workDate) }), processed_at: new Date().toISOString() });
+    }
+    // Batched upsert that only proposes changed rows: unchanged results skip the per-row period/workshop guard triggers.
+    for (let offset = 0; offset < actualRecords.length; offset += 500) {
+      const rows = JSON.stringify(actualRecords.slice(offset, offset + 500));
+      await db.$executeRaw`INSERT INTO overtime_actual (id,employee_id,org_unit_id,work_date,period_id,source_dates,adjustment_id,requested_minutes,approved_minutes,actual_minutes,eligible_minutes,day_minutes,night_minutes,unapproved_minutes,unworked_approved_minutes,flags,evidence,processed_at)
+        SELECT x.id,x.employee_id,x.org_unit_id,x.work_date,x.period_id,x.source_dates,x.adjustment_id,x.requested_minutes,x.approved_minutes,x.actual_minutes,x.eligible_minutes,x.day_minutes,x.night_minutes,x.unapproved_minutes,x.unworked_approved_minutes,x.flags,x.evidence,x.processed_at
+        FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,employee_id uuid,org_unit_id uuid,work_date date,period_id uuid,source_dates date[],adjustment_id uuid,requested_minutes numeric(12,6),approved_minutes numeric(12,6),actual_minutes numeric(12,6),eligible_minutes numeric(12,6),day_minutes numeric(12,6),night_minutes numeric(12,6),unapproved_minutes numeric(12,6),unworked_approved_minutes numeric(12,6),flags text[],evidence jsonb,processed_at timestamptz)
+        LEFT JOIN overtime_actual o ON o.employee_id = x.employee_id AND o.org_unit_id = x.org_unit_id AND o.work_date = x.work_date
+        WHERE o.id IS NULL OR (o.period_id,o.source_dates,o.adjustment_id,o.requested_minutes,o.approved_minutes,o.actual_minutes,o.eligible_minutes,o.day_minutes,o.night_minutes,o.unapproved_minutes,o.unworked_approved_minutes,o.flags,o.evidence)
+          IS DISTINCT FROM (x.period_id,x.source_dates,x.adjustment_id,x.requested_minutes::numeric(12,6),x.approved_minutes::numeric(12,6),x.actual_minutes::numeric(12,6),x.eligible_minutes::numeric(12,6),x.day_minutes::numeric(12,6),x.night_minutes::numeric(12,6),x.unapproved_minutes::numeric(12,6),x.unworked_approved_minutes::numeric(12,6),x.flags,x.evidence)
+        ON CONFLICT (employee_id,org_unit_id,work_date) DO UPDATE SET period_id=EXCLUDED.period_id,source_dates=EXCLUDED.source_dates,adjustment_id=EXCLUDED.adjustment_id,requested_minutes=EXCLUDED.requested_minutes,approved_minutes=EXCLUDED.approved_minutes,actual_minutes=EXCLUDED.actual_minutes,eligible_minutes=EXCLUDED.eligible_minutes,day_minutes=EXCLUDED.day_minutes,night_minutes=EXCLUDED.night_minutes,unapproved_minutes=EXCLUDED.unapproved_minutes,unworked_approved_minutes=EXCLUDED.unworked_approved_minutes,flags=EXCLUDED.flags,evidence=EXCLUDED.evidence,processed_at=EXCLUDED.processed_at`;
     }
     const scheduleById = new Map(schedules.map(s => [s.id, s]));
     const now = new Date(), eligibleDays = result.days.filter(d => { const s = scheduleById.get(d.scheduleId)!; return d.checkInId || d.checkOutId || leaveResults.get(d.scheduleId)?.sources.length || leaveTargets.some(t=>t.employeeId===d.employeeId&&t.workDate===d.workDate) || Date.parse(s.endAt) + rulesBySchedule[s.id].outAfterMinutes * MINUTE < now.getTime(); });
@@ -398,7 +418,12 @@ export class AttendanceService {
     for (let offset = 0; offset < dayRecords.length; offset += 500) {
       const rows = JSON.stringify(dayRecords.slice(offset, offset + 500));
        await db.$executeRaw`INSERT INTO daily_attendance (id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,effective_check_in_at,effective_check_out_at,adjustment_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,leave,rules,processed_at)
-        SELECT id,schedule_id,employee_id,org_unit_id,period_id,work_date,check_in_id,check_out_id,effective_check_in_at,effective_check_out_at,adjustment_id,status,flags,worked_minutes,day_minutes,night_minutes,late_minutes,early_minutes,absent,work_units,segments,leave,rules,processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,schedule_id uuid,employee_id uuid,org_unit_id uuid,period_id uuid,work_date date,check_in_id uuid,check_out_id uuid,effective_check_in_at timestamptz,effective_check_out_at timestamptz,adjustment_id uuid,status text,flags text[],worked_minutes numeric,day_minutes numeric,night_minutes numeric,late_minutes int,early_minutes int,absent boolean,work_units numeric,segments jsonb,leave jsonb,rules jsonb,processed_at timestamptz)
+        SELECT x.id,x.schedule_id,x.employee_id,x.org_unit_id,x.period_id,x.work_date,x.check_in_id,x.check_out_id,x.effective_check_in_at,x.effective_check_out_at,x.adjustment_id,x.status,x.flags,x.worked_minutes,x.day_minutes,x.night_minutes,x.late_minutes,x.early_minutes,x.absent,x.work_units,x.segments,x.leave,x.rules,x.processed_at FROM jsonb_to_recordset(${rows}::jsonb) AS x(id uuid,schedule_id uuid,employee_id uuid,org_unit_id uuid,period_id uuid,work_date date,check_in_id uuid,check_out_id uuid,effective_check_in_at timestamptz,effective_check_out_at timestamptz,adjustment_id uuid,status text,flags text[],worked_minutes numeric,day_minutes numeric,night_minutes numeric,late_minutes int,early_minutes int,absent boolean,work_units numeric,segments jsonb,leave jsonb,rules jsonb,processed_at timestamptz)
+        LEFT JOIN daily_attendance d ON d.schedule_id = x.schedule_id
+        -- Reprocessing rewrote every day of the adjacent periods; an unchanged day is no longer proposed, so it skips the
+        -- per-row period/workshop guard triggers and keeps processed_at as the time its result last changed.
+        WHERE d.id IS NULL OR (d.period_id,d.check_in_id,d.check_out_id,d.effective_check_in_at,d.effective_check_out_at,d.adjustment_id,d.status,d.flags,d.worked_minutes,d.day_minutes,d.night_minutes,d.late_minutes,d.early_minutes,d.absent,d.work_units,d.segments,d.leave,d.rules)
+          IS DISTINCT FROM (x.period_id,x.check_in_id,x.check_out_id,x.effective_check_in_at,x.effective_check_out_at,x.adjustment_id,x.status,x.flags,x.worked_minutes::numeric(12,6),x.day_minutes::numeric(12,6),x.night_minutes::numeric(12,6),x.late_minutes,x.early_minutes,x.absent,x.work_units::numeric(10,6),x.segments,x.leave,x.rules)
        ON CONFLICT (schedule_id) DO UPDATE SET period_id=EXCLUDED.period_id,check_in_id=EXCLUDED.check_in_id,check_out_id=EXCLUDED.check_out_id,effective_check_in_at=EXCLUDED.effective_check_in_at,effective_check_out_at=EXCLUDED.effective_check_out_at,adjustment_id=EXCLUDED.adjustment_id,status=EXCLUDED.status,flags=EXCLUDED.flags,worked_minutes=EXCLUDED.worked_minutes,day_minutes=EXCLUDED.day_minutes,night_minutes=EXCLUDED.night_minutes,late_minutes=EXCLUDED.late_minutes,early_minutes=EXCLUDED.early_minutes,absent=EXCLUDED.absent,work_units=EXCLUDED.work_units,segments=EXCLUDED.segments,leave=EXCLUDED.leave,rules=EXCLUDED.rules,processed_at=EXCLUDED.processed_at`;
     }
     const previousProcessing = new Map(selectedRaw.filter(row => row.processing).map(row => [row.id, row.processing!]));

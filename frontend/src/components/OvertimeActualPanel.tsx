@@ -164,7 +164,7 @@ function ActualDetail({ detail, canImport, onNavigate }: { detail: OvertimeActua
       <Descriptions.Item label="Ngày / đêm">{minutes(actual.dayMinutes)} / {minutes(actual.nightMinutes)}</Descriptions.Item>
       <Descriptions.Item label="Làm ngoài duyệt">{minutes(actual.unapprovedMinutes)}</Descriptions.Item>
       <Descriptions.Item label="Đã duyệt nhưng chưa làm">{minutes(actual.unworkedApprovedMinutes)}</Descriptions.Item>
-      <Descriptions.Item label="Lần đối chiếu gần nhất">{vietnamTime(actual.processedAt)}</Descriptions.Item>
+      <Descriptions.Item label="Kết quả cập nhật lúc">{vietnamTime(actual.processedAt)}</Descriptions.Item>
       <Descriptions.Item label="Ngoại lệ" span={screens.sm ? 2 : 1}>{flagTags(actual.flags)}</Descriptions.Item>
       <Descriptions.Item label="Tra cứu"><Space wrap><Button type="link" onClick={() => onNavigate?.("daily", actual.employee.code)}>Xem ngày công</Button>{canImport && <Button type="link" onClick={() => onNavigate?.("raw", actual.employee.code)}>Xem lượt quẹt gốc</Button>}{actual.correctionId && <Button type="link" onClick={() => onNavigate?.("corrections", actual.employee.code, actual.correctionId ?? undefined)}>Mở giải trình</Button>}</Space></Descriptions.Item>
       {detail.corrections?.map(correction => <Descriptions.Item key={correction.id} label="Yêu cầu liên quan"><Button type="link" onClick={() => onNavigate?.("corrections", actual.employee.code, correction.id)}>Mở giải trình</Button></Descriptions.Item>)}

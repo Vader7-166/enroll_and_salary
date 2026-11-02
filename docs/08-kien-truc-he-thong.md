@@ -341,6 +341,21 @@ database. Tác vụ tính toán nặng chạy ở worker dùng chung nghiệp v�
 Số thập phân qua API dùng chuỗi; không chuyển sang JavaScript `number` để tính lương.
 Các quyết định ADR-01…13 và phạm vi R1 tiếp tục áp dụng.
 
+### ADR-15. Cache dữ liệu tham chiếu có phiên bản trong PostgreSQL (change `add-caching-layer`)
+
+**Quyết định.** Chỉ cache dữ liệu tham chiếu đọc nhiều – ghi hiếm: cây tổ chức (`org_unit`, `org_unit_version`, `site`),
+quyền vai trò, tham số pháp lý, chính sách cơ sở, danh mục ca. Cache nằm trong bộ nhớ từng instance
+(`ReferenceCacheService`), theo nhóm. Trigger mức câu lệnh trên mỗi bảng nguồn đặt `cache_version.version =
+nextval('cache_version_seq')` trong cùng giao dịch ghi; người đọc truy vấn phiên bản trong snapshot của mình và chỉ dùng
+mục cùng phiên bản. Giao dịch nhập công dùng thêm bộ tra tham số nạp một lần (`legalParameterResolver`).
+
+**Lý do.** Đúng theo snapshot, đúng khi nhiều instance và khi ghi ngoài ứng dụng (seed, migration, SQL tay) mà không cần
+TTL, pub/sub hay Redis; sequence bảo đảm phiên bản của giao dịch rollback không bao giờ trùng trạng thái đã commit.
+
+**Hệ quả.** Không cache dữ liệu nhân sự, lương, chấm công, phiên đăng nhập; API giữ `Cache-Control: no-store`. Bảng
+tham chiếu mới phải thêm trigger và khai báo trong `CACHE_SOURCE_TABLES` (kiểm thử so khớp). `CACHE_REFERENCE_ENABLED=false`
+quay về đường truy vấn cũ; `QUERY_METRICS=true` ghi số truy vấn mỗi request. Số đo: `docs/acceptance/cache-benchmark-2026-11-02.md`.
+
 ## 5. Luồng dữ liệu chính
 
 ```

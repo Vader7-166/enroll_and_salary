@@ -23,6 +23,8 @@ const run = (script, args = []) => {
 const runs = {
   payroll: run('benchmark-payroll-engine.cjs', ['3000']),
   attendance: run('benchmark-attendance.cjs', ['2500']),
+  // Shift plans approved for two whole periods (add-caching-layer): every import reprocesses them all.
+  attendanceMonth: run('benchmark-attendance-month.cjs', ['1100']),
   payslips: run('benchmark-payslips.cjs'),
   reports: run('benchmark-reports.cjs', ['3000']),
 };
@@ -39,6 +41,7 @@ const a = runs.attendance.data;
 const nfr = {
   'NFR-07': { limit: '≤ 15 phút / 3.000 NV / 4 cơ sở (engine, không gồm DB)', measured: runs.payroll.data?.seconds + ' s', status: status(runs.payroll.exit === 0 && runs.payroll.data?.passEngineOnly, Boolean(runs.payroll.data)) },
   'NFR-08': { limit: '≤ 5 phút / tệp một ngày ≈ 4.500 lượt', measured: a ? a.nfr08.ms + ' ms' : null, status: status(a?.nfr08.pass, Boolean(a)) },
+  'NFR-08b': { limit: '≤ 60 s / một ngày quẹt 1.100 NV khi lịch ca đã duyệt cả hai kỳ (lần đầu và lần sau)', measured: runs.attendanceMonth.data ? `lần đầu ${runs.attendanceMonth.data.firstImport.ms} ms · lần sau ${runs.attendanceMonth.data.secondImport.ms} ms` : null, status: status(runs.attendanceMonth.exit === 0 && runs.attendanceMonth.data?.pass, Boolean(runs.attendanceMonth.data)) },
   'NFR-09': { limit: 'p95 ≤ 2 s (tổ) · ≤ 4 s (xưởng)', measured: a ? `${a.nfr09.teamP95Ms} / ${a.nfr09.workshopP95Ms} ms` : null, status: status(a?.nfr09.pass, Boolean(a)) },
   'NFR-10': { limit: '≤ 10 phút / 1.100 phiếu', measured: runs.payslips.data?.seconds + ' s', status: status(runs.payslips.exit === 0, Boolean(runs.payslips.data)) },
   'NFR-11': { limit: 'p95 ≤ 3 s drill-down một dòng lương', measured: drill.data ? `p95 ${drill.data.p95Ms} ms / ${drill.data.samples} lần (bảng lương kiểm thử)` : null, status: status(drill.data && drill.data.p95Ms <= drill.data.limitMs, Boolean(drill.data)) },

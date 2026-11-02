@@ -115,6 +115,22 @@ test('Attendance imports, routing and access on PostgreSQL and real HTTP', { tim
       await assert.rejects(db.$executeRaw`UPDATE raw_punch SET device_code='OTHER' WHERE batch_id=${firstBatch.id}::uuid`, error => error.meta?.code === "42501");
       await assert.rejects(db.$executeRaw`DELETE FROM raw_punch WHERE batch_id=${firstBatch.id}::uuid`, error => error.meta?.code === "42501");
     });
+    await t.test('Reprocessing writes only changed days: unchanged reprocess rewrites none, one new punch updates only its day', async () => {
+      // xmin changes on every row version, so it proves whether a row was rewritten (and its guard triggers ran).
+      const versions = async () => new Map((await db.$queryRaw`SELECT schedule_id::text AS id, xmin::text AS v FROM daily_attendance`).map(r => [r.id, r.v]));
+      const before = await versions();
+      assert.ok(before.size >= 3);
+      await ok('/attendance/process', ad, { siteId: site.id, referencePeriodId: october.id });
+      assert.deepEqual(await versions(), before, 'an unchanged reprocess rewrites no daily_attendance row');
+      const missingDay = await db.dailyAttendance.findFirstOrThrow({ where: { employeeId: people.MISSING.id } });
+      const fixed = await upload(csv([row('MISSING', '2026-10-13', '06:00:00', 'OUT')]));
+      assert.equal(fixed.body.batch.summary.inserted, 1);
+      const after = await versions();
+      const changed = [...after].filter(([id, v]) => before.get(id) !== v).map(([id]) => id);
+      assert.deepEqual(changed, [missingDay.scheduleId], 'only the completed day is rewritten');
+      const day = await db.dailyAttendance.findUniqueOrThrow({ where: { scheduleId: missingDay.scheduleId } });
+      assert.equal(day.status, 'OK'); assert.equal(day.workedMinutes.toNumber(), 480); assert.deepEqual(day.flags, []);
+    });
     await t.test('Draft shifts queue logs; approval + explicit processing recovers without raw edits', async () => {
       const queued = await upload(csv([row('WAIT', '2026-10-14', '22:00:00', 'IN'), row('WAIT', '2026-10-15', '06:00:00', 'OUT')]));
       assert.equal(queued.body.batch.summary.waiting, 2);

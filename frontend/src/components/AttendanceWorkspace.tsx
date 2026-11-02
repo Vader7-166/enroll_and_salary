@@ -283,7 +283,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
           <Descriptions.Item label="Đi muộn / về sớm">{minutes(dayDetail.data.day.lateMinutes)} / {minutes(dayDetail.data.day.earlyMinutes)}</Descriptions.Item>
           <Descriptions.Item label="Ngoại lệ">{dayDetail.data.day.flags.length ? dayDetail.data.day.flags.map(flag => <Tag key={flag}>{attendanceFlagLabels[flag] ?? "Ngoại lệ cần rà soát"}</Tag>) : "Không có"}</Descriptions.Item>
           <Descriptions.Item label="Nghỉ đã duyệt">{minutes(dayDetail.data.day.leave.minutes ?? 0)} · {minutes(dayDetail.data.day.leave.paidMinutes ?? 0)} hưởng lương · {dayDetail.data.day.leave.countedUnits ?? "0"} công nghỉ</Descriptions.Item>
-          <Descriptions.Item label="Lần xử lý gần nhất">{vietnamTime(dayDetail.data.day.processedAt)}</Descriptions.Item>
+          <Descriptions.Item label="Kết quả cập nhật lúc">{vietnamTime(dayDetail.data.day.processedAt)}</Descriptions.Item>
         </Descriptions>
         <Divider orientation="left">Khoảng nghỉ đã duyệt</Divider>
         <Table rowKey={(source, index) => source.requestId + "-" + index} size="small" pagination={false} scroll={{ x: 580 }} dataSource={dayDetail.data.day.leave.sources ?? []} columns={[

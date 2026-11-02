@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import type { Prisma, RoleCode } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { ReferenceCacheService } from "../common/cache/reference-cache.service";
 import type { AuthUser } from "../auth/auth.types";
 import { businessDate } from "../auth/business-date";
 
@@ -13,7 +14,10 @@ export function effectiveAt(date: Date) {
 
 @Injectable()
 export class ScopeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: ReferenceCacheService,
+  ) {}
 
   async load(
     user: AuthUser,
@@ -25,16 +29,23 @@ export class ScopeService {
       throw new ForbiddenException(
         "Bạn không có quyền thực hiện thao tác này.",
       );
-    const [versions, roles] = await Promise.all([
+    // The org tree at a date and the role permissions are shared reference data: with the cache on, a call costs one
+    // version query instead of loading every unit version (add-caching-layer). Cached rows are frozen.
+    const loadVersions = () =>
       db.orgUnitVersion.findMany({
         where: effectiveAt(asOf),
         include: { orgUnit: true, site: true },
-      }),
-      db.role.findMany({
-        where: {
-          code: { in: user.assignments.map((a) => a.roleCode as RoleCode) },
-        },
-      }),
+      });
+    const known = this.cache.isEnabled ? await this.cache.versions(db) : undefined;
+    const [versions, roles] = await Promise.all([
+      this.cache.get(db, "org", "scope:" + asOf.toISOString(), loadVersions, known),
+      known
+        ? this.cache.get(db, "roles", "all", () => db.role.findMany(), known)
+        : db.role.findMany({
+            where: {
+              code: { in: user.assignments.map((a) => a.roleCode as RoleCode) },
+            },
+          }),
     ]);
     const rolePermissions = new Map(
       roles.map((role) => [role.code as string, role.permissions]),

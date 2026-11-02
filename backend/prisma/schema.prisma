@@ -219,6 +219,13 @@ model OrgAssignment {
   @@map("org_assignment")
 }
 
+// add-caching-layer: version per reference-data group, bumped by statement-level triggers on the source tables.
+model CacheVersion {
+  name    String @id @db.VarChar(40)
+  version BigInt
+  @@map("cache_version")
+}
+
 model Role {
   code        RoleCode @id
   name        String @db.VarChar(80)

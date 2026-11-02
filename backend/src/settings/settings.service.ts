@@ -22,6 +22,7 @@ import type { AuthUser } from "../auth/auth.types";
  import { holidayCalendar } from "../leave/holiday-calendar";
  import { businessDate } from "../auth/business-date";
 import { PrismaService } from "../database/prisma.service";
+import { ReferenceCacheService } from "../common/cache/reference-cache.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { effectiveAt, ScopeService } from "../organization/scope.service";
 import {
@@ -38,6 +39,8 @@ import {
 type Db = Prisma.TransactionClient;
 // Used only when the PARAMETER_EXPIRY_WARNING_DAYS parameter is missing.
 const DEFAULT_EXPIRY_WARNING_DAYS = 30;
+/** In-memory twin of effectiveAt(): effective_from ≤ asOf ≤ effective_to (open-ended when null). */
+const activeAt = (row: { effectiveFrom: Date; effectiveTo: Date | null }, asOf: Date) => row.effectiveFrom <= asOf && (row.effectiveTo === null || row.effectiveTo >= asOf);
 type Scope = Awaited<ReturnType<ScopeService["load"]>>;
 
 const SEEDED_NUMERIC_CODES = new Set([
@@ -137,7 +140,7 @@ function serializePeriod(period: BusinessPeriod, scopeOrgUnitName: string) {
 export class SettingsService {
   private readonly reauthKey: Buffer;
 
-  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService, private readonly notifications: NotificationsService, config: ConfigService) {
+  constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService, private readonly audit: AuditService, private readonly notifications: NotificationsService, config: ConfigService, private readonly cache: ReferenceCacheService) {
     this.reauthKey = reauthKey(config.getOrThrow<string>("HR_DATA_KEY"));
   }
 
@@ -286,6 +289,7 @@ export class SettingsService {
   }
 
   private async resolvePolicy(db: Db, orgUnitId: string, asOf: Date, policyKey: SitePolicyKey) {
+    if (this.cache.isEnabled) return this.resolvePolicyCached(db, orgUnitId, asOf, policyKey);
     const versions = await db.orgUnitVersion.findMany({ where: effectiveAt(asOf), select: { orgUnitId: true, parentId: true } });
     const byId = new Map(versions.map((version) => [version.orgUnitId, version]));
     const chain: string[] = [], seen = new Set<string>();
@@ -299,6 +303,28 @@ export class SettingsService {
     }
     const policies = await db.sitePolicy.findMany({ where: { orgUnitId: { in: chain }, policyKey, ...effectiveAt(asOf) } });
     const policyByUnit = new Map(policies.map((policy) => [policy.orgUnitId, policy]));
+    for (const unitId of chain) { const policy = policyByUnit.get(unitId); if (policy) return policy; }
+    throw new NotFoundException("Không tìm thấy chính sách hiệu lực cho đơn vị.");
+  }
+
+  /** Same result as the uncached path: the org tree and every version of the policy key come from the reference cache. */
+  private async resolvePolicyCached(db: Db, orgUnitId: string, asOf: Date, policyKey: SitePolicyKey) {
+    const known = await this.cache.versions(db);
+    const [units, policies] = await Promise.all([
+      this.cache.get(db, "org", "unit-parents", () => db.orgUnitVersion.findMany({ select: { orgUnitId: true, parentId: true, effectiveFrom: true, effectiveTo: true } }), known),
+      this.cache.get(db, "site-policies", "key:" + policyKey, () => db.sitePolicy.findMany({ where: { policyKey } }), known),
+    ]);
+    const byId = new Map(units.filter((unit) => activeAt(unit, asOf)).map((version) => [version.orgUnitId, version]));
+    const chain: string[] = [], seen = new Set<string>();
+    let cursor = orgUnitId;
+    while (cursor) {
+      if (seen.has(cursor)) throw new BadRequestException("Cây đơn vị không hợp lệ.");
+      seen.add(cursor);
+      const version = byId.get(cursor);
+      if (!version) throw new NotFoundException("Đơn vị không tồn tại ở ngày yêu cầu.");
+      chain.push(cursor); cursor = version.parentId ?? "";
+    }
+    const policyByUnit = new Map(policies.filter((policy) => chain.includes(policy.orgUnitId) && activeAt(policy, asOf)).map((policy) => [policy.orgUnitId, policy]));
     for (const unitId of chain) { const policy = policyByUnit.get(unitId); if (policy) return policy; }
     throw new NotFoundException("Không tìm thấy chính sách hiệu lực cho đơn vị.");
   }
@@ -452,7 +478,55 @@ export class SettingsService {
     });
   }
 
+  /**
+   * Request-scoped cache for many resolveLegalParameter lookups inside one transaction (e.g. pairing rules for every
+   * team and day of an attendance import, which otherwise costs three queries per parameter, unit and day).
+   * Loads the unit versions, site regions and candidate parameters overlapping [from, to] once and resolves in memory
+   * with the same precedence (SITE → REGION → GLOBAL) and errors; dates outside the range fall back to the database.
+   * The snapshot is only valid within the transaction `db` that built it: never keep it beyond that.
+   */
+  async legalParameterResolver(paramCodes: string[], subjectType: string, applicationBasis: ApplicationBasis, from: Date, to: Date, db: Db = this.prisma) {
+    const overlaps = { effectiveFrom: { lte: to }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }] };
+    const [versions, sites, parameters] = await Promise.all([
+      db.orgUnitVersion.findMany({ where: overlaps, select: { orgUnitId: true, siteId: true, effectiveFrom: true, effectiveTo: true } }),
+      db.site.findMany({ select: { id: true, wageRegionCode: true } }),
+      db.legalParameter.findMany({ where: { paramCode: { in: paramCodes }, subjectType, applicationBasis, ...overlaps } }),
+    ]);
+    const active = (row: { effectiveFrom: Date; effectiveTo: Date | null }, asOf: Date) => row.effectiveFrom <= asOf && (row.effectiveTo === null || row.effectiveTo >= asOf);
+    const versionsByUnit = new Map<string, typeof versions>();
+    for (const version of versions) versionsByUnit.set(version.orgUnitId, [...(versionsByUnit.get(version.orgUnitId) ?? []), version]);
+    const regions = new Map(sites.map((site) => [site.id, site.wageRegionCode]));
+    return async (paramCode: string, orgUnitId: string, asOf: Date) => {
+      if (asOf < from || asOf > to || !paramCodes.includes(paramCode)) return this.resolveLegalParameter(paramCode, subjectType, applicationBasis, orgUnitId, asOf, db);
+      const version = versionsByUnit.get(orgUnitId)?.find((item) => active(item, asOf));
+      if (!version) throw new NotFoundException("Đơn vị không tồn tại ở ngày yêu cầu.");
+      const scopes = ["GLOBAL"];
+      const region = version.siteId ? regions.get(version.siteId) : undefined;
+      if (version.siteId && region !== undefined) scopes.unshift(`SITE:${version.siteId}`, `REGION:${region}`);
+      const effective = parameters.filter((item) => item.paramCode === paramCode && active(item, asOf));
+      for (const scopeKey of scopes) { const parameter = effective.find((item) => item.scopeKey === scopeKey); if (parameter) return parameter; }
+      return null;
+    };
+  }
+
   async resolveLegalParameter(paramCode: string, subjectType: string, applicationBasis: ApplicationBasis, orgUnitId: string, asOf: Date, db: Db = this.prisma) {
+    if (this.cache.isEnabled) {
+      // One version query instead of three lookups; same precedence (SITE → REGION → GLOBAL) and errors as below.
+      const known = await this.cache.versions(db);
+      const [units, sites, parameters] = await Promise.all([
+        this.cache.get(db, "org", "unit-sites", () => db.orgUnitVersion.findMany({ select: { orgUnitId: true, siteId: true, effectiveFrom: true, effectiveTo: true } }), known),
+        this.cache.get(db, "org", "site-regions", () => db.site.findMany({ select: { id: true, wageRegionCode: true } }), known),
+        this.cache.get(db, "legal-parameters", [paramCode, subjectType, applicationBasis].join("|"), () => db.legalParameter.findMany({ where: { paramCode, subjectType, applicationBasis } }), known),
+      ]);
+      const unit = units.find((item) => item.orgUnitId === orgUnitId && activeAt(item, asOf));
+      if (!unit) throw new NotFoundException("Đơn vị không tồn tại ở ngày yêu cầu.");
+      const scopes = ["GLOBAL"];
+      const site = unit.siteId ? sites.find((item) => item.id === unit.siteId) : undefined;
+      if (site) scopes.unshift(`SITE:${unit.siteId}`, `REGION:${site.wageRegionCode}`);
+      const effective = parameters.filter((item) => activeAt(item, asOf));
+      for (const scopeKey of scopes) { const parameter = effective.find((item) => item.scopeKey === scopeKey); if (parameter) return parameter; }
+      return null;
+    }
     const version = await db.orgUnitVersion.findFirst({ where: { orgUnitId, ...effectiveAt(asOf) }, select: { siteId: true } });
     if (!version) throw new NotFoundException("Đơn vị không tồn tại ở ngày yêu cầu.");
     const scopes = ["GLOBAL"];

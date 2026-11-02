@@ -48,7 +48,7 @@ jobs:
       matrix:
         include:
           - group: foundation
-            suites: verify:foundation verify:hr verify:accounts verify:audit verify:notifications verify:key-rotation verify:backup
+            suites: verify:foundation verify:hr verify:accounts verify:audit verify:cache verify:notifications verify:key-rotation verify:backup
           - group: attendance
             suites: verify:shifts verify:attendance verify:corrections verify:team-confirmation verify:workshop-closure verify:period-lock verify:overtime verify:overtime-actual
           - group: leave
