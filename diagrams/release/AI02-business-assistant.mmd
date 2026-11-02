@@ -1,0 +1,13 @@
+flowchart TD
+    UI["Website: TT / QĐ / KT / AD · Trợ lý AI"] --> AUTH["NestJS: phiên, quyền, scope, quota, flag"]
+    AUTH --> FILTER["Lọc corpus đã duyệt theo quyền và phiên bản"]
+    DOCS["Hướng dẫn mô phỏng có nguồn + metadata quyền"] --> FILTER
+    FILTER --> RETRIEVE["Tìm đoạn phù hợp câu hỏi / trang"]
+    RETRIEVE -->|"Đủ nguồn"| GEMINI["Google Gemini API · không tool / SQL / hành động"]
+    RETRIEVE -->|"Thiếu nguồn"| FALLBACK["Hạn chế / hướng dẫn tĩnh đúng quyền"]
+    GEMINI --> CHECK["Validate output, citations, routes; kiểm tra lại quyền / version"]
+    CHECK --> RESULT["Bước hướng dẫn + nguồn + link màn hình được phép"]
+    GEMINI -->|"Lỗi / timeout"| FALLBACK
+    AUTH -->|"Flag tắt / hết quota"| FALLBACK
+    RESULT --> UI
+    FALLBACK --> UI

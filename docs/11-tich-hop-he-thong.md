@@ -1,8 +1,14 @@
 # 11. Tích hợp hệ thống — giao diện dữ liệu vào / ra
 
-Theo phạm vi BFD, hệ thống **không kết nối trực tiếp** với thiết bị hay hệ thống bên ngoài.
-Mọi trao đổi dữ liệu đi qua **tệp**: AD nhập tệp chấm công vào; KT xuất tệp ra rồi gửi cho
+Theo phạm vi BFD lõi, hệ thống **không kết nối trực tiếp** với thiết bị hoặc hệ thống
+nghiệp vụ máy chấm công/ngân hàng/ERP/BHXH/thuế. Trao đổi nghiệp vụ này qua **tệp**:
+AD nhập tệp chấm công vào; KT xuất tệp ra rồi gửi cho
 ngân hàng, cơ quan BHXH, cơ quan thuế, bộ phận kế toán tổng hợp theo kênh của doanh nghiệp.
+
+**API AI được xác nhận riêng:** [AI-02](24-ai-tro-ly-nghiep-vu-theo-vai-tro.md) gọi
+Google Gemini qua backend cho hướng dẫn tài liệu theo quyền. Không gửi hồ sơ/lương/log
+thô, không có API hành động nghiệp vụ; key ở server, có timeout/quota/fallback. Ngoại
+lệ này không bật các tích hợp nghiệp vụ trực tiếp đã nằm ngoài phạm vi R1.
 
 ```
           ĐẦU VÀO (nhập tệp)                                    ĐẦU RA (xuất tệp)
@@ -30,9 +36,9 @@ xuất từ phần mềm của máy chấm công, nên không phụ thuộc hãn
 | Bước | Nội dung | Tác nhân |
 |---|---|---|
 | 1 | Xuất tệp log từ phần mềm máy chấm công của cơ sở | AD tại cơ sở (ngoài hệ thống) |
-| 2 | Chọn cơ sở, kỳ công và tải tệp lên hệ thống | AD |
+| 2 | Chọn cơ sở, kỳ công tham chiếu và tải tệp; kỳ đích từng dòng do ca/ngày công xác định | AD |
 | 3 | Kiểm tra định dạng, cấu trúc, mã nhân viên; tệp lỗi → trả danh sách dòng lỗi, không ghi dữ liệu | Hệ thống |
-| 4 | Tệp hợp lệ → ghi lô nhập và bản ghi thô bất biến, ghép cặp vào/ra (4.2), trả kết quả (số bản ghi, số ngày ngoại lệ) | Hệ thống |
+| 4 | Tệp hợp lệ → lưu log thô, phân tuyến theo ca/ngày công vào kỳ tham chiếu/liền kề; xử lý kỳ OPEN, các dòng khác chờ hoặc lập hồ sơ muộn; trả kết quả theo kỳ đích | Hệ thống |
 
 Tần suất nhập do từng cơ sở quyết định (hằng ngày khuyến nghị). Mỗi lô ghi `audit_log`.
 
@@ -59,9 +65,18 @@ qua. Thêm loại máy mới là khai báo cấu hình, không sửa mã.
 |---|---|
 | Sai cấu trúc tệp / sai định dạng ngày giờ | Từ chối lô, liệt kê dòng lỗi |
 | Mã nhân viên không tồn tại hoặc không thuộc cơ sở | Từ chối lô, liệt kê dòng lỗi |
-| Thời điểm quẹt ngoài khoảng kỳ công đã chọn | Từ chối lô, liệt kê dòng lỗi |
-| Bản ghi trùng `(mã máy, mã NV, thời điểm)` với dữ liệu đã có | Bỏ qua, không tạo bản ghi trùng — nhập lại cùng tệp là idempotent |
-| Kỳ công đã khóa | **Chặn** (`PERIOD_LOCKED`) |
+| Thời điểm quẹt qua ngày chốt | Lưu log, ghép lịch ca/cửa sổ và lấy kỳ chứa ngày bắt đầu ca; lượt ra sáng 26 có thể thuộc ca ngày 25/kỳ cũ; không từ chối chỉ vì khác ngày lịch |
+| File gồm ca ngày 25 và ngày 26 | Phân tuyến riêng về kỳ cũ/mới; chọn kỳ chỉ là tham chiếu, không ép chung một kỳ |
+| Thiếu/đa ca hoặc ngoài vùng kỳ tham chiếu/liền kề | Lưu log ở hàng chờ, trả ngoại lệ phân tuyến; không tự đếm công hoặc mở rộng phạm vi quyền |
+| Bản ghi trùng `(cơ sở, mã máy, mã NV, thời điểm)` | Bỏ qua; không sinh lại công hoặc hồ sơ muộn |
+| Kỳ đích PLANNED / CLOSED | Lưu log chờ AD mở / KT trả lại; không ghi kết quả công |
+| Kỳ đích LOCKED | Lưu log và hồ sơ muộn ngoài snapshot; cấm sửa kết quả (`PERIOD_LOCKED`); dòng kỳ OPEN khác vẫn xử lý |
+
+Lô sai cấu trúc/mã/cơ sở bị `REJECTED` toàn bộ. Lô hợp lệ có dòng chờ/muộn là
+`ACCEPTED_WITH_EXCEPTIONS`; trả số đã xử lý, chờ và muộn theo kỳ, không báo tất cả đã
+tính công. Phân tuyến/ghi dẫn xuất kiểm tra lại revision để không vượt qua thao tác khóa.
+AD xác nhận khoảng dữ liệu đã thu đủ từ nguồn trước chốt xưởng; file lớn nhất theo timestamp
+không tự là bằng chứng thu đủ. Quy trình chuẩn: [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md).
 
 > **Ghi chú vận hành.** Đồng hồ máy chấm công lệch giờ là nguồn sai lệch khó phát hiện; cơ sở
 > cần định kỳ đồng bộ giờ thiết bị. Hệ thống không giám sát thiết bị.
@@ -172,6 +187,11 @@ giai đoạn chạy song song ([16](16-ke-hoach-trien-khai-va-rui-ro.md)).
 
 ## 6. Ngoài phạm vi (có thể xem xét ở giai đoạn sau)
 
+R1 theo [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md) chỉ nhập/xuất tệp trong phạm vi
+đã chốt. Thông báo trong ứng dụng bắt buộc; email và các tích hợp dưới đây không thuộc
+R1. Mẫu ngân hàng/ERP thật chưa có không được coi là đã xác nhận; nghiệm thu đồ án dùng
+mẫu mô phỏng, trước chi trả thật phải có mẫu thực tế và đối soát tương ứng.
+
 | Hạng mục | Lý do |
 |---|---|
 | Kết nối máy chấm công qua API / SDK, dịch vụ đồng bộ bù, giám sát thiết bị | BFD chỉ có “tiếp nhận dữ liệu” (4.1) |
@@ -195,3 +215,18 @@ giai đoạn chạy song song ([16](16-ke-hoach-trien-khai-va-rui-ro.md)).
 | 4 | **Cấu hình hơn lập trình**: thêm ngân hàng mới, thêm loại máy chấm công mới là khai báo cấu hình |
 | 5 | **Bảo mật tệp**: tệp chứa lương, tài khoản ngân hàng được mã hóa / đặt mật khẩu; kiểm tra quyền kết xuất |
 | 6 | **Ranh giới rõ**: hệ thống không thay thế ERP, không thay thế phần mềm kê khai — chỉ cung cấp dữ liệu đúng định dạng |
+
+## 8. Nhập đầu vào lương sản phẩm, khoán, hoa hồng và 3P
+
+Giữ đủ hình thức theo DEC-02; KT nhập/file theo hợp đồng ở [18 §4](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md).
+TT/QĐ và bộ phận sở hữu số liệu chuẩn bị/xác nhận nguồn ngoài hệ thống, KT tiếp nhận với
+chứng từ; không thêm tài khoản cho hệ thống sản xuất/KPI hoặc kết nối ERP.
+
+Lô phải có nguồn/chứng từ/dòng/version, nhân viên, cơ sở, kỳ, loại đầu vào, số lượng/đơn vị,
+phiên bản đơn giá/công thức, khoảng phát sinh và xác nhận nguồn. Lỗi cứng từ chối lô; cùng
+khóa/cùng nội dung bỏ qua, cùng khóa/khác nội dung báo xung đột. Dữ liệu mới hợp lệ lưu
+nháp, sau kiểm tra và xác nhận mới dùng chính thức. Trả kết quả tách rõ nháp/chờ/xung đột,
+không coi nhập file thành công là đã nghiệm thu đầu vào lương.
+
+Thiếu dữ liệu không tự thành 0. Số 0 hợp lệ và khoản không áp dụng phải được ghi rõ theo
+phương án lương. Mẫu dữ liệu giả lập không được tự gắn nhãn xác nhận doanh nghiệp.

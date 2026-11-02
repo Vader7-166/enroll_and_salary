@@ -1,0 +1,150 @@
+# R1 quality gates (FR-X.6, add-r1-acceptance-hardening): every push and pull request runs typecheck, build, migrate and
+# seed on a clean PostgreSQL 18, every verify:* suite (split into parallel groups), the release scope check and the lints.
+# The acceptance job re-runs the UAT/TC map and uploads the JSON result with the build SHA; nightly runs the NFR benchmarks.
+name: ci
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 19 * * *" # 02:00 Asia/Ho_Chi_Minh
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
+env:
+  NODE_VERSION: "22.16.0"
+  TZ: Asia/Ho_Chi_Minh
+
+jobs:
+  static:
+    name: typecheck, build, lint, scope
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Compliance lint (money as Decimal, legal constants, business-date lookups)
+        run: npm run lint:compliance
+      - name: Lint, evidence recorder and backup retention tests
+        run: npm run verify:acceptance-tools
+      - name: Release scope (manifest ↔ docs 07)
+        run: python3 scripts/validate_release_scope.py
+      - name: FR coverage map is complete
+        run: node scripts/fr-coverage.cjs --check
+
+  verify:
+    name: verify ${{ matrix.group }}
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: foundation
+            suites: verify:foundation verify:hr verify:accounts verify:audit verify:notifications verify:key-rotation verify:backup
+          - group: attendance
+            suites: verify:shifts verify:attendance verify:corrections verify:team-confirmation verify:workshop-closure verify:period-lock verify:overtime verify:overtime-actual
+          - group: leave
+            suites: verify:leave verify:leave-requests verify:sickness-maternity
+          - group: payroll-setup
+            suites: verify:salary-components verify:payroll-configuration verify:employee-pay-plans verify:payroll-inputs verify:overtime-pay verify:payroll-profile verify:salary-decisions
+          - group: payroll
+            suites: verify:payroll verify:payroll-lock verify:payroll-output verify:retro verify:social-insurance verify:pit verify:insurance-changes verify:tax-finalization
+          - group: operations
+            suites: verify:termination verify:welfare verify:reports verify:ai-assistant
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env: { POSTGRES_USER: hrtp_ci, POSTGRES_PASSWORD: hrtp_ci, POSTGRES_DB: hrtp_ci, POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C" }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hrtp_ci -d hrtp_ci" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - name: PostgreSQL 18 client (pg_dump/pg_restore for the backup drill)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -q && sudo apt-get install -yq postgresql-client-18
+      - run: npm ci
+      - name: Test environment (throwaway key, local database)
+        run: bash scripts/ci-env.sh
+      - run: npm run db:deploy
+      - run: npm run db:seed
+        env: { SEED_ALLOW_ISOLATED: "true", SEED_DATASET: foundation }
+      - name: Suites
+        run: |
+          set -e
+          for suite in ${{ matrix.suites }}; do
+            echo "::group::$suite"
+            npm run "$suite"
+            echo "::endgroup::"
+          done
+
+  acceptance:
+    name: acceptance (UAT-01…28, TC set)
+    if: github.event_name != 'schedule'
+    needs: [static]
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env: { POSTGRES_USER: hrtp_ci, POSTGRES_PASSWORD: hrtp_ci, POSTGRES_DB: hrtp_ci, POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C" }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hrtp_ci -d hrtp_ci" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      # The acceptance map includes the FR-X.4 restore drill (payroll-lock.test.cjs), which needs pg_dump 18 like the verify jobs;
+      # the runner image only ships PostgreSQL 16 client tools.
+      - name: PostgreSQL 18 client (pg_dump/pg_restore for the backup drill)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -q && sudo apt-get install -yq postgresql-client-18
+      - run: npm ci
+      - run: bash scripts/ci-env.sh
+      - run: npm run db:deploy
+      - name: Acceptance runner
+        run: npm run acceptance -- --out acceptance-result.json
+        env: { ACCEPTANCE_CONCURRENCY: "3" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: "acceptance-${{ github.sha }}", path: acceptance-result.json, retention-days: 90 }
+
+  nightly-benchmark:
+    name: nightly NFR-07…13 benchmark
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env: { POSTGRES_USER: hrtp_ci, POSTGRES_PASSWORD: hrtp_ci, POSTGRES_DB: hrtp_ci, POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C" }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hrtp_ci -d hrtp_ci" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: bash scripts/ci-env.sh
+      - run: npm run db:deploy
+      - run: npm run benchmark:nightly
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: "benchmark-${{ github.run_id }}", path: .local/benchmarks/, retention-days: 400 }

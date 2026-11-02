@@ -1,10 +1,67 @@
 # 09. Mô hình dữ liệu
 
+**AI-02 ưu tiên:** [24](24-ai-tro-ly-nghiep-vu-theo-vai-tro.md) dùng corpus hướng dẫn
+có source/version/hash và metadata quyền; không đọc dữ liệu công/lương để trả lời.
+Chưa yêu cầu bảng chat/vector database; audit metadata, không log question/response
+thô mặc định. Cache phải gắn quyền/version. AI-01 dùng facts lương ở 23 chỉ là hướng sau sprint.
+
 Mô hình dữ liệu hiện thực hóa **biểu đồ lớp 54 lớp / 10 gói** (tài liệu
 `diagrams/class/Biểu đồ lớp - Class diagram.docx`, sơ đồ `diagrams/class/CD-00` … `CD-10`).
 Mỗi gói `G1` … `G10` tương ứng một phân hệ BFD; mỗi lớp ánh xạ sang một bảng vật lý (tên
 `snake_case`). Một số **bảng phụ trợ** không có lớp riêng (đoạn giờ, snapshot, kết quả kiểm
 tra) phục vụ yêu cầu kỹ thuật.
+
+**Phạm vi R1:** các bảng cần cho 152 M tại [19 §4](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md)
+là bắt buộc, kể cả đầu vào lương, nguồn công, hồ sơ muộn, phúc lợi và quyết toán năm.
+`comp_time_conversion` chỉ giữ dữ liệu lịch sử nếu có, không tạo mới trong R1; trường/dữ
+liệu tuyến báo cáo FUNCTIONAL và tiện ích thuộc sáu FR backlog là dự trữ. Dữ liệu vị trí/
+ngạch/bậc cơ bản để xác định lương/P1/P2 vẫn có, dù bộ quản trị nâng cao FR-7.1.5 làm sau.
+ERD bổ sung hiện hành: [R1-data](../diagrams/release/R1-data.mmd); ảnh tổng quan gốc bên
+dưới không thay thế các bảng phụ trợ đã bổ sung ở 17/18.
+
+**Hiện thực đơn nghỉ local:** `leave_request` lưu employee/leave_type/created_by,
+ngày công từ–đến, DAY/HALF/HOUR, nửa ca hoặc khoảng giờ có múi giờ, lý do/chứng từ,
+snapshot nguồn ca/phiên bản loại nghỉ/thời lượng, revision và thời điểm gửi.
+Trạng thái hiện hành: DRAFT, PENDING, RETURNED, APPROVED, REJECTED, CANCELLED.
+`leave_request_history` giữ actor/action/from_status/reason/revision/snapshot/thời điểm,
+unique theo đơn + revision, trigger cấm sửa/xóa. Migration
+`20261019130000_leave_decisions` mở rộng trạng thái và thêm from_status/reason;
+không sửa lịch sử cũ (hai trường mới null ở bản ghi cũ). Migration
+`20261019140000_leave_integration` thêm `leave_request.integration`, liên kết
+`leave_operation.leave_request_id` và `daily_attendance.leave`. Duyệt tạo USE âm,
+hủy đã duyệt tạo REFUND dương đối ứng từng nguồn/hạn/ngày hiệu lực, không sửa sổ cũ.
+Nguồn công giữ đơn/revision, ca, phiên bản loại nghỉ và lịch lễ; phút nghỉ và công
+từ nghỉ tách khỏi phút làm thực tế. Chi tiết đơn phản ánh trạng thái công hiện tại,
+lịch sử quyết định vẫn bất biến. Hợp đồng tại [20 §7.19](20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
+
+**Hiện thực xác nhận công tổ local:** migration `20261019150000_team_confirmation`
+thêm `attendance_source_coverage` (AD, file/chứng từ, khoảng bao phủ, batch IDs,
+hash nguồn thu) và `attendance_team_confirmation` (bảng vật lý triển khai thực thể logic `team_timesheet_confirmation`: TT, hash nguồn công, snapshot,
+người/thời điểm/ghi chú). Mỗi bảng unique theo kỳ + tổ + revision; trigger bảo vệ
+thứ tự phiên bản, kỳ OPEN và cấm sửa/xóa/truncate. Trạng thái WAITING/CONFIRMED/STALE
+được suy từ nguồn hiện tại, không ghi đè snapshot cũ. Xác nhận tổ không chuyển
+kỳ sang CLOSED/LOCKED và không tạo nguồn lương đã khóa.
+
+**Hiện thực chốt công phân xưởng local:** migration `20261020120000_workshop_closure`
+thêm `attendance_workshop_closure`, unique theo kỳ + xưởng + revision. Mỗi sự kiện
+CLOSE/RETURN lưu hash nguồn, actor, thời điểm, ghi chú/lý do và snapshot JSON bất
+biến; cấm UPDATE/DELETE/TRUNCATE. WAITING/CLOSED/STALE/RETURNED được suy từ sự kiện
+mới nhất và căn cứ công hiện hành. CLOSE không phải LOCKED; chỉ khi tất cả xưởng
+liên quan được chốt hợp lệ thì kỳ ATTENDANCE chuyển OPEN → CLOSED trong cùng giao
+dịch. Đây là nhật ký chốt xưởng, không phải toàn bộ thực thể bảng công/lương cuối
+cùng của bước KT. Trigger bảo vệ cả nguồn cũ và mới khi đổi ngày/đơn vị; raw log
+vẫn được nhập bổ sung nhưng không tính lại dữ liệu xưởng đang chốt hoặc kỳ đã đóng.
+Hợp đồng tại [20 §7.22](20-tech-stack-va-moi-truong-phat-trien.md#722-chốt-công-phân-xưởng).
+
+**Hiện thực KT khóa nguồn công local:** `attendance_period_lock_event` lưu sự
+kiện RETURN/LOCK, revision kỳ, hash, actor/thời điểm/ghi chú và snapshot JSON.
+Unique kỳ + revision, partial unique một LOCK/kỳ; cấm sửa/xóa/truncate. RETURN
+giữ trạng thái trước/tổng hợp/hash và lý do, không xóa chốt xưởng. LOCK lưu đầy đủ
+công từng nhân viên/ngày, OT/nghỉ/giải trình, rules và nguồn TT cùng manifest quyền.
+Hash SHA-256 áp dụng trên đúng payload JSON canonical đã lưu. Kỳ LOCKED bất biến
+toàn hàng, không mở lại hay xóa; đọc nguồn khóa từ snapshot sau khi kiểm tra lại
+quyền hiện tại/ngày nguồn, không tính lại bằng dữ liệu sống. Migrations
+`20261021120000` đến `20261021170000`; hợp đồng tại [20 §7.23](20-tech-stack-va-moi-truong-phat-trien.md#723-kế-toán-trả-kỳ-trước-khóa-và-lưu-nguồn-công-bất-biến).
 
 ---
 
@@ -22,7 +79,7 @@ một, `|{` một hoặc nhiều, `o{` không hoặc nhiều.
 | G1 Quản trị hệ thống | `CoSo` → `site` · `VungLuong` → `wage_region` · `DonViPhongBan` → `org_unit` · `TaiKhoan` → `user_account` · `VaiTro` → `role` · `PhanQuyen` → `role_assignment` · `ChinhSachCoSo` → `site_policy` · `ThamSoPhapLy` → `legal_parameter` · `KyNghiepVu` → `business_period` · `NhatKyKiemToan` → `audit_log` |
 | G2 Hồ sơ và hợp đồng | `NhanVien` → `employee` · `NguoiPhuThuoc` → `dependent` · `HopDongLaoDong` → `labor_contract` · `PhuLucHopDong` → `contract_annex` · `QuyetDinhThayDoiLuong` → `salary_decision` · `QuyetDinhChamDut` → `termination_decision` |
 | G3 Ca làm việc | `CaLamViec` → `shift_definition` · `NgayNghiLe` → `holiday_calendar` · `MauXoayCa` → `rotation_pattern` · `LichPhanCa` → `shift_schedule` · `DeXuatDoiCa` → `shift_change_request` |
-| G4 Chấm công | `LoNhapChamCong` → `punch_import_batch` · `DuLieuChamCongTho` → `raw_punch` · `ChiTietCongNgay` → `daily_attendance` · `GiaiTrinhNgoaiLe` → `attendance_exception` · `XacNhanCongTo` → `team_timesheet_confirmation` · `BangChamCongThang` → `monthly_timesheet` |
+| G4 Chấm công | `LoNhapChamCong` → `punch_import_batch` · `DuLieuChamCongTho` → `raw_punch` · `ChiTietCongNgay` → `daily_attendance` · `GiaiTrinhNgoaiLe` → `attendance_exception` · `XacNhanCongTo` → `team_timesheet_confirmation` (local: `attendance_team_confirmation`) · `BangChamCongThang` → `monthly_timesheet` |
 | G5 Làm thêm giờ | `DeXuatOT` → `ot_request` · `ChiTietDeXuatOT` → `ot_request_line` · `TranOT` → `ot_cap` · `GioOTThucTe` → `ot_actual` · `QuyDoiNghiBu` → `comp_time_conversion` |
 | G6 Nghỉ phép và chế độ | `LoaiNghi` → `leave_type` · `QuyPhepNam` → `annual_leave_balance` · `DonNghi` → `leave_request` · `HoSoOmDauThaiSan` → `sickness_maternity_record` |
 | G7 Tính lương và thưởng | `CoCauLuong` → `salary_structure` · `CongThucLuong` → `component_formula` · `KhoanThuong` → `bonus` · `BangLuongThang` → `payroll_sheet` · `ChiTietLuongNhanVien` → `payroll_employee` · `KhoanMucLuong` → `payroll_line` · `ButToanDieuChinh` → `payroll_adjustment` · `PhieuLuong` → `payslip` |
@@ -72,8 +129,9 @@ bảng phụ trợ; `reporting_line` (`SOLID` / `DOTTED`) chỉ dùng cho quyề
 | `scope_key` | string | Phạm vi áp dụng (toàn hệ thống / theo vùng / theo cơ sở) |
 | `value` | decimal / json | Giá trị đơn hoặc cấu trúc |
 | `unit` | string | %, đồng, giờ… |
-| `effective_from` / `effective_to` | date | **Ràng buộc CSDL chống chồng lấn**; thêm bản mới thì đóng bản cũ (SQ-10) |
+| `effective_from` / `effective_to` | date | Khoảng áp dụng theo `application_basis`, tách ngày hiệu lực văn bản; **chống chồng lấn** trên cùng mã/phạm vi/đối tượng/cơ sở áp dụng; thêm phiên bản kế tiếp không ghi đè giá trị lịch sử (SQ-10) |
 | `legal_basis` | string | Số hiệu văn bản, ngày ban hành, điều khoản — **bắt buộc** |
+| `document_effective_date` / `application_basis` / `subject_type` | date / enum / string | Tham số thuế phân biệt ngày văn bản có hiệu lực với kỳ/ngày áp dụng; cơ sở `TAX_YEAR` / `PAYMENT_DATE`, nhóm cư trú/cách khấu trừ; không mặc định tất cả cùng mốc 01/07/2026 |
 | `created_by` / `created_at` | | |
 
 **Danh mục `param_code` tối thiểu:**
@@ -81,6 +139,7 @@ bảng phụ trợ; `reporting_line` (`SOLID` / `DOTTED`) chỉ dùng cho quyề
 ```
 MIN_WAGE_MONTH_{REGION}     MIN_WAGE_HOUR_{REGION}
 PIT_DEDUCTION_SELF          PIT_DEDUCTION_DEPENDENT   PIT_RATE_NON_RESIDENT   PIT_RATE_SEASONAL
+PIT_OT_NIGHT_EXEMPTION_MODE PIT_WITHHOLDING_THRESHOLD
 OT_RATE_NORMAL              OT_RATE_WEEKLY_REST       OT_RATE_HOLIDAY
 NIGHT_ALLOWANCE_RATE        OT_NIGHT_EXTRA_RATE
 UNION_FEE_RATE              UNION_FEE_CAP             LATE_PAYMENT_RATE
@@ -97,6 +156,11 @@ Tỷ lệ, sàn, trần bảo hiểm nằm ở `insurance_rate` (G8); biểu thu
 `LATE_TOLERANCE_MIN`, `OT_RULE_SET`, `SHIFT_MODE`, `PUNCH_FILE_MAPPING`) · `policy_value` (json) ·
 `effective_from` / `effective_to`
 
+Chính sách nghiệp vụ bổ sung metadata `status` (`SIMULATION` / `BUSINESS_CONFIRMED`),
+`decision_reference`, `confirmed_by/on`, `evidence_reference`; không tự nạp cấu hình mô
+phỏng thành quy chế thật. Bộ đồ án có `COMP_TIME_ENABLED=false`, tỷ lệ/hạn quy đổi để trống;
+công chuẩn/phép/dung sai và phạm vi áp dụng theo [18](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md).
+
 Kế thừa theo cây, ghi đè từng khóa; khi phân giải trả về **cả giá trị và đơn vị nguồn**.
 
 ### 2.5. `business_period` — Kỳ nghiệp vụ
@@ -106,13 +170,22 @@ Kế thừa theo cây, ghi đè từng khóa; khi phân giải trả về **cả
 | `code` | Ví dụ `CONG-NM-BN-2026-09`, `LUONG-NM-BN-2026-09` |
 | `period_type` | `ATTENDANCE` (kỳ công) / `PAYROLL` (kỳ lương) |
 | `scope_org_unit_id` | Cơ sở / đơn vị |
-| `date_from` / `date_to` | Kỳ công mặc định 26/N-1 → 25/N |
-| `status` | `OPEN` (Mở) / `CLOSED` (Đã chốt) / `LOCKED` (Đã khóa) |
+| `date_from` / `date_to` | Ngày công thuộc kỳ, mặc định 26/N-1 → 25/N; không là giới hạn timestamp quẹt |
+| `status` | `PLANNED` (Lập kế hoạch) / `OPEN` / `CLOSED` / `LOCKED` |
+| `revision` · `collection_until` | Phiên bản chống ghi đồng thời; mốc kết thúc thu log theo cửa sổ Ra của ca/OT thuộc kỳ |
 | `opened_by` / `opened_at` · `locked_by` / `locked_at` | AD mở, KT khóa |
 | `pay_date` · `actual_pay_date` | Với kỳ lương: ngày chi quy định và ngày chi thực tế KT ghi nhận (BR-61) |
 
-Ràng buộc: không chồng khoảng ngày trên cùng `(period_type, scope_org_unit_id)`; chỉ mở được
-khi kỳ trước cùng loại, cùng phạm vi đã `LOCKED`. **Không có trạng thái mở khóa.**
+Ràng buộc: không chồng **ngày công** trên cùng `(period_type, scope_org_unit_id)`; mở kỳ sau
+không cần khóa kỳ trước. Chỉ khóa kỳ sau khi kỳ trước đã tồn tại cùng loại/phạm vi đã
+`LOCKED` (trừ khởi tạo). KT được trả `CLOSED → OPEN` có lý do trước khóa; không có chuyển
+ra khỏi `LOCKED`. Điều kiện thu đủ log và chống ghi đồng thời theo [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md).
+
+`payroll_attendance_source` (`payroll_period_id`, `attendance_period_id`, `attendance_snapshot_id`,
+`snapshot_hash`): FK đều về `business_period`, kiểm tra đúng loại/cơ sở/phạm vi; cặp kỳ là
+duy nhất. Cho phép nhiều kỳ công nguồn khi cần; tất cả phải khóa trước tính lương, nguồn
+đã dùng trong snapshot lương không được thay đổi ngầm. Ngày thanh toán thực tế lưu ở bản
+ghi sự kiện chi trả liên kết kỳ; không cập nhật trực tiếp kỳ lương đã khóa (xem ngữ cảnh thuế G8).
 
 ### 2.6. `audit_log` — APPEND-ONLY
 
@@ -179,6 +252,16 @@ Nhân viên **không có tài khoản đăng nhập**. Phân công nhiều đơn
 | `shift_schedule` | `employee_id` · `team_org_unit_id` · `work_date` · `shift_id` · `rotation_pattern_id` · `status` (`DRAFT` / `PENDING` / `APPROVED` / `RETURNED`) · `return_reason` · `created_by` (TT) · `approved_by` (QĐ) | Chỉ `APPROVED` được dùng ghép công |
 | `shift_change_request` | `shift_schedule_id` · `employee_id` · `old_shift_id` / `new_shift_id` · `reason` · `status` (`PENDING` / `APPROVED` / `REJECTED`) | Chưa duyệt → giữ lịch hiện hành |
 
+**Hiện thực PostgreSQL local (20 §7.10):** tách header `shift_plan` (đơn vị, người lập,
+status DRAFT/PENDING/APPROVED/RETURNED/CANCELLED, revision) khỏi các dòng `shift_schedule`
+(plan_id, employee_id, work_date DATE, shift_id, start_at/end_at UTC, work_minutes;
+unique plan/nhân sự/ngày). `shift_plan_history` chứa actor, trạng thái trước/sau, lý do,
+thời điểm, revision và snapshot JSON đầy đủ; unique plan/revision và trigger append-only.
+`shift_definition` bổ sung org_unit_id, kind, break_start_offset, paid_break, work_minutes,
+active và revision; unique đơn vị/mã, bất biến nội dung sau khi được dùng. Các trường
+window, lịch lễ, rotation_pattern và shift_change_request phía trên vẫn là thiết kế R1,
+chưa có trong schema/chức năng local; không suy diễn chúng đã chạy.
+
 ---
 
 ## 5. G4 — Chấm công (ba tầng)
@@ -187,20 +270,29 @@ Nhân viên **không có tài khoản đăng nhập**. Phân công nhiều đơn
 
 | Bảng | Trường chính |
 |---|---|
-| `punch_import_batch` | `site_id` · `attendance_period_id` · `file_name` · `file_hash` · `imported_by` (AD) · `imported_at` · `record_count` · `error_count` · `status` (`ACCEPTED` / `REJECTED`) · `error_detail` (json danh sách dòng lỗi) |
-| `raw_punch` | `id` · `import_batch_id` · `employee_id` · `device_code` · `punch_at` · `punch_type` (`IN` / `OUT` / `AUTO`) · `is_duplicate` · `received_at` |
+| `punch_import_batch` | `site_id` · `reference_attendance_period_id` (kỳ tham chiếu, không ép đích) · `file_name` · `file_hash` · `imported_by` · `imported_at` · số lưu/trùng/đã xử lý/chờ/muộn · `status` (`ACCEPTED` / `ACCEPTED_WITH_EXCEPTIONS` / `REJECTED`) · `error_detail` |
+| `raw_punch` | `id` · `import_batch_id` · `site_id` · `employee_id` · `device_code` · `punch_at` (timestamp) · `punch_type` (`IN` / `OUT` / `AUTO`) · `received_at` |
 
 **Ràng buộc:** `raw_punch` chỉ INSERT và SELECT. Khóa chống trùng
-`(device_code, employee_id, punch_at)` bảo đảm nhập lại tệp là idempotent. Lô bị `REJECTED`
+`(site_id, device_code, employee_id, punch_at)` bảo đảm nhập lại tệp là idempotent. Lô bị `REJECTED`
 không ghi bản ghi nào vào `raw_punch`.
+
+`punch_assignment` (`raw_punch_id`, `shift_schedule_id`, `work_date`, `target_attendance_period_id`,
+`assignment_status`, `calc_version`) là dẫn xuất: không sửa log khi ghép lại. Mỗi lượt chỉ
+có một gán ca hiệu lực; thiếu/đa ứng viên là ngoại lệ. Trùng gần 5 phút đánh dấu ở dẫn xuất.
+`late_punch_case` (`raw_punch_id`, `origin_period_id`, `source_shift_id`, `reason`, `status`,
+`adjustment_reference`, `resolved_by`) lưu ngoài snapshot; duy nhất theo log/kỳ nguồn để
+chống tạo hồ sơ hoặc điều chỉnh lặp. Kỳ khóa vẫn nhận log vào kho thô, không nhận kết quả mới.
+`attendance_collection_confirmation` lưu phạm vi nguồn, khoảng bao phủ, bằng chứng file,
+người/thời điểm xác nhận; không lấy max timestamp của file làm bằng chứng thu đủ log.
 
 ### 5.2. Tầng 2 · `daily_attendance` (DẪN XUẤT)
 
 | Trường | Ghi chú |
 |---|---|
 | `monthly_timesheet_id` · `employee_id` | |
-| `work_date` | **Ngày công** — ca đêm gán về ngày T (BR-13) |
-| `shift_id` | Từ lịch ca đã duyệt |
+| `work_date` | Ngày bắt đầu ca trong lịch đã duyệt; kỳ công sở hữu chứa ngày này, không suy từ ngày quẹt |
+| `shift_id` · `shift_schedule_id` | Loại ca và lần phân ca đã duyệt; lưu thời điểm bắt đầu/kết thúc kỳ vọng có múi giờ |
 | `day_type` | `NORMAL` / `WEEKLY_REST` / `HOLIDAY` |
 | `check_in_at` / `check_out_at` | Từ cặp quẹt đã ghép |
 | `worked_hours` · `day_hours` / `night_hours` | Tách theo mốc 22:00 / 06:00 |
@@ -223,7 +315,8 @@ Bảng phụ trợ **`attendance_hour_segment`** (`daily_attendance_id`, `segmen
 | Bảng | Trường chính | Ghi chú |
 |---|---|---|
 | `attendance_exception` | `daily_attendance_id` · `exception_type` (`MISSING_PUNCH` / `LATE` / `EARLY_LEAVE` / `FIELD_WORK` / `DEVICE_FAILURE` / `OT_MISMATCH`) · `reason` · `evidence_attachment_id` · `old_value` / `new_value` · `entered_by` (TT) · `entered_at` | Mỗi điều chỉnh ghi `audit_log` |
-| `team_timesheet_confirmation` | `monthly_timesheet_id` · `team_org_unit_id` · `confirmed_by` (TT) · `confirmed_at` · `status` | Chức năng 4.4 |
+| `team_timesheet_confirmation` (local: `attendance_team_confirmation`) | `period_id` · `team_org_unit_id` · `revision` · `source_hash` · `snapshot` · `actor_id` (TT) · `confirmed_at` · `note` | Xác nhận 4.4; snapshot bất biến, hiệu lực đối chiếu nguồn hiện tại; tên logic và bảng vật lý là cùng một thực thể |
+| `attendance_source_coverage` | `period_id` · `team_org_unit_id` · `revision` · `source_hash` · `covered_from` / `covered_until` · `reference` · `reason` · `batch_ids` · `snapshot` · `actor_id` (AD) · `created_at` | Bằng chứng đủ nguồn; không suy từ timestamp lớn nhất |
 | `monthly_timesheet` | `attendance_period_id` · `workshop_org_unit_id` · `total_workdays` · `total_ot_hours` · `status` (`DRAFT` / `TEAM_CONFIRMED` / `WORKSHOP_CLOSED` / `LOCKED`) · `closed_by` (QĐ) · `locked_by` (KT) | Bốn trạng thái |
 
 Tầng 3 **`attendance_snapshot`** (`attendance_period_id`, `content` json, `content_hash`,
@@ -240,8 +333,8 @@ snapshot. **`crosscheck_result`** (`monthly_timesheet_id`, `check_code` `XC-01`�
 | `ot_request` | `team_org_unit_id` · `ot_date` · `planned_from` / `planned_to` · `reason` · `consent_reference` (**bắt buộc**) · `proposed_by` (TT) · `approved_by` (QĐ) · `status` (`PENDING` / `APPROVED` / `REJECTED` / `RETURNED`) · `decision_reason` | Đề xuất cho cả tổ |
 | `ot_request_line` | `ot_request_id` · `employee_id` · `planned_hours` | Danh sách nhân viên |
 | `ot_cap` | `scope` (cơ sở / ngành) · `cap_day` · `cap_month` · `cap_year` · `effective_from` / `effective_to` | Cấu hình, không ghi cứng |
-| `ot_actual` | `daily_attendance_id` · `employee_id` · `work_date` · `day_type` · `is_night` · `hours` · `rate_code` · `applied_rate` · `ot_request_id` (nullable) · `match_status` (`MATCHED` / `MISMATCH`) · `amount` · `taxable_amount` · `tax_free_amount` | `hours` = **min**(giờ đề xuất đã duyệt, giờ thực tế) (BR-26) |
-| `comp_time_conversion` | `employee_id` · `ot_actual_id` · `converted_hours` · `conversion_ratio` · `expiry_date` · `used_hours` · `performed_by` (KT) · `performed_at` | *Điểm mở Q2*: cách trả tiền phần đã quy đổi |
+| `ot_actual` | `daily_attendance_id` · `employee_id` · `work_date` · `day_type` · `is_night` · `actual_hours` · `approved_hours` · `payable_hours` · các khoảng thực tế/duyệt · `rate_code` · `applied_rate` · `ot_request_id` (nullable) · `match_status` (`MATCHED` / `MISMATCH`) · `amount` · `taxable_amount` · `tax_free_amount` | Giữ giờ thực tế để kiểm soát trần; giờ trả tiền theo căn cứ đã xác minh, phần lệch vào ngoại lệ; không ghi đè thực tế bằng min hoặc trừ vì nghỉ bù |
+| `comp_time_conversion` | `employee_id` · `ot_actual_id` · `converted_hours` · `conversion_ratio` · `expiry_date` · `used_hours` · `performed_by` (KT) · `performed_at` | Chưa kích hoạt DEC-01; cấm tạo mới khi COMP_TIME_ENABLED=false. Dữ liệu lịch sử nếu có giữ để đối soát, không tự xóa/giảm tiền OT |
 
 Bảng phụ trợ **`ot_quota_tracking`** (`employee_id`, `period_type` `DAY` / `MONTH` / `YEAR`,
 `period_key`, `accumulated_hours`, `cap_hours`, `warning_threshold`) phục vụ kiểm soát trần (5.3).
@@ -264,18 +357,37 @@ bảng riêng.
 
 ## 8. G7 — Tính lương và thưởng
 
+> **Trạng thái triển khai (26/10/2026):** đã có `payroll_run`, `payroll_sheet`,
+> `payroll_employee`, `payroll_line`, `payroll_line_input`, `payroll_run_error`,
+> `compliance_check_result` (migration `20261026140000_payroll_engine`), cùng
+> `employee_salary`/`salary_decision`/`retro_candidate`, `insurance_rate`/
+> `insurance_contribution`, `tax_ruleset`/`pit_bracket`/`tax_withholding`/
+> `tax_exemption_line`/`tax_deduction_usage` và `overtime_pay_bucket`. Số tiền được lưu
+> mã hóa (`*_cipher`); vết tính nằm ở `payroll_line.trace_cipher`. Xem docs/20.
+ 
+**Đã triển khai local — Task 2.1–2.3:** cấu phần, đơn giá/công thức, chạy thử Decimal có vết và phương án lương nhân viên theo hiệu lực. Chưa có engine bảng lương hoặc lô đầu vào sản xuất. Phương án dùng trực tiếp cấu phần/công thức hiện có; không thêm bảng cơ cấu trùng. Phiên bản kế tiếp chỉ có hiệu lực tương lai, đóng phần chồng của bản trước cùng giao dịch; PostgreSQL chặn sửa/xóa/truncate lịch sử và khoảng chồng. Xem [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực), [§7.25](20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22) và [§7.27](20-tech-stack-va-moi-truong-phat-trien.md#727-phương-án-lương-nhân-viên-task-23).
+
 | Bảng | Trường chính | Ghi chú |
 |---|---|---|
 | `salary_structure` | `code` · `name` · `effective_from` / `effective_to` | Cơ cấu lương (7.1) |
-| `salary_component` *(phụ trợ)* | `code` · `name` · `component_type` (`EARNING` / `DEDUCTION` / `EMPLOYER_COST`) · `is_insurable` · `is_taxable` · `is_prorated` · `is_ot_base` · `display_order` | 3 cờ độc lập (BR-37) |
-| `component_formula` | `salary_structure_id` · `salary_component_id` · `expression` (tham chiếu mã tham số) · `depends_on` · `version` · `effective_from` / `effective_to` | Không phụ thuộc vòng |
+ | `salary_component` *(phụ trợ)* | `org_unit_id` · `code` · `revision` | Định danh ổn định, mã duy nhất trong công ty/cơ sở; không sửa/xóa |
+ | `salary_component_version` *(phụ trợ)* | `component_id` · `name` · `component_type` (`EARNING` / `DEDUCTION` / `EMPLOYER_COST`) · `active` · `is_insurable` · `tax_classification` (`TAXABLE` / `NON_TAXABLE` / `CONDITIONAL`) · `is_prorated` · `is_ot_base` · `display_order` · `status` · `classification_basis` · `decision_reference` · `reason` · `effective_from/to` · `created_by_id/at` | Phân loại độc lập (BR-37); khoảng hiệu lực không chồng, nội dung bất biến |
+| `payroll_configuration` *(local Task 2.2)* | `org_unit_id` · `kind` (`PRICE` / `FORMULA`) · `code` · `revision` | Định danh đơn giá/công thức, mã duy nhất theo đơn vị và loại; nội dung nằm trong phiên bản |
+| `payroll_configuration_version` *(local Task 2.2)* | `configuration_id` · `name` · `unit` · `active` · `status` · `decision_reference` · `reason` · `effective_from/to` · `created_by_id/at`; PRICE: `price_type` · `amount NUMERIC(26,6)` · `product_code` / `operation_code`; FORMULA: `component_id` · `expression` · `variables JSONB` · `rounding_mode/scale` | Lưu đơn giá và công thức cùng quy tắc phiên bản; khoảng không chồng, nội dung bất biến, nguồn/đồ thị kiểm tra theo ngày và cơ sở kế thừa |
 | `employee_salary` *(phụ trợ)* | `employee_id` · `salary_component_id` · `amount` (🔒) · `effective_from` / `effective_to` · `salary_decision_id` | Tăng lương giữa kỳ → engine tách hai đoạn đơn giá |
+| `employee_pay_plan` *(local Task 2.3)* | `employee_id` duy nhất · `revision` | Một định danh ổn định mỗi nhân viên, không gắn cơ sở cố định để cho phép phiên bản mới khi điều chuyển |
+| `employee_pay_plan_version` *(local Task 2.3)* | `pay_plan_id` · `name` · `pay_mode` · `status` · `decision_reference` · `reason` · `effective_from/to` · `lines JSONB` · `created_by_id/at` | Bảy hình thức tháng/ngày/giờ/sản phẩm/khoán/hoa hồng/3P; JSON lưu cấu phần, vai trò BASE/ADDITIONAL/NOT_APPLICABLE, mã công thức, nguồn, quyết định riêng, phương thức/tham chiếu phân bổ; khoảng không chồng, nội dung bất biến |
+| `payroll_input_batch` *(phụ trợ)* | `source_system` · `source_document_no` · `source_version` · `file_hash` · `mapping_version` · `payroll_period_id` · `status` · người/thời điểm nhập và xác nhận | KT tiếp nhận; trạng thái DRAFT/VALIDATED/CONFIRMED/RETURNED/SUPERSEDED, có chứng từ nguồn |
+| `payroll_input_line` *(phụ trợ)* | `batch_id` · `source_line_id` · `employee_id` · `site_id` · `input_type` · `salary_component_id` · `work_from/to` · `quantity` · `unit` · `unit_price_version_id` / `formula_version` · `amount` · `value_state` · `source_approval_reference` · `supersedes_line_id` | Tách PRESENT/MISSING/CONFIRMED_ZERO/NOT_APPLICABLE khỏi trạng thái lô; khóa nhập lại theo nguồn/chứng từ/dòng/version; một bản hiệu lực, không sửa bản đã dùng trong kỳ khóa |
 | `bonus` | `bonus_type` · `employee_id` / `org_unit_id` · `amount` · `payroll_period_id` · `status` | Chỉ tính khi kỳ có thưởng (7.3) |
 | `payroll_sheet` | `payroll_period_id` · `site_id` · `wage_region_code` · `total_fund` · `status` (`DRAFT` / `APPROVED` / `LOCKED`) · `calc_count` · `param_snapshot_hash` · `formula_version_set` · `approved_by` / `locked_by` | Tính lại cùng đầu vào cho cùng kết quả |
 | `payroll_employee` | `payroll_sheet_id` · `employee_id` · `base_salary` · `actual_workdays` · `gross_income` · `employee_insurance` · `pit` · `net_pay` (🔒) | Một dòng mỗi nhân viên |
 | `payroll_line` | `payroll_employee_id` · `line_type` (`LUONG_NGAY`, `OT_NGAY_THUONG`, `OT_DEM`, `PC_CA_DEM`, `THUONG`, `TRUY_LINH`, `TRUY_THU`…) · `quantity` · `rate` · `amount` (🔒) · `param_code` · `calculation_trace` (json) · `source_reference` | Thay các cột 150% / 210% / 270% / 390% cố định; `calculation_trace` hiện thực drill-down |
+| `payroll_line_input` *(phụ trợ R1)* | `payroll_line_id` · `payroll_input_line_id` · `source_version` · `source_hash` · `contribution_quantity` / `contribution_amount` | Liên kết nhiều nguồn/dòng lương; khóa duy nhất cặp dòng/nguồn/version, kiểm tra cùng nhân viên/phạm vi hoặc phân bổ tổ có căn cứ; bất biến cùng snapshot |
 | `payroll_adjustment` | `salary_decision_id` · `origin_period_id` (**kỳ gốc**) · `target_period_id` (kỳ mở nhận) · `employee_id` · `adjustment_type` (`RETRO_PAY` / `RETRO_DEDUCT` / `LATE_PAYMENT_COMPENSATION`) · `diff_salary` · `diff_insurance` · `diff_tax` · `status` (`DRAFT` / `CONFIRMED`) · `confirmed_by` (KT) | Kỳ gốc giữ nguyên |
 | `payslip` | `payroll_employee_id` · `issued_at` · `issued_by` (KT) · `file_id` · `status` | Không có OTP / PIN |
+
+Đơn giá nghiệp vụ `payroll_unit_price` được hiện thực bởi `payroll_configuration(kind=PRICE)` và `payroll_configuration_version` ở trên; không tạo bảng giá thứ hai. Công thức cấu phần dùng cùng cặp bảng với `kind=FORMULA`; Task 2.3 tham chiếu mã công thức trong dòng phương án, phân giải đúng phiên bản theo ngày/cơ sở, không sao chép engine hoặc giá vào JSON phương án.
 
 Bảng phụ trợ **`payroll_snapshot`** (`payroll_sheet_id`, `content`, `content_hash`, `locked_at`,
 `locked_by`, `compliance_result_id`) và **`compliance_check_result`** (`payroll_sheet_id`,
@@ -291,10 +403,16 @@ bằng chứng tuân thủ kèm kỳ lương.
 | `insurance_rate` | `wage_region_code` · `insurance_type` (`BHXH` / `BHYT` / `BHTN` / `KPCD`) · `employee_rate` · `employer_rate` · `floor_amount` · `cap_amount` · `effective_from` / `effective_to` | KT cập nhật (8.1) |
 | `insurance_contribution` | `payroll_employee_id` · `period_code` · `employee_id` · `insurable_salary` (🔒) · `bhxh_nld` / `bhxh_dn` · `bhyt_nld` / `bhyt_dn` · `bhtn_nld` / `bhtn_dn` · `kpcd_dn` · `union_fee` | Tách NLĐ / DN (8.2) |
 | `insurance_change_list` | `period_code` · `employee_id` · `change_type` (`INCREASE` / `DECREASE` / `ADJUST`) · `reason` · `effective_date` · `old_salary` / `new_salary` · `c12_difference` | Danh sách để kê khai (8.3) |
-| `pit_bracket` | `bracket_no` · `from_amount` / `to_amount` · `rate` · `effective_from` / `effective_to` | 5 bậc từ 2026; 7 bậc đến hết 2025 |
-| `tax_profile` *(phụ trợ)* | `employee_id` · `tax_status` (`RESIDENT` / `NON_RESIDENT` / `SEASONAL`) · `commitment_02ck` · `authorization_for_finalization` | |
-| `tax_withholding` | `payroll_employee_id` · `period_code` · `employee_id` · `taxable_income` · `tax_free_income` · `self_deduction` · `dependent_deduction` · `insurance_deduction` · `assessable_income` · `tax_amount` · `bracket_breakdown` (json) | Dùng chung với bảng lương |
+| `pit_bracket` | `bracket_no` · `from_amount` / `to_amount` (bậc cuối null = không giới hạn) · `rate` · `effective_from` / `effective_to` · `basis` (`MONTH` / `YEAR`) · `legal_basis` | 5 bậc từ kỳ thuế 2026 cho cư trú; 7 bậc ở bộ 2025; bảng năm có ngưỡng tháng × 12 |
+| `tax_profile` *(phụ trợ)* | `employee_id` · `residency_status` (`RESIDENT` / `NON_RESIDENT`) · `effective_from` / `effective_to` · `commitment_reference` / `commitment_form_version` · `authorization_for_finalization` | Cách khấu trừ suy từ cư trú/HĐ/quy tắc; “thời vụ” không là trạng thái cư trú |
+| `tax_withholding` | `payroll_employee_id` · `payment_reference` · `payment_date` · `payment_date_status` (`PROJECTED` / `ACTUAL`) · `tax_period` · `employee_id` · `withholding_method` · `rule_snapshot` (phiên bản/căn cứ/chế độ miễn/ngưỡng) · `taxable_income` · `tax_free_income` · `self_deduction` · `dependent_deduction` · `insurance_deduction` · `assessable_income` · `tax_amount` · `bracket_breakdown` (json) · `filing_status` · `original_withholding_id` (nullable) | Phân biệt kỳ thuế của lần chi với kỳ công/lương; khoản đã khai/nộp không ghi đè; dự báo và đối soát thực tế liên kết riêng |
 | `annual_tax_finalization` | `year` · `employee_id` · `total_income` · `total_deduction` · `tax_withheld` · `tax_due` · `difference` · `status` (`DRAFT` / `DONE`) | Dự thảo hồ sơ (8.5) |
+
+Chi tiết miễn thuế lưu theo khoản/đoạn không trùng nguồn: `income_source_reference`, `amount_paid`,
+`eligible_exempt_amount`, `taxable_amount`, `exemption_rule_version`, `evidence_reference` và
+`eligibility_status`. Tổng phần miễn + chịu phải bằng khoản thực trả. Lương gốc giờ đêm phân
+bổ từ lương thời gian; không cộng lại thành thu nhập mới. Điều chỉnh thuế/chuyển tiếp lưu
+tham chiếu hồ sơ gốc và lý do, không mở khóa bảng lương. Xem [12 §2.7](12-tuan-thu-phap-ly.md).
 
 ---
 
@@ -332,9 +450,9 @@ bằng chứng tuân thủ kèm kỳ lương.
 | 2 | `raw_punch` chỉ INSERT/SELECT; duy nhất theo `(device_code, employee_id, punch_at)` | CSDL |
 | 3 | `audit_log` thu hồi UPDATE/DELETE | CSDL |
 | 4 | `org_unit.parent_id` không tạo chu trình; `level` ≤ 5 | Ứng dụng + kiểm tra định kỳ |
-| 5 | `business_period` không chồng khoảng ngày trên cùng `(period_type, scope_org_unit_id)`; mở kỳ khi kỳ trước đã `LOCKED` | CSDL + ứng dụng |
-| 6 | `payroll_sheet` chỉ tính khi kỳ công tương ứng `LOCKED` | Ứng dụng |
-| 7 | Không ghi dữ liệu nghiệp vụ vào kỳ đã `LOCKED` (trừ `payroll_adjustment` ghi vào kỳ đang mở) | Ứng dụng + CSDL |
+| 5 | Không chồng ngày công cùng loại/phạm vi; tạo/mở kỳ không phụ thuộc khóa kỳ trước; chỉ khóa theo thứ tự, trạng thái/revision và điều kiện đủ nguồn | CSDL + ứng dụng |
+| 6 | `payroll_sheet` chỉ tính khi toàn bộ kỳ công nguồn trong `payroll_attendance_source` đã `LOCKED`; lưu snapshot/hash nguồn | Ứng dụng |
+| 7 | Không sửa kết quả/snapshot kỳ `LOCKED`; log muộn chỉ thêm vào kho thô/hồ sơ ngoài kỳ, điều chỉnh ghi kỳ đang mở | Ứng dụng + CSDL |
 | 8 | `monthly_timesheet` chỉ chuyển `WORKSHOP_CLOSED` khi mọi tổ đã xác nhận và không còn `XC` mức BLOCKING | Ứng dụng |
 | 9 | `component_formula` không có phụ thuộc vòng | Formula engine |
 | 10 | `daily_attendance` duy nhất theo `(employee_id, work_date)` | CSDL |

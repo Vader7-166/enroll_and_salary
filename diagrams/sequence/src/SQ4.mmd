@@ -1,0 +1,29 @@
+sequenceDiagram
+autonumber
+actor TT as Tổ trưởng
+actor QD as Quản đốc
+actor KT as Kế toán
+participant HT as OT và lương
+participant DB as CSDL
+TT->>HT: Đề xuất OT, nhân viên, khoảng giờ và căn cứ đồng ý (5.1)
+HT->>DB: Lưu chờ duyệt và audit
+QD->>HT: Xem và duyệt OT (5.2)
+HT->>DB: Lấy trần có hiệu lực và giờ lũy kế (5.3)
+alt Thiếu căn cứ hoặc vượt trần
+  HT-->>QD: Không duyệt, chỉ rõ điều kiện cần xử lý
+  QD->>HT: Từ chối hoặc trả lại đề xuất
+else Đủ điều kiện
+  HT->>DB: Lưu duyệt và thông báo TT
+end
+Note over HT,DB: Khi có công: lưu giờ thực tế độc lập với giờ duyệt/tính tiền
+HT->>DB: Đối chiếu khoảng giờ, loại ngày/đêm, nguồn đơn giá (5.4)
+alt Còn thiếu hoặc lệch căn cứ
+  HT->>DB: Ngoại lệ cần xác minh, không biến dữ liệu thiếu thành 0
+else Đủ đầu vào đã xác nhận
+  HT->>DB: Tính OT theo phương án lương, giữ nguồn và phiên bản
+end
+KT->>HT: Yêu cầu quy đổi nghỉ bù (5.5)
+HT->>DB: Đọc COMP_TIME_ENABLED=false theo DEC-01
+HT-->>KT: COMP_TIME_DISABLED
+Note over KT,DB: Không sinh quỹ, không trừ tiền OT hoặc giờ thực tế
+Note over TT,DB: Nghỉ bù lễ/nghỉ tuần và phép năm vẫn xử lý độc lập

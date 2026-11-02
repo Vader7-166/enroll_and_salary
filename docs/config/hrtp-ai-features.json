@@ -1,0 +1,41 @@
+{
+  "context": "ACADEMIC_SIMULATION",
+  "core_baseline": "HRTP-R1-2026-10-17",
+  "core_baseline_counts_unchanged": true,
+  "features": [
+    {
+      "id": "AI-02",
+      "name": "Trợ lý hướng dẫn nghiệp vụ theo vai trò",
+      "priority": "CURRENT_SPRINT_AI",
+      "provider": "GOOGLE_GEMINI_API",
+      "model": null,
+      "billing_tier": null,
+      "roles": ["TT", "QD", "KT", "AD"],
+      "mode": "DOCUMENT_GUIDANCE_READ_ONLY",
+      "business_data_access": false,
+      "write_actions": false,
+      "google_search_grounding": false,
+      "feature_flag": "AI_BUSINESS_ASSISTANT_ENABLED",
+      "enabled_by_default": false,
+      "implementation_status": "NOT_IMPLEMENTED",
+      "acceptance_status": "NOT_EXECUTED",
+      "specification": "../24-ai-tro-ly-nghiep-vu-theo-vai-tro.md",
+      "diagram": "../../diagrams/release/AI02-business-assistant.mmd",
+      "requirement_ids": ["AI02-REQ-01", "AI02-REQ-02", "AI02-REQ-03", "AI02-REQ-04", "AI02-REQ-05", "AI02-REQ-06", "AI02-REQ-07", "AI02-REQ-08"],
+      "acceptance_ids": ["AC-AI02-01", "AC-AI02-02", "AC-AI02-03", "AC-AI02-04", "AC-AI02-05", "AC-AI02-06", "AC-AI02-07", "AC-AI02-08", "AC-AI02-09", "AC-AI02-10", "AC-AI02-11", "AC-AI02-12"],
+      "minimum_qa_cases": 22,
+      "planned_days": [4, 5]
+    },
+    {
+      "id": "AI-01",
+      "name": "AI giải thích bảng lương",
+      "priority": "POST_SPRINT_EXTENSION",
+      "roles": ["KT"],
+      "enabled_by_default": false,
+      "implementation_status": "NOT_IMPLEMENTED",
+      "acceptance_status": "NOT_EXECUTED",
+      "specification": "../23-ai-giai-thich-bang-luong.md",
+      "planned_days": []
+    }
+  ]
+}

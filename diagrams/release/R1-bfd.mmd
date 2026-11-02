@@ -1,0 +1,93 @@
+flowchart LR
+    ROOT["R1: 10 phân hệ, 48 hoạt động + kiểm tra 5.5 chưa kích hoạt"]
+    subgraph G1["1. Quản trị hệ thống"]
+        direction TB
+        F_1_1["1.1 Tài khoản, phân quyền"]
+        F_1_2["1.2 Cơ cấu tổ chức"]
+        F_1_3["1.3 Tham số pháp lý"]
+        F_1_4["1.4 Chính sách cơ sở"]
+        F_1_5["1.5 Vòng đời kỳ công/lương"]
+        F_1_6["1.6 Nhật ký kiểm toán"]
+    end
+    ROOT --> G1
+    subgraph G2["2. Hồ sơ và hợp đồng"]
+        direction TB
+        F_2_1["2.1 Hồ sơ, người phụ thuộc"]
+        F_2_2["2.2 Hợp đồng, phụ lục"]
+        F_2_3["2.3 Điều chuyển, thay đổi lương"]
+        F_2_4["2.4 Cảnh báo hết HĐ"]
+        F_2_5["2.5 Chấm dứt HĐ"]
+    end
+    ROOT --> G2
+    subgraph G3["3. Ca làm việc"]
+        direction TB
+        F_3_1["3.1 Ca, lịch nghỉ"]
+        F_3_2["3.2 Xếp và xoay ca"]
+        F_3_3["3.3 Đề xuất đổi ca"]
+        F_3_4["3.4 Duyệt lịch ca"]
+    end
+    ROOT --> G3
+    subgraph G4["4. Chấm công"]
+        direction TB
+        F_4_1["4.1 Nhập file và phân tuyến"]
+        F_4_2["4.2 Ghép vào/ra theo ca"]
+        F_4_3["4.3 Ngoại lệ, giải trình"]
+        F_4_4["4.4 Xác nhận công tổ"]
+        F_4_5["4.5 Chốt và khóa công"]
+    end
+    ROOT --> G4
+    subgraph G5["5. Làm thêm giờ"]
+        direction TB
+        F_5_1["5.1 Đề xuất OT"]
+        F_5_2["5.2 Duyệt OT"]
+        F_5_3["5.3 Kiểm soát trần"]
+        F_5_4["5.4 Tính OT theo hệ số"]
+        F_5_5["5.5 Chưa kích hoạt nghỉ quy đổi"]
+    end
+    ROOT --> G5
+    subgraph G6["6. Nghỉ và chế độ"]
+        direction TB
+        F_6_1["6.1 Danh mục nghỉ"]
+        F_6_2["6.2 Quỹ phép năm"]
+        F_6_3["6.3 Đơn nghỉ một cấp"]
+        F_6_4["6.4 Ốm đau, thai sản"]
+        F_6_5["6.5 Tỷ lệ vắng mặt"]
+    end
+    ROOT --> G6
+    subgraph G7["7. Lương và thưởng"]
+        direction TB
+        F_7_1["7.1 Phương án, nguồn, công thức"]
+        F_7_2["7.2 Tính lương đủ hình thức"]
+        F_7_3["7.3 Thưởng"]
+        F_7_4["7.4 Truy lĩnh, truy thu"]
+        F_7_5["7.5 Duyệt và khóa lương"]
+        F_7_6["7.6 Phiếu lương, file chi"]
+    end
+    ROOT --> G7
+    subgraph G8["8. Bảo hiểm và thuế"]
+        direction TB
+        F_8_1["8.1 Tham số đóng BH"]
+        F_8_2["8.2 Trích BH hai phía"]
+        F_8_3["8.3 Tăng giảm, điều chỉnh, C12"]
+        F_8_4["8.4 Khấu trừ TNCN"]
+        F_8_5["8.5 Dự thảo quyết toán năm"]
+    end
+    ROOT --> G8
+    subgraph G9["9. Phúc lợi"]
+        direction TB
+        F_9_1["9.1 Danh mục, điều kiện"]
+        F_9_2["9.2 Cấp phát"]
+        F_9_3["9.3 Thôi việc, mất việc"]
+        F_9_4["9.4 Chi phí phúc lợi"]
+    end
+    ROOT --> G9
+    subgraph G10["10. Báo cáo"]
+        direction TB
+        F_10_1["10.1 Công, OT và giờ tuần"]
+        F_10_2["10.2 Biến động nhân sự"]
+        F_10_3["10.3 Quỹ và phân bổ chi phí"]
+        F_10_4["10.4 BH, thuế, lao động"]
+    end
+    ROOT --> G10
+    classDef disabled fill:#fff4cc,stroke:#996600,stroke-dasharray:5 5
+    class F_5_5 disabled

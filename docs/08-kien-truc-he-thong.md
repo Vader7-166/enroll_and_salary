@@ -1,17 +1,42 @@
 # 08. Kiến trúc hệ thống
 
+**TECH-01 đã chốt:** React + TypeScript + Vite, Ant Design, TanStack Query;
+NestJS + TypeScript, PostgreSQL, Prisma và Decimal.js; kiến trúc modular monolith,
+phát triển trên VS Code. Chi tiết và ràng buộc tại [20](20-tech-stack-va-moi-truong-phat-trien.md).
+
+**R1:** mọi dịch vụ cần cho 152 M, bao gồm phúc lợi/quyết toán/báo cáo, nằm trong bản đầu
+theo [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md). Sơ đồ phạm vi và phụ thuộc hiện hành:
+[R1-scope](../diagrams/release/R1-scope.mmd), dữ liệu bổ sung [R1-data](../diagrams/release/R1-data.mmd).
+Nghỉ quy đổi OT chỉ có kiểm tra chưa kích hoạt; email, tích hợp ngoài và sáu FR backlog
+không tự bật. Lộ trình xây dựng không làm thay đổi phạm vi này.
+
 ## 1. Nguyên tắc kiến trúc
+
+**AI-02 bổ sung:** [24](24-ai-tro-ly-nghiep-vu-theo-vai-tro.md) và
+[sơ đồ](../diagrams/release/AI02-business-assistant.mmd) mô tả module trợ lý trong
+NestJS: kiểm tra quyền → corpus được duyệt → retrieval → Google Gemini → kiểm tra
+nguồn/quyền → hướng dẫn và route. Chỉ gửi tài liệu/câu hỏi đã kiểm soát, không đọc
+database nghiệp vụ hoặc cấp tool ghi. Đây là API AI bổ sung được xác nhận riêng;
+tích hợp máy chấm công/ngân hàng/ERP/BHXH/thuế của lõi vẫn qua tệp theo NT-8.
+AI-01 giải thích lương chuyển sang hướng sau sprint; model Gemini/tier chưa ghim.
 
 | # | Nguyên tắc | Hệ quả thiết kế |
 |---|---|---|
 | NT-1 | **Dữ liệu gốc bất biến** | Log chấm công nhập từ tệp chỉ ghi thêm; mọi hiệu chỉnh diễn ra ở tầng dẫn xuất |
 | NT-2 | **Tính lại được** | Tầng dẫn xuất là hàm thuần của tầng gốc + tham số + đơn từ đã duyệt |
-| NT-3 | **Chốt kỳ là bất biến** | Snapshot kèm hash tại thời điểm khóa; kỳ đã chốt không thay đổi ngầm |
+| NT-3 | **Khóa kỳ là bất biến** | Snapshot/hash nguyên tử khi LOCKED; CLOSED chỉ sửa sau trả lại có lý do và xác nhận/chốt lại |
 | NT-4 | **Cấu hình hơn lập trình** | Tham số pháp lý và công thức lương là dữ liệu, không phải mã |
 | NT-5 | **Tuân thủ là cổng chặn** | Kiểm tra pháp lý chạy như điều kiện chặn, không phải báo cáo hậu kiểm |
 | NT-6 | **Truy vết toàn phần** | Mỗi con số đi ngược được về công thức → tham số → lượt quẹt gốc |
 | NT-7 | **Không phụ thuộc hạ tầng cụ thể** | Kiến trúc chạy được cả on-premise lẫn cloud (câu hỏi PV5-14 chưa chốt) |
 | NT-8 | **Phạm vi theo BFD** | Bốn tác nhân TT / QĐ / KT / AD; hệ thống chỉ tiếp nhận tệp chấm công và xuất tệp — không kết nối thiết bị, ngân hàng, ERP, cổng BHXH / thuế |
+
+**Ngữ cảnh thời gian TNCN:** tách kỳ công, kỳ lương và kỳ thuế theo thời điểm chi trả.
+Dịch vụ thuế phân giải bộ quy tắc theo cư trú, cách khấu trừ, kỳ thuế và ngoại lệ áp dụng
+của từng văn bản; không dùng duy nhất ngày nghiệp vụ kỳ công. Snapshot lưu ngày trả dự kiến/
+thực tế, phiên bản biểu/giảm trừ/miễn thuế và căn cứ. Hồ sơ đã khai/nộp được tái hiện từ
+snapshot; tính lại nghĩa vụ và điều chỉnh chuyển tiếp là kết quả liên kết riêng. Không mở
+khóa bảng lương để cập nhật ngày trả hoặc số thuế đã khai. Xem [12 §2.7](12-tuan-thu-phap-ly.md).
 
 ---
 
@@ -125,8 +150,10 @@ liệu lương.
 ### 3.3. Dịch vụ quản lý kỳ và khóa kỳ
 
 Chịu trách nhiệm vòng trạng thái của kỳ nghiệp vụ (kỳ công, kỳ lương — `KyNghiepVu`): kiểm tra
-không trùng kỳ, kỳ trước cùng loại và phạm vi đã khóa (AD mở kỳ), kiểm tra điều kiện khóa (KT
-khóa kỳ), sinh snapshot kèm hash. **Không có nghiệp vụ mở khóa kỳ**; điều chỉnh sau khóa đi qua
+không trùng ngày công, cho phép mở kỳ mới khi kỳ trước còn đối soát; quản lý
+`PLANNED → OPEN → CLOSED → LOCKED`, KT trả lại `CLOSED → OPEN` trước khóa có lý do.
+Chỉ khóa kỳ sau khi kỳ trước đã tồn tại cùng loại/phạm vi khóa; kiểm tra đủ cửa sổ ca/nguồn,
+revision và hết tác vụ ghi, sinh snapshot/hash và trạng thái nguyên tử. **Không mở khóa LOCKED**; điều chỉnh sau khóa đi qua
 bút toán điều chỉnh ở kỳ đang mở.
 
 ### 3.4. Dịch vụ tham số pháp lý
@@ -205,20 +232,26 @@ tách hai khái niệm: **ngày công** (gán về T) và **đoạn giờ** (tá
 `tỷ lệ OT đêm = tỷ_lệ_OT_ngày(loại_ngày) + 30% + 20% × tỷ_lệ_ban_ngày(loại_ngày)`.
 Các con số 200 / 210 / 270 / 390% là **kết quả tính**.
 
-**Vì sao.** Nếu doanh nghiệp nâng hệ số OT ngày thường lên 160%, hệ số OT đêm phải tự động
-thành 212%. Lưu con số kết quả sẽ khiến hai chỗ lệch nhau. Cách này cũng làm bộ kiểm thử
-pháp lý trở nên kiểm chứng được.
+**Vì sao.** Nếu chỉ nâng hệ số OT ngày thường lên 160% (giữ phụ cấp đêm 30%, hệ số cộng 20%),
+hệ số OT đêm ngày thường phải tự động thành **210%** khi chưa có OT ban ngày
+(`160% + 30% + 20% × 100%`) hoặc **222%** khi đã có OT ban ngày
+(`160% + 30% + 20% × 160%`). Hệ số OT đêm nghỉ hằng tuần / lễ Tết vẫn là 270% / 390%.
+Lưu con số kết quả sẽ khiến hai chỗ lệch nhau. Cách này cũng làm bộ kiểm thử pháp lý trở
+nên kiểm chứng được (TC-O05, TC-O05b, TC-O05c trong [06 §11](06-thuat-toan-cham-cong-va-tinh-luong.md)).
 
 ### ADR-05. Kỳ công và kỳ lương là hai thực thể riêng, khóa hai lớp
 
-**Quyết định.** `attendance_period` và `payroll_period` là hai bảng riêng với vòng trạng thái
-riêng; kỳ lương chỉ chạy được khi kỳ công tương ứng đã `LOCKED`.
+**Quyết định.** Hai loại kỳ dùng bảng chung `business_period` với `period_type`
+`ATTENDANCE` / `PAYROLL`, khoảng ngày và vòng trạng thái độc lập. Liên kết rõ nguồn công
+bằng `payroll_attendance_source`; kỳ lương chỉ tính khi mọi nguồn đã `LOCKED` và lưu hash
+snapshot nguồn. Được lập kế hoạch/mở kỳ mới trước khi kỳ trước khóa; chốt sau khi đủ log
+ca cuối qua ngày chốt, khóa theo thứ tự và nguyên tử. Xem [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md).
 
 **Vì sao.** Kỳ công cut-off ngày 25 nhưng chi lương ngày 10 tháng sau, và hai khối có thể
 chốt công khác ngày. Khóa hai lớp cũng tạo ranh giới trách nhiệm rõ: sau lớp 1 nhân sự chấm
 công — tổ trưởng, quản đốc — hết quyền sửa công, sau lớp 2 kế toán hết quyền sửa lương.
 
-### ADR-06. Điều chỉnh sau chốt luôn chuyển sang kỳ kế tiếp
+### ADR-06. Điều chỉnh sau khóa ghi vào kỳ đang mở
 
 **Quyết định.** Sai sót hoặc quyết định có hiệu lực quá khứ phát hiện sau khi kỳ đã khóa được
 xử lý bằng **bút toán điều chỉnh** (truy lĩnh / truy thu) ở kỳ đang mở, sau khi KT xác nhận.
@@ -294,6 +327,19 @@ phần lớn cấu hình giống nhau. Kế thừa tránh nhân bản; hiển th
 không ai biết giá trị đang áp đến từ đâu.
 
 ---
+
+### ADR-14. Stack TypeScript và modular monolith (TECH-01)
+
+**Quyết định.** Chủ dự án xác nhận React + TypeScript + Vite, Ant Design, TanStack Query
+cho frontend; NestJS trên Node.js cho backend; PostgreSQL và Prisma cho dữ liệu;
+Decimal.js cho số học nghiệp vụ. Phát triển trên VS Code, tổ chức module theo BFD trong
+một backend. Chi tiết tại [20](20-tech-stack-va-moi-truong-phat-trien.md).
+
+**Hệ quả.** API Gateway trong sơ đồ là điểm vào logic của NestJS. Prisma quản lý truy cập
+và migration; các ràng buộc bất biến/audit/khóa kỳ vẫn phải được thực hiện ở backend và
+database. Tác vụ tính toán nặng chạy ở worker dùng chung nghiệp vụ, không chặn HTTP.
+Số thập phân qua API dùng chuỗi; không chuyển sang JavaScript `number` để tính lương.
+Các quyết định ADR-01…13 và phạm vi R1 tiếp tục áp dụng.
 
 ## 5. Luồng dữ liệu chính
 
@@ -388,7 +434,10 @@ Tính lương cho 1.000 nhân sự là tác vụ lô, không phải yêu cầu �
 | `PERIOD_NOT_LOCKED` | Chạy lương khi kỳ công chưa khóa | Dịch vụ kỳ |
 | `PERIOD_LOCKED` | Ghi dữ liệu vào kỳ đã khóa | Dịch vụ kỳ |
 | `PERIOD_OVERLAP` | Mở kỳ trùng khoảng ngày với kỳ cùng loại, cùng phạm vi | Dịch vụ kỳ |
-| `PREV_PERIOD_NOT_LOCKED` | Mở kỳ khi kỳ trước cùng loại, cùng phạm vi chưa khóa | Dịch vụ kỳ |
+| `PREV_PERIOD_NOT_LOCKED` | Khóa kỳ sau khi kỳ trước đã tồn tại cùng loại/phạm vi chưa khóa; không chặn tạo/mở kỳ | Dịch vụ kỳ |
+| `PERIOD_NOT_OPEN` / `PERIOD_CLOSED` | Không được sửa kết quả kỳ chưa mở/đã chốt; log thô có thể giữ ở hàng chờ | Dịch vụ kỳ/chấm công |
+| `COLLECTION_INCOMPLETE` | Chốt khi chưa hết cửa sổ ca cuối, chưa đủ nguồn hoặc còn tác vụ/ngoại lệ chặn | Lõi chấm công |
+| `PERIOD_STATE_CONFLICT` | Trạng thái/revision thay đổi trong khi tính hoặc ghi; đọc lại trước khi thử tiếp | Dịch vụ kỳ |
 | `IMPORT_FILE_INVALID` | Tệp chấm công sai cấu trúc hoặc mã nhân viên không khớp | Dịch vụ nhập chấm công |
 | `COMPLIANCE_BLOCKED` | Vi phạm cổng chặn `CP-xx` | Lõi tính lương |
 | `CROSSCHECK_BLOCKED` | Vi phạm đối soát `XC-xx` mức BLOCKING | Lõi chấm công |
@@ -396,6 +445,9 @@ Tính lương cho 1.000 nhân sự là tác vụ lô, không phải yêu cầu �
 | `OT_CONSENT_MISSING` | Đề xuất OT khi chưa có căn cứ đồng ý làm thêm | Dịch vụ OT |
 | `OT_LIMIT_EXCEEDED` | Vượt trần OT ngày/tháng/năm — không cho QĐ duyệt | Dịch vụ OT |
 | `TIMESHEET_NOT_CONFIRMED` | Chốt xưởng khi còn tổ chưa xác nhận công | Lõi chấm công |
+| `COMP_TIME_DISABLED` | DEC-01 chưa kích hoạt quy đổi; giữ nguyên tiền và giờ OT | Dịch vụ OT |
+| `PAYROLL_INPUT_MISSING` | Thiếu nguồn/nghiệm thu/đơn giá/công thức bắt buộc; không tự thay bằng 0 | Lõi tính lương |
+| `PAYROLL_INPUT_CONFLICT` | Cùng định danh nguồn/version nhưng nội dung khác hoặc có nhiều bản hiệu lực | Nhập đầu vào lương |
 
 Mọi lỗi mức BLOCKING phải trả về kèm: danh sách bản ghi vi phạm, liên kết tới màn hình xử
 lý, và dẫn chiếu điều khoản pháp luật tương ứng (nếu là lỗi tuân thủ).

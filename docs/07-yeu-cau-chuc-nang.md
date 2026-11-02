@@ -1,5 +1,10 @@
 # 07. Yêu cầu chức năng
 
+**AI ưu tiên trong kế hoạch:** [24 — AI-02 trợ lý nghiệp vụ](24-ai-tro-ly-nghiep-vu-theo-vai-tro.md),
+Google Gemini cho TT/QĐ/KT/AD, 8 AI02-REQ và 12 AC riêng. Chỉ hướng dẫn tài liệu theo
+quyền, không đọc/ghi dữ liệu nhân sự/lương. Không thay 158 FR/152 M; AI-01 ở tài liệu
+23 chuyển sang sau sprint, không phải chức năng đang giao trong roadmap 5 ngày.
+
 Hệ thống gồm **10 phân hệ / 49 chức năng** theo sơ đồ phân rã chức năng
 ([`diagrams/BFD.png`](../diagrams/BFD.png)). Mỗi chức năng mang mã BFD `x.y` và được mô tả bằng
 use case ([`diagrams/usecase/`](../diagrams/usecase/)), sequence diagram
@@ -10,8 +15,14 @@ tiên:
 | Mức | Ý nghĩa |
 |---|---|
 | **M** (Must) | Bắt buộc có ở bản phát hành đầu tiên |
-| **S** (Should) | Cần có, có thể lùi sang giai đoạn 2 |
-| **C** (Could) | Có thì tốt, không chặn nghiệm thu |
+| **S** (Should) | Backlog sau R1, không thuộc nghiệm thu bản đầu; không đồng nghĩa GĐ 2 cắt chuyển |
+| **C** (Could) | Tiện ích xem xét sau R1, không thuộc nghiệm thu bản đầu |
+
+**Phạm vi R1 đã chốt ngày 17/10/2026:** [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md)
+và [manifest R1](config/hrtp-release-r1.json). R1 gồm 152 yêu cầu M trong tổng 158 FR;
+151 yêu cầu hoạt động và một yêu cầu bắt buộc kiểm tra chức năng nghỉ bù OT chưa kích hoạt
+(FR-5.5.1). Sáu FR còn lại ở backlog sau R1. Phúc lợi, quyết toán thuế năm và báo cáo lõi
+đều nằm trong R1, không chuyển các yêu cầu M sang giai đoạn sau nghiệm thu.
 
 **Tác nhân:** TT – Tổ trưởng · QĐ – Quản đốc · KT – Kế toán · AD – Admin · Hệ thống – xử lý
 tự động. Công nhân không đăng nhập hệ thống ([02](02-cac-ben-lien-quan-va-vai-tro.md)).
@@ -30,7 +41,7 @@ Use case: [PhanHe1](../diagrams/usecase/PhanHe1.png) · Activity: AD-01 · Lớp
 |---|---|---|---|
 | FR-1.1.1 | Tài khoản chỉ cấp cho bốn vai trò **TT, QĐ, KT, AD**; công nhân không có tài khoản | M | [02](02-cac-ben-lien-quan-va-vai-tro.md) |
 | FR-1.1.2 | Phân quyền theo đơn vị: mỗi bản ghi gồm tài khoản, vai trò, **đơn vị phạm vi**, hiệu lực; một hành động chỉ thực hiện được khi thỏa **đồng thời** quyền chức năng của vai trò và phạm vi đơn vị; kiểm tra vai trò, phạm vi phù hợp khi cấp (SQ-15) | M | [10](10-phan-quyen-va-bao-mat.md) |
-| FR-1.1.3 | Danh sách loại trừ ẩn hồ sơ, lương của nhóm nhân sự đặc biệt khỏi tài khoản KT có phạm vi hạn chế; trả kết quả rỗng thay vì lỗi 403 | S | – |
+| FR-1.1.3 | Danh sách loại trừ ẩn hồ sơ, lương của nhóm nhân sự đặc biệt khỏi tài khoản KT có phạm vi hạn chế; trả kết quả rỗng thay vì lỗi 403 | M | – |
 | FR-1.1.4 | Che trường nhạy cảm theo quyền (số tài khoản, CCCD, tiền lương); AD không xem lương chi tiết | M | – |
 | FR-1.1.5 | Đăng nhập, đổi mật khẩu, chính sách mật khẩu, khóa / mở khóa tài khoản, quản lý và thu hồi phiên | M | [10 §5](10-phan-quyen-va-bao-mat.md) |
 
@@ -63,8 +74,8 @@ Use case: [PhanHe1](../diagrams/usecase/PhanHe1.png) · Activity: AD-01 · Lớp
 
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
-| FR-1.5.1 | AD mở kỳ (loại công / lương, cơ sở, từ ngày, đến ngày); **không trùng kỳ**; kỳ trước cùng loại, cùng phạm vi phải đã khóa; kỳ đầu tiên xử lý theo trường hợp khởi tạo | M | BR-01 |
-| FR-1.5.2 | KT khóa kỳ khi đủ điều kiện (bảng công đã chốt, bảng lương đã duyệt); thiếu điều kiện → báo lỗi nêu điều kiện còn thiếu; khóa kỳ ghi nhật ký | M | BR-01 |
+| FR-1.5.1 | AD tạo kỳ Lập kế hoạch, mở trước cửa sổ Vào đầu tiên; không chồng ngày công cùng loại/phạm vi; được mở khi kỳ trước chưa khóa. PLANNED → OPEN → CLOSED → LOCKED; KT được trả CLOSED → OPEN có lý do trước khóa | M | BR-01 · [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
+| FR-1.5.2 | KT khóa kỳ CLOSED khi đủ nguồn/cửa sổ ca, không còn tác vụ ghi/ngoại lệ chặn, kỳ trước đã tồn tại cùng loại/phạm vi đã khóa; kỳ đầu xử lý khởi tạo. Kỳ lương còn yêu cầu nguồn công đã khóa và bảng lương đã duyệt. Kiểm tra revision và snapshot nguyên tử; ghi nhật ký | M | BR-01 |
 | FR-1.5.3 | Kỳ đã khóa **không bị sửa và không mở khóa lại**; điều chỉnh phát sinh sau khóa ghi vào kỳ đang mở | M | BR-42 |
 
 ### 1.6. Nhật ký kiểm toán — AD · SQ-10, SQ-11
@@ -183,7 +194,7 @@ Activity: AD-04 · Lớp: gói G4
 
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
-| FR-4.1.1 | AD chọn cơ sở, kỳ công và tải tệp dữ liệu chấm công (Excel / CSV / TXT); mỗi lần tải là một **lô nhập** ghi người nhập, thời điểm, số bản ghi, số bản ghi lỗi | M | [11 §1](11-tich-hop-he-thong.md) |
+| FR-4.1.1 | AD chọn cơ sở, kỳ tham chiếu và tải tệp; phân tuyến mỗi dòng theo ca/ngày công về kỳ đích, cho phép file hỗn hợp qua ngày chốt; trả số đã xử lý/chờ/muộn theo kỳ. Kỳ đích khóa không chặn công hợp lệ của kỳ mở khác | M | [11 §1](11-tich-hop-he-thong.md) · [17 §3](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
 | FR-4.1.2 | Cấu hình ánh xạ cột tệp theo cơ sở / loại máy | M | BR-75 |
 | FR-4.1.3 | Kiểm tra định dạng, cấu trúc và mã nhân viên; tệp lỗi → báo lỗi kèm danh sách dòng lỗi, không ghi vào log gốc | M | – |
 | FR-4.1.4 | Lưu bản ghi thô (mã NV, thời điểm quẹt, thiết bị, cơ sở) **bất biến**, chỉ ghi thêm | M | BR-19 |
@@ -196,8 +207,8 @@ Activity: AD-04 · Lớp: gói G4
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
 | FR-4.2.1 | Khử lượt quẹt trùng trong cửa sổ 5 phút | M | BR-17 |
-| FR-4.2.2 | Ghép cặp vào/ra theo **lịch ca đã duyệt** của từng nhân viên, từng ngày | M | BR-18 |
-| FR-4.2.3 | **Gán ca đêm bắc cầu về ngày bắt đầu ca (ngày T)** | M | BR-13 |
+| FR-4.2.2 | Ghép vào/ra theo lịch đã duyệt, cửa sổ timestamp có ngày/múi giờ và OT nối tiếp; một lượt chỉ dùng cho một ca, ứng viên chồng lấn đưa ngoại lệ | M | BR-18 |
+| FR-4.2.3 | Gán ca về ngày bắt đầu trong lịch đã duyệt, kể cả vào sớm ngày trước và ra sau ngày chốt; lấy kỳ công chứa ngày đó, không lấy ngày lịch lượt quẹt | M | BR-13 |
 | FR-4.2.4 | Tách dải giờ 22:00 – 06:00 để áp phụ cấp đêm; tách theo mốc 00:00 để phân loại ngày | M | BR-24 |
 | FR-4.2.5 | Sinh dữ liệu dẫn xuất: công thực tế, giờ làm, giờ ngày, giờ đêm, đi muộn, về sớm, vắng | M | – |
 | FR-4.2.6 | Đánh dấu ngày thiếu lượt quẹt là ngoại lệ `ERR`; trả kết quả nhập (số bản ghi, số ngày ngoại lệ) cho AD | M | BR-18 |
@@ -222,7 +233,7 @@ Activity: AD-04 · Lớp: gói G4
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
 | FR-4.5.1 | QĐ tổng hợp bảng công xưởng từ công đã xác nhận, OT đã duyệt, đơn nghỉ đã duyệt; chạy đối soát `XC-01` … `XC-10` | M | [05 §5](05-quy-trinh-nghiep-vu.md) |
-| FR-4.5.2 | Còn tổ chưa xác nhận hoặc còn sai lệch BLOCKING → cảnh báo, không cho chốt | M | – |
+| FR-4.5.2 | Chưa qua cửa sổ Ra cuối kỳ, chưa xác nhận đủ nguồn, còn tác vụ/chờ phân tuyến có thể thuộc kỳ, tổ chưa xác nhận hoặc sai lệch BLOCKING → không chốt; dữ liệu đổi hủy xác nhận/chốt bị ảnh hưởng | M | [17 §4](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
 | FR-4.5.3 | QĐ chốt bảng công xưởng → **Xưởng đã chốt**; thông báo KT | M | – |
 | FR-4.5.4 | KT kiểm tra bảng công các xưởng trong phạm vi kỳ và **khóa kỳ công** → **Đã khóa**; lưu snapshot kèm mã băm; bảng công chỉ đọc | M | BR-65 |
 | FR-4.5.5 | Bảng chấm công tháng theo mẫu, ký hiệu công từng ngày và các cột tổng hợp | M | BR-20 |
@@ -246,7 +257,7 @@ Activity: AD-05 · Sequence: SQ-04 · Lớp: gói G5
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
 | FR-5.2.1 | QĐ duyệt, từ chối hoặc trả lại kèm lý do; thông báo kết quả cho TT | M | BR-30 |
-| FR-5.2.2 | Đề xuất chưa được duyệt khi đến giờ bắt đầu → không huy động; giờ làm thêm phát sinh xử lý như ngoại lệ công | S | BR-30 |
+| FR-5.2.2 | Đề xuất chưa được duyệt khi đến giờ bắt đầu → không huy động; giờ làm thêm phát sinh xử lý như ngoại lệ công | M | BR-30 |
 
 ### 5.3. Kiểm soát trần OT — QĐ, Hệ thống
 
@@ -263,13 +274,13 @@ Activity: AD-05 · Sequence: SQ-04 · Lớp: gói G5
 | FR-5.4.1 | Đối chiếu giờ OT thực tế với đề xuất đã duyệt, lấy giá trị nhỏ hơn; phần lệch chuyển sang ngoại lệ công (4.3) | M | BR-26 |
 | FR-5.4.2 | Phân loại giờ OT theo loại ngày, ban đêm; hệ số tính bằng công thức ba số hạng từ tham số | M | BR-23 |
 | FR-5.4.3 | Tách giờ khi ca OT vắt qua nửa đêm hoặc sang ngày lễ | M | BR-24 |
-| FR-5.4.4 | Phân biệt 200% / 210% theo cờ “đã có OT ban ngày trong cùng ngày công” | M | BR-25 |
+| FR-5.4.4 | Phân biệt OT đêm ngày thường theo cờ “đã có OT ban ngày trong cùng ngày công”: chưa có / đã có cho 200% / 210% khi OT ngày thường là 150%, hoặc 210% / 222% khi OT ngày thường là 160% (giữ phụ cấp đêm 30%, hệ số cộng 20%) | M | BR-25 |
 
 ### 5.5. Quy đổi nghỉ bù — KT
 
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
-| FR-5.5.1 | KT chọn quy đổi giờ OT sang nghỉ bù; hệ thống kiểm tra căn cứ, điều kiện; sinh quỹ nghỉ bù có tỷ lệ quy đổi và hạn sử dụng; giờ OT thực tế vẫn giữ để kiểm soát trần. *Điểm mở Q2: phần đã quy đổi có còn được trả tiền hay không* | S | BR-29 |
+| FR-5.5.1 | R1 bắt buộc kiểm tra chức năng chưa kích hoạt theo DEC-01: COMP_TIME_ENABLED=false, yêu cầu quy đổi trả COMP_TIME_DISABLED; không sinh quỹ, không giảm tiền OT hoặc giờ thực tế. Kích hoạt quyền nghỉ bổ sung tương lai cần chính sách riêng, không thay tiền OT | M | BR-29 · [18](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md) |
 
 ---
 
@@ -328,7 +339,7 @@ Lớp: gói G7. Toàn bộ phân hệ do **KT** thực hiện.
 | FR-7.1.1 | Cơ cấu thu nhập nhiều khoản, mỗi khoản gắn 3 cờ độc lập: tính BH, chịu thuế, tính theo ngày công | M | BR-37 |
 | FR-7.1.2 | **Bộ máy công thức khai báo bằng dữ liệu**: tham chiếu mã tham số, đồ thị phụ thuộc, sắp thứ tự tô-pô, phát hiện phụ thuộc vòng, phiên bản theo hiệu lực | M | BR-39 |
 | FR-7.1.3 | Chạy thử công thức với dữ liệu mẫu | M | – |
-| FR-7.1.4 | Hình thức trả lương: thời gian (tháng / ngày / giờ), sản phẩm / khoán sản phẩm, khoán việc, doanh số – hoa hồng, 3P | M | BR-38 |
+| FR-7.1.4 | Giữ đủ thời gian/sản phẩm/khoán/hoa hồng/3P theo DEC-02; phương án theo nhân viên/đoạn hiệu lực xác định khoản thay thế/cộng thêm, nguồn/đơn giá/công thức và cách phân bổ tổ; không cộng trùng các hình thức | M | BR-38 · [18 §4](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md) |
 | FR-7.1.5 | Thang bảng lương, ngạch – bậc | S | – |
 | FR-7.1.6 | Chính sách làm tròn khai báo tường minh (bước nào, hàng nào) | M | BR-41 |
 
@@ -342,7 +353,7 @@ Lớp: gói G7. Toàn bộ phân hệ do **KT** thực hiện.
 | FR-7.2.4 | Khấu trừ hợp pháp: BH phần NLĐ, thuế TNCN, đoàn phí, tạm ứng, bồi thường vật chất (trần 30% NET) | M | BR-44 |
 | FR-7.2.5 | **Không cài đặt chức năng trừ lương do đi trễ / về sớm / không đạt KPI / vi phạm nội quy** | M | BR-45 |
 | FR-7.2.6 | Cơ chế thay thế: điểm chuyên cần ảnh hưởng khoản thưởng | M | BR-45 |
-| FR-7.2.7 | Lưu **bảng lương nháp**; KT điều chỉnh đầu vào và tính lại; tính lại cùng đầu vào cho cùng kết quả | M | – |
+| FR-7.2.7 | KT tiếp nhận lô đầu vào lương có nguồn/version/nghiệm thu, chỉ dùng CONFIRMED cho lương chính thức; phân biệt MISSING/CONFIRMED_ZERO/NOT_APPLICABLE. Thiếu khoản bắt buộc chặn xác nhận lương nhân viên bị ảnh hưởng; chống nhập trùng, thay phiên bản có liên kết; sửa trước khóa về Nháp, sau khóa ghi điều chỉnh; cùng bộ nguồn/hash cho cùng kết quả | M | BR-38/39/43 · [18 §4](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md) |
 | FR-7.2.8 | So sánh chênh lệch với kỳ trước, liệt kê biến động vượt ngưỡng để KT xác nhận | M | `CP-08` |
 | FR-7.2.9 | Giải trình từng dòng lương: số tiền → công thức → giá trị biến → tham số → dữ liệu công gốc | M | – |
 | FR-7.2.10 | Chạy cổng chặn `CP-01` … `CP-09`; BLOCKING không cho duyệt; lưu kết quả kèm kỳ lương | M | [12 §4](12-tuan-thu-phap-ly.md) |
@@ -357,7 +368,7 @@ Lớp: gói G7. Toàn bộ phân hệ do **KT** thực hiện.
 
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
-| FR-7.4.1 | Từ quyết định có hiệu lực quá khứ: tìm các kỳ lương đã khóa bị ảnh hưởng; với mỗi kỳ lấy công, OT và tham số còn hiệu lực của kỳ đó, tính lại và so với số đã chi; tính chênh lệch lương, BH, thuế; hiển thị bảng chênh lệch theo kỳ | M | BR-42 |
+| FR-7.4.1 | Từ quyết định có hiệu lực quá khứ: tìm các kỳ lương đã khóa bị ảnh hưởng; lấy công, OT và tham số lương/BH của kỳ gốc để tính chênh lệch; thuế khoản chi bổ sung theo thời điểm chi trả, tách khỏi sửa sai thuế đã khai; hiển thị chênh lệch và kỳ thuế liên quan | M | BR-42, BR-03, BR-55 |
 | FR-7.4.2 | KT xác nhận → ghi **bút toán điều chỉnh** vào kỳ lương đang mở, ghi nhật ký; **kỳ đã khóa giữ nguyên**; không xác nhận → hủy kết quả, không thay đổi dữ liệu | M | BR-42 |
 
 ### 7.5. Duyệt và khóa bảng lương — SQ-06, SQ-11
@@ -403,17 +414,17 @@ Sequence: SQ-08 · Lớp: gói G8. Toàn bộ phân hệ do **KT** thực hiện
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
 | FR-8.3.1 | Lập danh sách báo tăng / giảm / điều chỉnh mức đóng từ biến động (vào làm, nghỉ việc, đổi lương) để kê khai; xuất tệp | M | – |
-| FR-8.3.2 | Theo dõi truy thu – thoái thu khi báo tăng / giảm muộn | S | – |
-| FR-8.3.3 | Đối chiếu với thông báo kết quả đóng BH (C12), liệt kê chênh lệch theo nhân sự | S | BR-51 |
+| FR-8.3.2 | Theo dõi truy thu – thoái thu khi báo tăng / giảm muộn | M | – |
+| FR-8.3.3 | Đối chiếu với thông báo kết quả đóng BH (C12), liệt kê chênh lệch theo nhân sự | M | BR-51 |
 
 ### 8.4. Khấu trừ thuế TNCN
 
 | Mã | Yêu cầu | Mức | Quy tắc |
 |---|---|---|---|
-| FR-8.4.1 | Phân loại đối tượng: cư trú (biểu lũy tiến), không cư trú (20%), thời vụ (khấu trừ 10%), cam kết 02/CK-TNCN | M | BR-52 |
-| FR-8.4.2 | Giảm trừ bản thân, người phụ thuộc theo tháng hiệu lực, BH bắt buộc, hưu trí tự nguyện có trần, từ thiện | M | BR-53 |
-| FR-8.4.3 | Bóc tách thu nhập miễn thuế: phần chênh lệch OT / làm đêm, ăn giữa ca, trang phục, công tác phí, điện thoại khoán; khống chế tiền nhà ≤ 15% | M | BR-54 |
-| FR-8.4.4 | Biểu thuế lũy tiến lấy từ tham số theo hiệu lực (5 bậc từ kỳ tính thuế 2026) | M | BR-52 |
+| FR-8.4.1 | Phân loại cư trú độc lập với loại HĐ: cư trú HĐ ≥ 3 tháng dùng lũy tiến; không cư trú dùng 20%; cư trú không HĐ/HĐ < 3 tháng dùng 10% theo ngưỡng mỗi lần trả và cam kết hợp lệ theo hiệu lực (bộ cũ 2 triệu, bộ 2026 5 triệu); không tự áp giảm trừ vào nhánh 10%/20% | M | BR-52 |
+| FR-8.4.2 | Giảm trừ bản thân/NPT theo tháng đủ điều kiện, BH bắt buộc, hưu trí tự nguyện có trần, từ thiện và khoản giảm trừ khác theo bộ hiệu lực; khoản y tế/giáo dục của bộ 2026 có trần năm và chứng từ, chống trừ lặp khi quyết toán | M | BR-53 |
+| FR-8.4.3 | Bóc tách miễn thuế theo bộ quy tắc và chứng từ: bộ 2025 miễn chênh lệch OT/đêm; bộ 2026 miễn tiền OT/đêm và tiền ngày không nghỉ phép đủ điều kiện, phần vượt mức vẫn chịu thuế; ăn ca và các khoản khác theo hiệu lực riêng; không đếm trùng lương ca đêm | M | BR-54 |
+| FR-8.4.4 | Kỳ thuế theo thời điểm chi trả, biểu/giảm trừ theo đối tượng và kỳ thuế; cá nhân cư trú dùng 5 bậc từ 2026; lưu ngày trả, phiên bản căn cứ và trạng thái dự kiến/thực tế; hỗ trợ chuyển tiếp hồ sơ đã nộp 6 tháng đầu 2026 và quyết toán năm | M | BR-03, BR-52, BR-55 |
 | FR-8.4.5 | Thuế do công ty chịu thay (thu nhập NET), liên kết gross-up | M | BR-56 |
 | FR-8.4.6 | Kết quả khấu trừ tháng lưu theo người, theo kỳ, **dùng chung với bảng lương** — không khấu trừ hai lần | M | BR-55 |
 
@@ -477,7 +488,7 @@ Lớp: gói G10. Danh mục mẫu biểu: [13](13-bao-cao-va-ket-xuat.md).
 | Chức năng | Tác nhân | Mã | Yêu cầu | Mức |
 |---|---|---|---|---|
 | 10.1 Công, OT theo tổ và xưởng | TT, QĐ | FR-10.1.1 | Báo cáo công, OT, đi muộn / về sớm theo tổ (TT) và theo xưởng (QĐ); bảng chấm công tháng | M |
-| | | FR-10.1.2 | Báo cáo giờ làm việc theo tuần phục vụ đánh giá SMETA / BSCI / RBA | C |
+| | | FR-10.1.2 | Báo cáo giờ làm việc theo tuần phục vụ đối soát; không đồng nghĩa chứng nhận SMETA / BSCI / RBA | M |
 | 10.2 Biến động nhân sự | QĐ | FR-10.2.1 | Vào làm, nghỉ việc, điều chuyển, tỷ lệ nghỉ việc của xưởng | M |
 | 10.3 Quỹ lương theo cơ sở, đơn vị | KT | FR-10.3.1 | Bảng thanh toán tiền lương, tiền thưởng; quỹ lương theo cơ sở, đơn vị; bảng phân bổ chi phí lương theo cost center (TK 622 / 642) — xuất tệp, không đẩy trực tiếp sang ERP | M |
 | 10.4 Báo cáo BH, thuế | KT | FR-10.4.1 | Bảng trích BH, danh sách tăng giảm, báo cáo thuế khấu trừ, tổng hợp quyết toán; báo cáo tình hình sử dụng lao động | M |
@@ -492,7 +503,7 @@ Lớp: gói G10. Danh mục mẫu biểu: [13](13-bao-cao-va-ket-xuat.md).
 | FR-X.2 | Quản lý khóa mã hóa tách biệt, có quy trình xoay khóa | M | – |
 | FR-X.3 | Không xóa cứng: xóa mềm có ngày và lý do | M | BR-63 |
 | FR-X.4 | Lưu trữ dữ liệu chấm công và tiền lương tối thiểu 3 năm; sao lưu định kỳ có kiểm chứng phục hồi | M | BR-64 |
-| FR-X.5 | Thông báo trong ứng dụng cho TT, QĐ, KT (lịch chờ duyệt, OT chờ duyệt, bảng công đã chốt…); email tùy chọn | S | – |
+| FR-X.5 | Thông báo trong ứng dụng cho TT, QĐ, KT (lịch chờ duyệt, OT chờ duyệt, bảng công đã chốt…); email không thuộc R1 | M | – |
 | FR-X.6 | Bộ kiểm thử tuân thủ và dữ liệu nghiệm thu chạy tự động trong CI | M | [06 §11](06-thuat-toan-cham-cong-va-tinh-luong.md) |
 
 ---
@@ -502,22 +513,24 @@ Lớp: gói G10. Danh mục mẫu biểu: [13](13-bao-cao-va-ket-xuat.md).
 | Biểu đồ | Nội dung | Use case bao phủ | Tác nhân | AD |
 |---|---|---|---|---|
 | [SQ-01](../diagrams/sequence/SQ1.png) | Xếp ca, duyệt lịch ca, đổi ca | 3.1 – 3.4 | TT, QĐ | AD-03 |
-| [SQ-02](../diagrams/sequence/SQ2.png) | Tiếp nhận dữ liệu chấm công, ghép cặp vào/ra | 4.1, 4.2 | AD, Hệ thống | AD-04 |
-| [SQ-03](../diagrams/sequence/SQ3.png) | Xử lý ngoại lệ, xác nhận công, chốt bảng công | 4.3 – 4.5 | TT, QĐ, KT | AD-04 |
-| [SQ-04](../diagrams/sequence/SQ4.png) | Đề xuất, duyệt, kiểm soát trần, quy đổi OT | 5.1 – 5.5 | TT, QĐ, KT | AD-05 |
+| [SQ-02 nguồn cập nhật](../diagrams/sequence/src/SQ2.mmd) | Tiếp nhận, phân tuyến qua ngày chốt, ghép ca và xử lý log muộn | 4.1, 4.2 | AD, Hệ thống | AD-04 · [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
+| [SQ-03 nguồn cập nhật](../diagrams/sequence/src/SQ3.mmd) | Ngoại lệ, xác nhận, đủ nguồn, chốt/khóa và trả lại trước khóa | 4.3 – 4.5 | TT, QĐ, KT | AD-04 · [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
+| [SQ-04 nguồn cập nhật](../diagrams/sequence/src/SQ4.mmd) | Đề xuất, duyệt, kiểm soát OT; quy đổi chưa kích hoạt DEC-01 | 5.1 – 5.5 | TT, QĐ, KT | AD-05 · [18](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md) |
 | [SQ-05](../diagrams/sequence/SQ5.png) | Ghi nhận và duyệt đơn nghỉ, theo dõi vắng mặt, ốm đau | 6.1 – 6.5 | TT, QĐ, KT | AD-06 |
 | [SQ-06](../diagrams/sequence/SQ6.png) | Tính lương, duyệt, khóa kỳ, phiếu lương | 7.1 – 7.3, 7.5, 7.6 | KT | AD-07 |
 | [SQ-07](../diagrams/sequence/SQ7.png) | Truy lĩnh, truy thu hồi tố sau khóa kỳ | 2.3, 7.4 | KT | AD-07 |
 | [SQ-08](../diagrams/sequence/SQ8.png) | BH, thuế khấu trừ, quyết toán năm | 8.1 – 8.5 | KT | AD-08 |
 | [SQ-09](../diagrams/sequence/SQ9.png) | Chấm dứt hợp đồng (liên phân hệ) | 2.5, 9.3, 6.2, 8.3 | KT | AD-02 |
 | [SQ-10](../diagrams/sequence/SQ10.png) | Thêm tham số pháp lý theo hiệu lực | 1.3, 1.6 | AD | AD-01 |
-| [SQ-11](../diagrams/sequence/SQ11.png) | Mở, khóa kỳ công và kỳ lương | 1.5 | AD, KT | AD-01 |
+| [SQ-11 nguồn cập nhật](../diagrams/sequence/src/SQ11.mmd) | Lập kế hoạch, mở, chốt, trả lại trước khóa và khóa kỳ | 1.5 | AD, KT | AD-01 · [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
 | [SQ-12](../diagrams/sequence/SQ12.png) | Cấp phát phúc lợi | 9.1, 9.2, 9.4 | KT | AD-09 |
 | [SQ-13](../diagrams/sequence/SQ13.png) | Báo cáo có phân quyền theo đơn vị | 10.1 – 10.4, 1.1 | TT, QĐ, KT | AD-10 |
 | [SQ-14](../diagrams/sequence/SQ14.png) | Hồ sơ nhân viên, hợp đồng, phụ lục, cảnh báo hết hạn | 2.1, 2.2, 2.4 | KT | AD-02 |
 | [SQ-15](../diagrams/sequence/SQ15.png) | Cơ cấu tổ chức, tài khoản, chính sách theo cơ sở | 1.1, 1.2, 1.4 | AD | AD-01 |
 
-15 sequence diagram phủ **49/49** chức năng BFD. Ma trận đầy đủ chức năng ↔ sequence ↔ activity:
+15 sequence diagram tham chiếu **49/49** chức năng BFD ở mức thiết kế; R1 phân biệt 48
+hoạt động và 5.5 kiểm tra chưa kích hoạt theo 19, không coi việc có sơ đồ là đã cài đặt.
+Ma trận chức năng ↔ sequence ↔ activity phiên bản gốc:
 `diagrams/sequence/mô tả.docx`.
 
 ---
@@ -526,17 +539,18 @@ Lớp: gói G10. Danh mục mẫu biểu: [13](13-bao-cao-va-ket-xuat.md).
 
 | Phân hệ | Chức năng | Must | Should | Could | Ghi chú |
 |---|---|---|---|---|---|
-| 1. Quản trị hệ thống | 6 | 19 | 2 | 1 | Nền tảng của mọi phân hệ khác |
+| 1. Quản trị hệ thống | 6 | 20 | 1 | 1 | Phân quyền và exclusion list bắt buộc R1 |
 | 2. Hồ sơ và hợp đồng | 5 | 18 | 2 | 0 | |
 | 3. Ca làm việc | 4 | 9 | 1 | 0 | |
 | 4. Chấm công | 5 | 20 | 0 | 0 | **Ưu tiên cao nhất giai đoạn 1** |
-| 5. Làm thêm giờ | 5 | 10 | 2 | 0 | **Ưu tiên cao nhất giai đoạn 1** |
+| 5. Làm thêm giờ | 5 | 12 | 0 | 0 | 5.5 chỉ kiểm tra chưa kích hoạt theo DEC-01 |
 | 6. Nghỉ phép và chế độ | 5 | 11 | 0 | 0 | |
 | 7. Tính lương và thưởng | 6 | 25 | 1 | 0 | |
-| 8. Bảo hiểm và thuế TNCN | 5 | 13 | 2 | 0 | |
+| 8. Bảo hiểm và thuế TNCN | 5 | 15 | 0 | 0 | C12 và điều chỉnh BH cùng R1 |
 | 9. Phúc lợi | 4 | 7 | 0 | 0 | |
-| 10. Báo cáo, thống kê | 4 | 8 | 0 | 1 | |
-| Xuyên suốt | – | 5 | 1 | 0 | |
+| 10. Báo cáo, thống kê | 4 | 9 | 0 | 0 | Báo cáo tuần thuộc R1; không cam kết chứng nhận |
+| Xuyên suốt | – | 6 | 0 | 0 | Thông báo trong ứng dụng bắt buộc |
+| **Tổng** | **49** | **152** | **5** | **1** | **158 FR**, gồm 1 kiểm tra chưa kích hoạt trong M |
 
 ---
 

@@ -1,0 +1,34 @@
+sequenceDiagram
+autonumber
+actor AD as Admin
+actor KT as Kế toán
+participant HT as Dịch vụ kỳ
+participant DB as CSDL
+AD->>HT: Tạo kỳ và lập kế hoạch (1.5)
+HT->>DB: Kiểm tra không chồng ngày công cùng loại/phạm vi
+alt Chồng ngày công
+  HT-->>AD: PERIOD_OVERLAP
+else Hợp lệ
+  HT->>DB: Lưu PLANNED và audit
+  Note over AD,DB: Không yêu cầu kỳ trước khóa để tạo/mở kỳ sau
+  AD->>HT: Mở trước cửa sổ Vào đầu tiên
+  HT->>DB: PLANNED sang OPEN, tăng revision và audit
+end
+Note over HT,DB: Kỳ công: đủ nguồn/cửa sổ Ra, mọi xưởng chốt thì CLOSED
+Note over HT,DB: Kỳ lương: nguồn công khóa và mọi bảng đã duyệt thì CLOSED
+opt KT yêu cầu sửa trước khóa
+  KT->>HT: Trả CLOSED về OPEN kèm lý do
+  HT->>DB: Kiểm tra revision, ghi audit
+  Note over HT,DB: Trả xưởng bị ảnh hưởng, sửa và xác nhận/chốt lại
+end
+KT->>HT: Khóa kỳ CLOSED với revision kỳ vọng
+HT->>DB: Khóa phạm vi, kiểm tra trạng thái/revision và kỳ trước
+alt Kỳ trước đã tồn tại cùng loại/phạm vi chưa khóa
+  HT-->>KT: PREV_PERIOD_NOT_LOCKED
+else Thiếu nguồn hoặc còn tác vụ/ngoại lệ chặn
+  HT-->>KT: COLLECTION_INCOMPLETE
+else Đủ điều kiện
+  HT->>DB: Snapshot/hash và LOCKED nguyên tử, audit
+  HT-->>KT: Kỳ chỉ đọc
+end
+Note over KT,DB: Không mở khóa LOCKED; phát sinh muộn điều chỉnh sang kỳ mở

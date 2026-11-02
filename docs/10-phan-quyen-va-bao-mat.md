@@ -1,5 +1,11 @@
 # 10. Phân quyền và bảo mật
 
+**AI-02 mở rộng:** [24](24-ai-tro-ly-nghiep-vu-theo-vai-tro.md) phục vụ TT/QĐ/KT/AD;
+backend lọc corpus theo quyền trước retrieval/Gemini và kiểm tra lại trước response/
+cache. Không gửi hồ sơ/lương/log thô, không cấp tool/quyền ghi, không tin role/pageKey
+từ client. Key Google Gemini ở server; model/tier/điều kiện dữ liệu chốt trước bật.
+AI-01 giải thích lương chỉ KT tại 23 là hướng sau sprint, chưa mở rộng quyền lương.
+
 Dữ liệu tiền lương và thông tin nhân thân là **dữ liệu cá nhân nhạy cảm** theo NĐ 13/2023/NĐ-CP.
 Tài liệu này đặc tả mô hình kiểm soát truy cập, bảo vệ dữ liệu và nhật ký kiểm toán.
 
@@ -38,6 +44,44 @@ Hệ thống chỉ có **bốn vai trò** (lớp `VaiTro`, chức năng 1.1). C�
 | Quản đốc | `QD` | 3.4, 4.5, 5.2, 5.3, 6.5, 10.1, 10.2 | Duyệt lịch ca, duyệt OT cấp 2, chốt công xưởng, xem vắng mặt và biến động nhân sự |
 | Kế toán | `KT` | 1.5, 2.x, 4.5, 5.5, 6.2, 6.4, 7.x, 8.x, 9.x, 10.3, 10.4 | Hồ sơ – hợp đồng, khóa kỳ công, lương, BH, thuế, phúc lợi |
 | Admin | `AD` | 1.1 – 1.6, 3.1, 4.1, 6.1 | Tài khoản, tổ chức, tham số, chính sách, mở kỳ, danh mục ca và loại nghỉ, nhập dữ liệu chấm công; **không** xem lương chi tiết, **không** sửa / xóa nhật ký |
+
+**Quyền API đơn nghỉ local:** `leave.request` cấp cho TT, dùng cho lập/sửa/gửi và
+duyệt một cấp/trả lại/từ chối/hủy; `leave.read` chỉ cho đọc trong phạm vi. Kiểm tra
+vai trò, cây đơn vị, phân công và loại trừ tại hiện tại lẫn từng ngày nghỉ.
+Chống tự xử lý dựa trên `user_account.employee_id`, không so người lập: TT được
+duyệt đơn mình đã ghi nhận **thay công nhân khác**, không xử lý đơn của chính mình.
+Người xử lý/lý do/trạng thái trước–sau/phiên bản được giữ trong lịch sử bất biến.
+Duyệt/hủy đã duyệt cập nhật trạng thái, ledger, công và audit trong một transaction; lỗi bất kỳ rollback toàn bộ, không cần cấp quyền quản lý quỹ cho TT. CLOSED/LOCKED và nguồn giải trình ngoài quyền vẫn được bảo vệ. Hợp đồng tại [20 §7.19](20-tech-stack-va-moi-truong-phat-trien.md#719-tích-hợp-đơn-nghỉ-với-quỹ-và-bảng-công).
+
+**Quyền API ca đã triển khai:** mọi vai trò có `shift.read` theo đơn vị được cấp;
+AD có `shift.manage`, TT có `shift.plan`, QĐ có `shift.approve`; KT chỉ đọc lịch.
+Đọc kế thừa danh mục cấp cha không cấp quyền đọc hồ sơ nhân sự cấp cha cho AD/TT.
+Chỉ người lập được sửa/gửi/hủy lịch chưa duyệt; người lập không tự duyệt/trả lại,
+kể cả tài khoản nhiều vai trò. Mỗi lượt/phiên bản cũ đều chịu phạm vi hiện tại và
+theo ngày công, exclusion; không trả lương/hợp đồng trong API ca. Xem 20 §7.10.
+
+**Quyền API xác nhận tổ local:** `attendance.read` đọc rà soát và lịch sử; chỉ TT
+có `attendance.confirm` được xác nhận; chỉ AD có `attendance.import` được ghi căn
+cứ đủ nguồn. Kiểm tra quyền/phân công/loại trừ hiện tại, mọi ngày công và ngày
+nguồn qua đêm; một phần nguồn không đọc được thì từ chối toàn tổ, không xác nhận
+trên tập bị lọc. Ghi trong transaction serializable, kiểm tra hash và revision,
+audit cùng giao dịch. QĐ/KT chỉ đọc ở bước xác nhận tổ; chốt xưởng và khóa kỳ có quyền riêng.
+Hợp đồng tại [20 §7.20](20-tech-stack-va-moi-truong-phat-trien.md#720-xác-nhận-công-tổ).
+
+**Quyền API KT khóa kỳ local:** KT + `attendance.read` đọc rà soát toàn kỳ và
+nguồn đã khóa; LOCK/RETURN cần thêm `attendance.lock` (migration/seed chỉ cấp
+cho KT). AD/TT/QĐ không được thực hiện quyết định KT. Kiểm tra toàn phạm vi
+kỳ, phân công/loại trừ hiện tại, từng ngày công/ngày nguồn và manifest bản lưu.
+Thiếu một phần quyền trả 404 cho toàn bản, không lộ tập bị lọc hay lịch sử.
+Ghi Serializable có khóa nguồn/phân quyền; revision/hash cũ trả 409. Sự kiện
+append-only, chỉ một LOCK mỗi kỳ; không có mở khóa kể cả qua cập nhật SQL trực
+tiếp. Raw muộn không đổi nguồn đã khóa. Hợp đồng tại [20 §7.23](20-tech-stack-va-moi-truong-phat-trien.md#723-kế-toán-trả-kỳ-trước-khóa-và-lưu-nguồn-công-bất-biến).
+ 
+ **Quyền API cấu phần lương local:** chỉ KT với `payroll.components.read` được đọc; tạo và thêm phiên bản cần `payroll.components.manage`. AD/TT/QĐ không có quyền này. Phạm vi công ty/cơ sở theo cây đơn vị có hiệu lực; đọc giao phạm vi hiện tại với ngày xem, KT cơ sở được đọc cấu phần công ty/cơ sở tổ tiên nhưng không sửa cấu phần ngoài phạm vi. Ghi phải đủ quyền trên toàn khoảng hiệu lực, kể cả phần khoảng cũ bị đóng khi có bản kế tiếp. Revision cũ trả 409; không có API sửa/xóa phiên bản. Audit và thay đổi dữ liệu cùng giao dịch Serializable, không cấp truy cập lương nhân viên qua danh mục. Xem [20 §7.24](20-tech-stack-va-moi-truong-phat-trien.md#724-danh-mục-cấu-phần-lương-và-phiên-bản-hiệu-lực).
+
+**Đơn giá/công thức local (Task 2.2):** dùng cùng quyền KT `payroll.components.read/manage` và phạm vi có hiệu lực như cấu phần. Chạy thử chỉ đọc, không truy cập lương cá nhân hoặc ghi bảng lương. Tra nguồn công ty/cơ sở và tham số pháp lý theo ngày đích; không dùng quyền đọc tổ tiên để ghi lên tổ tiên. Thay cấu hình kiểm tra mọi cơ sở phụ thuộc và mốc hiệu lực bị ảnh hưởng trong giao dịch; chu kỳ/nguồn thiếu/khác đơn vị không để lại phiên bản hay audit ghi dở. Hợp đồng tại [20 §7.25](20-tech-stack-va-moi-truong-phat-trien.md#725-đơn-giá-công-thức-và-chạy-thử-theo-phiên-bản-task-22).
+
+**Phương án lương nhân viên (Task 2.3):** chỉ KT với `payroll.components.read/manage` tương ứng. Danh mục công ty kế thừa không cấp quyền đọc nhân viên ngoài phạm vi. Danh sách, người chọn, danh mục theo nhân viên và chi tiết đều kiểm tra phân công chính/loại trừ hiện tại và ngày xem. Mỗi phiên bản lịch sử chỉ trả khi đủ quyền trên toàn khoảng của chính phiên bản đó; không dùng phạm vi hiện tại để lộ quyết định ở cơ sở cũ. Ghi kiểm tra toàn khoảng và phần khoảng cũ bị đóng; điều chuyển khác cơ sở phải tách phiên bản. KT chỉ đọc vẫn truy cập được danh sách/lịch sử, không được ghi. Không có API sửa/xóa, audit cùng giao dịch Serializable; PostgreSQL bảo vệ lịch sử và chống chồng. Xem [20 §7.27](20-tech-stack-va-moi-truong-phat-trien.md#727-phương-án-lương-nhân-viên-task-23).
 
 ### 1.2. Trục phạm vi dữ liệu
 
@@ -90,7 +134,8 @@ Truy cập che trường được ghi audit log với kết quả `PARTIAL_MASKE
 | Cấu hình cây tổ chức, cơ sở | 1.2 | – | 👁 | 👁 | ✔ |
 | Vùng lương, tham số pháp lý | 1.3 | – | – | 👁 | ✔ |
 | Chính sách theo cơ sở | 1.4 | – | 👁 | 👁 | ✔ |
-| Mở kỳ công, kỳ lương | 1.5 | – | – | 👁 | ✔ |
+| Tạo kỳ Lập kế hoạch, mở kỳ công/kỳ lương | 1.5 | – | – | 👁 | ✔ |
+| Trả kỳ CLOSED về OPEN trước khóa, bắt buộc lý do | 1.5 | – | – | ✔ | – |
 | Khóa kỳ công, kỳ lương | 1.5, 4.5, 7.5 | – | – | ✔ | – |
 | Tra cứu nhật ký kiểm toán | 1.6 | – | – | 👁 (đối tượng thuộc phạm vi) | ✔ |
 | Hồ sơ, người phụ thuộc, hợp đồng, quyết định | 2.1 – 2.4 | 👁 (tổ, không gồm lương) | 👁 (xưởng, không gồm lương) | ✔ | – |
@@ -104,9 +149,11 @@ Truy cập che trường được ghi audit log với kết quả `PARTIAL_MASKE
 | Giải trình, điều chỉnh công | 4.3 | ✔ | – | – | – |
 | Xác nhận công tổ | 4.4 | ✔ | – | – | – |
 | Chốt bảng công xưởng | 4.5 | – | ✔ | – | – |
+| Trả bảng công xưởng về nháp trước khóa, bắt buộc lý do | 4.5 | – | ✔ | – | – |
+| Xác nhận đã nhập đủ nguồn tới mốc thu log | 4.1 | – | – | 👁 | ✔ (cơ sở) |
 | Đề xuất OT | 5.1 | ✔ | 👁 | 👁 | – |
 | Duyệt OT cấp 2 (kiểm soát trần) | 5.2, 5.3 | – | ✔ | 👁 | – |
-| Quy đổi nghỉ bù | 5.5 | – | – | ✔ | – |
+| Yêu cầu quy đổi nghỉ bù (chưa kích hoạt DEC-01, trả COMP_TIME_DISABLED) | 5.5 | – | – | ✔ | – |
 | Danh mục loại nghỉ | 6.1 | 👁 | 👁 | 👁 | ✔ |
 | Quỹ phép năm, ốm đau – thai sản | 6.2, 6.4 | 👁 (số dư của tổ) | – | ✔ | – |
 | Ghi nhận, duyệt đơn nghỉ | 6.3 | ✔ | 👁 | 👁 | – |

@@ -1,5 +1,10 @@
 # 13. Báo cáo và kết xuất
 
+**R1:** báo cáo lõi ở đây, gồm công/OT theo tuần, phúc lợi, C12 và dự thảo quyết toán năm,
+thuộc bản đầu theo [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md); không chuyển sang
+sau cắt chuyển. Không bao gồm chứng nhận SMETA/BSCI/RBA, nộp thuế/BHXH trực tuyến hoặc
+đẩy ERP. Trạng thái mô phỏng/chính thức và quyền kết xuất phải hiển thị đúng.
+
 Đầu ra của hệ thống gồm **báo cáo phân hệ 10** (10.1 – 10.4) và **tệp kết xuất nghiệp vụ** của
 các phân hệ khác (phiếu lương, file chi lương, danh sách BH, dự thảo quyết toán, chi phí phúc
 lợi). Mọi báo cáo đi qua luồng AD-10 / SQ-13: chọn loại, phạm vi, thời gian → kiểm tra quyền
@@ -123,6 +128,11 @@ Bảng này là đầu vào cho kế toán tổng hợp / ERP ([11 §3](11-tich-
 | **Tình hình sử dụng lao động** | Sở LĐ-TB&XH | 6 tháng | 10.4 |
 | **Số liệu OT 200 – 300 giờ / năm** | Sở LĐ-TB&XH | Hằng năm | 10.4 (lũy kế từ 5.3) |
 | **Sổ quản lý lao động** (20 tiêu chí) | Thanh tra lao động | Kết xuất khi cần | 2.1 |
+
+Báo cáo thuế hiển thị **ngày chi trả, kỳ thuế, cách khấu trừ, bộ quy tắc/căn cứ**, phần miễn
+và chịu thuế theo khoản. Phân biệt số dự kiến, số đã khấu trừ/khai/nộp và số tính lại nghĩa vụ;
+quyết toán nhóm theo năm chi trả, không theo tên kỳ công. Điều chỉnh chuyển tiếp 6 tháng đầu
+2026 phải dẫn về hồ sơ gốc và không làm đổi số liệu lịch sử ([12 §2.7](12-tuan-thu-phap-ly.md)).
 
 ---
 

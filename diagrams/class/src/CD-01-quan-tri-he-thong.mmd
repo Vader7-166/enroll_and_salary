@@ -78,11 +78,15 @@ class KyNghiepVu {
   +MaPhamVi : String
   +TuNgay : Date
   +DenNgay : Date
-  +TrangThai : Mo / DaChot / DaKhoa
+  +TrangThai : LapKeHoach / Mo / DaChot / DaKhoa
+  +Revision : Int
+  +ThuLogDen : DateTime
   +NguoiMo : String
   +NguoiKhoa : String
   +moKy()
+  +lapKeHoach()
   +chotKy()
+  +traLaiTruocKhoa(lyDo)
   +khoaKy()
 }
 class NhatKyKiemToan {
@@ -114,6 +118,6 @@ KyNghiepVu "1" --> "0..*" BangChamCongThang : kỳ công
 KyNghiepVu "1" --> "0..*" BangLuongThang : kỳ lương
 note for TaiKhoan "Chỉ cấp cho TT, QĐ, KT, AD.<br>Công nhân không có tài khoản."
 note for ThamSoPhapLy "Thêm phiên bản mới, không sửa đè (SQ-10).<br>Nguồn tham số cho G5, G7, G8."
-note for KyNghiepVu "Không trùng kỳ; kỳ trước cùng loại,<br>cùng phạm vi phải đã khóa (SQ-11)."
+note for KyNghiepVu "Không chồng ngày công; mở kỳ sau không cần khóa kỳ trước.<br>Chỉ khóa theo thứ tự; đủ log ca cuối, revision và snapshot nguyên tử.<br>KT trả lại Đã chốt trước khóa; Đã khóa bất biến. Xem docs/17."
 note for NhatKyKiemToan "Chỉ thêm, không sửa/xóa (1.6)."
 classDef ext fill:#eeeeee,stroke:#999999,stroke-dasharray:4 3,color:#555555

@@ -1,0 +1,3026 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  TT
+  QD
+  KT
+  AD
+}
+
+enum OrgUnitType {
+  COMPANY
+  SITE
+  BLOCK
+  DEPARTMENT
+  TEAM
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  TERMINATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+model WageRegion {
+  code  String @id @db.VarChar(3)
+  name  String @db.VarChar(100)
+  sites Site[]
+  insuranceRates InsuranceRate[]
+  @@map("wage_region")
+}
+
+model Site {
+  id             String @id @default(uuid()) @db.Uuid
+  code           String @unique @db.VarChar(32)
+  name           String @db.VarChar(150)
+  address        String
+  wageRegionCode String @map("wage_region_code") @db.VarChar(3)
+  wageRegion     WageRegion @relation(fields: [wageRegionCode], references: [code])
+  unitVersions   OrgUnitVersion[]
+  attendanceProfiles AttendanceImportProfile[]
+  attendanceImports AttendanceImport[]
+  rawPunches RawPunch[]
+  @@map("site")
+}
+
+// Stable unit identity; assignments survive changes to dated organization versions.
+model OrgUnit {
+  id              String @id @default(uuid()) @db.Uuid
+  code            String @unique @db.VarChar(40)
+  versions        OrgUnitVersion[] @relation("UnitVersions")
+  childVersions   OrgUnitVersion[] @relation("ParentUnit")
+  roleAssignments RoleAssignment[]
+  employees       OrgAssignment[]
+  policies SitePolicy[]
+  periods BusinessPeriod[]
+  transfersFrom PersonnelTransfer[] @relation("TransferFrom")
+  transfersTo PersonnelTransfer[] @relation("TransferTo")
+  shiftDefinitions ShiftDefinition[]
+  shiftPlans ShiftPlan[]
+  attendanceDays DailyAttendance[]
+  overtimeRequests OvertimeRequest[]
+  overtimeActuals OvertimeActual[]
+  correctionItems AttendanceCorrectionItem[]
+  leaveTypes LeaveType[]
+  leavePolicies LeavePolicy[]
+  sourceCoverage AttendanceSourceCoverage[]
+  teamConfirmations AttendanceTeamConfirmation[]
+  workshopClosures AttendanceWorkshopClosure[]
+  salaryComponents SalaryComponent[]
+  payrollConfigurations PayrollConfiguration[]
+  payrollPeriods PayrollPeriod[]
+  payrollInputTeamAllocations PayrollInputTeamAllocation[]
+  overtimePayBuckets OvertimePayBucket[]
+  payrollRuns PayrollRun[]
+  notifications Notification[]
+  insuranceChangeLists InsuranceChangeList[]
+  c12Imports C12Import[]
+  terminationPaymentItems TerminationPaymentItem[]
+  benefitCatalogs BenefitCatalog[]
+  benefitBatches BenefitAllocationBatch[] @relation("BenefitBatchScope")
+  benefitAllocations BenefitAllocation[] @relation("BenefitAllocationUnit")
+  rotationPatterns ShiftRotationPattern[]
+  shiftSwaps ShiftSwapRequest[] @relation("ShiftSwapTeam")
+  @@map("org_unit")
+  salaryPaymentItems SalaryPaymentItem[]
+}
+
+model OrgUnitVersion {
+  id                String @id @default(uuid()) @db.Uuid
+  orgUnitId         String @map("org_unit_id") @db.Uuid
+  parentId          String? @map("parent_id") @db.Uuid
+  siteId            String? @map("site_id") @db.Uuid
+  name              String @db.VarChar(150)
+  type              OrgUnitType @map("unit_type")
+  level             Int
+  costCenterCode    String? @map("cost_center_code") @db.VarChar(40)
+  accountingAccount String? @map("accounting_account") @db.VarChar(10)
+  effectiveFrom     DateTime @map("effective_from") @db.Date
+  effectiveTo       DateTime? @map("effective_to") @db.Date
+  orgUnit           OrgUnit @relation("UnitVersions", fields: [orgUnitId], references: [id])
+  parent            OrgUnit? @relation("ParentUnit", fields: [parentId], references: [id])
+  site              Site? @relation(fields: [siteId], references: [id])
+  @@index([parentId, effectiveFrom, effectiveTo])
+  @@map("org_unit_version")
+}
+
+model JobGrade {
+  id     String @id @default(uuid()) @db.Uuid
+  code   String @unique @db.VarChar(10)
+  name   String @db.VarChar(100)
+  titles JobTitle[]
+  @@map("job_grade")
+}
+
+model JobTitle {
+  id         String @id @default(uuid()) @db.Uuid
+  code       String @unique @db.VarChar(32)
+  name       String @db.VarChar(100)
+  jobLevel   Int @map("job_level")
+  jobGradeId String @map("job_grade_id") @db.Uuid
+  jobGrade   JobGrade @relation(fields: [jobGradeId], references: [id])
+  employees  Employee[]
+  @@map("job_title")
+}
+
+model Employee {
+  id              String @id @default(uuid()) @db.Uuid
+  code            String @unique @db.VarChar(32)
+  fullName        String @map("full_name") @db.VarChar(120)
+  gender          Gender
+  dob             DateTime @db.Date
+  nationality     String @default("Việt Nam") @db.VarChar(80)
+  email           String? @db.VarChar(150)
+  phone           String? @db.VarChar(30)
+  hireDate        DateTime @map("hire_date") @db.Date
+  status          EmployeeStatus @default(ACTIVE)
+  terminationDate DateTime? @map("termination_date") @db.Date
+  jobTitleId      String? @map("job_title_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  jobTitle        JobTitle? @relation(fields: [jobTitleId], references: [id])
+  assignments     OrgAssignment[]
+  accounts        UserAccount[]
+  exclusions      EmployeeExclusion[]
+  contracts EmploymentContract[]
+  transfers PersonnelTransfer[]
+  shiftSchedules ShiftSchedule[]
+  rawPunches RawPunch[]
+  attendanceDays DailyAttendance[]
+  overtimeMembers OvertimeMember[]
+  overtimeActuals OvertimeActual[]
+  correctionItems AttendanceCorrectionItem[]
+  leaveBalances LeaveBalance[]
+  leaveRequests LeaveRequest[]
+  payPlans EmployeePayPlan[]
+  payrollInputLines PayrollInputLine[]
+  overtimePayBuckets OvertimePayBucket[]
+  identity EmployeeIdentity?
+  identityHistory EmployeeIdentityHistory[]
+  bankAccounts EmployeeBankAccount[]
+  dependents EmployeeDependent[]
+  taxProfiles TaxProfile[]
+  specialStatuses EmployeeSpecialStatus[]
+  salaryDecisions SalaryDecision[]
+  salaries EmployeeSalary[]
+  retroCandidates RetroCandidate[]
+  insuranceContributions InsuranceContribution[]
+  taxWithholdings TaxWithholding[]
+  taxDeductionUsages TaxDeductionUsage[]
+  payrollEmployees PayrollEmployee[]
+  payslips Payslip[]
+  salaryPaymentItems SalaryPaymentItem[]
+  bonusAllocations BonusAllocation[]
+  retroCalculations RetroCalculation[]
+  payrollAdjustments PayrollAdjustment[]
+  payrollRunErrors PayrollRunError[]
+  @@index([fullName])
+  insuranceChangeStates InsuranceChangeState[]
+  insuranceChangeItems InsuranceChangeItem[]
+  c12Differences C12Difference[]
+  terminationDecisions TerminationDecision[]
+  severanceAllowances SeveranceAllowance[]
+  terminationPaymentItems TerminationPaymentItem[]
+  benefitCandidates BenefitAllocationCandidate[]
+  benefitAllocations BenefitAllocation[]
+  taxFinalizations AnnualTaxFinalization[]
+  shiftSwaps ShiftSwapRequest[]
+  sicknessMaternityRecords SicknessMaternityRecord[]
+  @@map("employee")
+}
+
+model OrgAssignment {
+  id              String @id @default(uuid()) @db.Uuid
+  employeeId      String @map("employee_id") @db.Uuid
+  orgUnitId       String @map("org_unit_id") @db.Uuid
+  isPrimary       Boolean @default(true) @map("is_primary")
+  allocationRatio Decimal @map("allocation_ratio") @db.Decimal(5,2)
+  effectiveFrom   DateTime @map("effective_from") @db.Date
+  effectiveTo     DateTime? @map("effective_to") @db.Date
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  orgUnit         OrgUnit @relation(fields: [orgUnitId], references: [id])
+  @@index([orgUnitId, effectiveFrom, effectiveTo])
+  @@map("org_assignment")
+}
+
+model Role {
+  code        RoleCode @id
+  name        String @db.VarChar(80)
+  permissions String[] @map("function_permissions")
+  assignments RoleAssignment[]
+  @@map("role")
+}
+
+model UserAccount {
+  id            String @id @default(uuid()) @db.Uuid
+  username      String @unique @db.VarChar(64)
+  displayName   String @map("display_name") @db.VarChar(120)
+  passwordHash  String @map("password_hash")
+  status        AccountStatus @default(ACTIVE)
+  employeeId    String? @map("employee_id") @db.Uuid
+  failedLogins  Int @default(0) @map("failed_logins")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  revision      Int @default(1)
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  passwordChangedAt DateTime @default(now()) @map("password_changed_at") @db.Timestamptz(3)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+  assignments   RoleAssignment[]
+  sessions      WebSession[]
+  exclusions    EmployeeExclusion[]
+  auditLogs     AuditLog[]
+  shiftPlans ShiftPlan[]
+  shiftHistory ShiftPlanHistory[]
+  attendanceImports AttendanceImport[]
+  overtimeRequests OvertimeRequest[]
+  overtimeHistory OvertimeHistory[]
+  passwordHistory PasswordHistory[]
+  correctionsCreated AttendanceCorrection[] @relation("CorrectionCreator")
+  correctionsDecided AttendanceCorrection[] @relation("CorrectionReviewer")
+  correctionEvidence AttendanceCorrectionEvidence[]
+  correctionHistory AttendanceCorrectionHistory[]
+  leaveTypeVersions LeaveTypeVersion[]
+  leavePolicyVersions LeavePolicyVersion[]
+  leaveOperations LeaveOperation[]
+  leaveRequests LeaveRequest[]
+  leaveRequestHistory LeaveRequestHistory[]
+  sourceCoverage AttendanceSourceCoverage[]
+  teamConfirmations AttendanceTeamConfirmation[]
+  workshopClosures AttendanceWorkshopClosure[]
+  periodLockEvents AttendancePeriodLockEvent[]
+  salaryComponentVersions SalaryComponentVersion[]
+  payrollConfigurationVersions PayrollConfigurationVersion[]
+  employeePayPlanVersions EmployeePayPlanVersion[]
+  payrollInputBatchesCreated PayrollInputBatch[] @relation("PayrollInputBatchCreator")
+  payrollInputEvidence PayrollInputEvidence[]
+  payrollInputHistory PayrollInputHistory[]
+  identitiesUpdated EmployeeIdentity[]
+  identityHistory EmployeeIdentityHistory[]
+  bankAccountsCreated EmployeeBankAccount[]
+  dependentsCreated EmployeeDependent[]
+  taxProfilesCreated TaxProfile[]
+  specialStatusesCreated EmployeeSpecialStatus[]
+  salaryDecisions SalaryDecision[]
+  retroCandidatesResolved RetroCandidate[]
+  insuranceRates InsuranceRate[]
+  taxRulesets TaxRuleset[]
+  taxWithholdings TaxWithholding[]
+  payrollRuns PayrollRun[]
+  payrollSheetsApproved PayrollSheet[] @relation("PayrollSheetApprover")
+  payrollSheetsLocked PayrollSheet[] @relation("PayrollSheetLocker")
+  payrollSheetHistory PayrollSheetHistory[]
+  payrollSnapshots PayrollSnapshot[]
+  payslipExports PayslipExport[]
+  payslipsIssued Payslip[]
+  bankFileTemplates BankFileTemplate[]
+  salaryPaymentsCreated SalaryPaymentBatch[] @relation("SalaryPaymentCreator")
+  salaryPaymentsPaid SalaryPaymentBatch[] @relation("SalaryPaymentPayer")
+  salaryPaymentsCancelled SalaryPaymentBatch[] @relation("SalaryPaymentCanceller")
+  bonusPlansCreated BonusPlan[] @relation("BonusPlanCreator")
+  bonusPlansConfirmed BonusPlan[] @relation("BonusPlanConfirmer")
+  bonusAllocations BonusAllocation[]
+  retroCalculationsCreated RetroCalculation[] @relation("RetroCalculationCreator")
+  retroCalculationsDecided RetroCalculation[] @relation("RetroCalculationDecider")
+  payrollAdjustmentsCreated PayrollAdjustment[] @relation("PayrollAdjustmentCreator")
+  payrollAdjustmentsConfirmed PayrollAdjustment[] @relation("PayrollAdjustmentConfirmer")
+  auditIntegrityChecks AuditIntegrityCheck[]
+  notifications NotificationRecipient[]
+  insuranceListsGenerated InsuranceChangeList[] @relation("InsuranceListGenerator")
+  insuranceListsFinalized InsuranceChangeList[] @relation("InsuranceListFinalizer")
+  c12Imports C12Import[]
+  terminationsCreated TerminationDecision[] @relation("TerminationCreator")
+  terminationsConfirmed TerminationDecision[] @relation("TerminationConfirmer")
+  benefitVersionsCreated BenefitCatalogVersion[] @relation("BenefitVersionCreator")
+  benefitBatchesCreated BenefitAllocationBatch[] @relation("BenefitBatchCreator")
+  benefitBatchesConfirmed BenefitAllocationBatch[] @relation("BenefitBatchConfirmer")
+  taxFinalizationsCreated AnnualTaxFinalization[] @relation("TaxFinalizationCreator")
+  taxFinalizationsCompleted AnnualTaxFinalization[] @relation("TaxFinalizationCompleter")
+  rotationVersionsCreated ShiftRotationPatternVersion[] @relation("RotationVersionCreator")
+  shiftSwapsCreated ShiftSwapRequest[] @relation("ShiftSwapCreator")
+  shiftSwapsDecided ShiftSwapRequest[] @relation("ShiftSwapDecider")
+  shiftSwapHistory ShiftSwapHistory[] @relation("ShiftSwapActor")
+  siBenefitsCreated SicknessMaternityRecord[] @relation("SiBenefitCreator")
+  siBenefitsPaid SicknessMaternityRecord[] @relation("SiBenefitPayer")
+  reportRuns ReportRun[] @relation("ReportRunRequester")
+  @@map("user_account")
+}
+
+model PasswordHistory {
+  id String @id @default(uuid()) @db.Uuid
+  userAccountId String @map("user_account_id") @db.Uuid
+  passwordHash String @map("password_hash")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  userAccount UserAccount @relation(fields: [userAccountId], references: [id])
+  @@index([userAccountId, createdAt])
+  @@map("password_history")
+}
+
+model RoleAssignment {
+  id             String @id @default(uuid()) @db.Uuid
+  userAccountId  String @map("user_account_id") @db.Uuid
+  roleCode       RoleCode @map("role_code")
+  scopeOrgUnitId String @map("scope_org_unit_id") @db.Uuid
+  effectiveFrom  DateTime @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  userAccount    UserAccount @relation(fields: [userAccountId], references: [id])
+  role           Role @relation(fields: [roleCode], references: [code])
+  scopeOrgUnit   OrgUnit @relation(fields: [scopeOrgUnitId], references: [id])
+  @@index([userAccountId, effectiveFrom, effectiveTo])
+  @@map("role_assignment")
+}
+
+model EmployeeExclusion {
+  id            String @id @default(uuid()) @db.Uuid
+  userAccountId String @map("user_account_id") @db.Uuid
+  employeeId    String @map("employee_id") @db.Uuid
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  userAccount   UserAccount @relation(fields: [userAccountId], references: [id])
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  @@index([userAccountId, employeeId])
+  @@map("employee_exclusion")
+}
+
+model WebSession {
+  id                String @id @default(uuid()) @db.Uuid
+  tokenHash         String @unique @map("token_hash") @db.Char(64)
+  userAccountId     String @map("user_account_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt        DateTime @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt         DateTime @map("expires_at") @db.Timestamptz(3)
+  absoluteExpiresAt DateTime @map("absolute_expires_at") @db.Timestamptz(3)
+  userAccount       UserAccount @relation(fields: [userAccountId], references: [id])
+  @@index([userAccountId])
+  @@map("web_session")
+}
+
+model AuditLog {
+  id          BigInt @id @default(autoincrement())
+  actorId     String? @map("actor_id") @db.Uuid
+  entityType  String @map("entity_type") @db.VarChar(80)
+  entityId    String @map("entity_id")
+  action      String @db.VarChar(40)
+  result      String @db.VarChar(40)
+  occurredAt  DateTime @map("occurred_at") @db.Timestamptz(3)
+  oldValue    Json? @map("old_value")
+  newValue    Json? @map("new_value")
+  ipAddress   String? @map("ip_address") @db.VarChar(64)
+  prevHash    String @map("prev_hash") @db.Char(64)
+  recordHash  String @map("record_hash") @db.Char(64)
+  scopeOrgUnitId String? @map("scope_org_unit_id") @db.Uuid
+  actor       UserAccount? @relation(fields: [actorId], references: [id])
+  @@index([scopeOrgUnitId, occurredAt(sort: Desc)], map: "audit_log_scope_time_idx")
+  @@index([occurredAt(sort: Desc)], map: "audit_log_time_idx")
+  @@index([actorId, occurredAt(sort: Desc)], map: "audit_log_actor_time_idx")
+  @@index([entityType, entityId], map: "audit_log_entity_idx")
+  @@index([result, occurredAt(sort: Desc)], map: "audit_log_result_time_idx")
+  @@map("audit_log")
+}
+
+enum AuditIntegrityStatus {
+  VALID
+  BROKEN
+}
+
+model AuditIntegrityCheck {
+  id String @id @default(uuid()) @db.Uuid
+  trigger String @db.VarChar(16)
+  status AuditIntegrityStatus
+  fromId BigInt? @map("from_id")
+  toId BigInt? @map("to_id")
+  checkedCount Int @map("checked_count")
+  firstBrokenId BigInt? @map("first_broken_id")
+  failureReason String? @map("failure_reason") @db.VarChar(40)
+  startedAt DateTime @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime @map("finished_at") @db.Timestamptz(3)
+  triggeredById String? @map("triggered_by_id") @db.Uuid
+  triggeredBy UserAccount? @relation(fields: [triggeredById], references: [id], onDelete: Restrict)
+  @@index([startedAt(sort: Desc)], map: "audit_integrity_check_time_idx")
+  @@map("audit_integrity_check")
+}
+
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+  type String @map("notification_type") @db.VarChar(40)
+  title String @db.VarChar(300)
+  payload Json @default("{}")
+  linkKey String @map("link_key") @db.VarChar(40)
+  scopeOrgUnitId String? @map("scope_org_unit_id") @db.Uuid
+  dedupeKey String? @unique(map: "notification_dedupe_key") @map("dedupe_key") @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  scopeOrgUnit OrgUnit? @relation(fields: [scopeOrgUnitId], references: [id], onDelete: Restrict)
+  recipients NotificationRecipient[]
+  @@index([createdAt(sort: Desc)], map: "notification_time_idx")
+  @@map("notification")
+}
+
+model NotificationRecipient {
+  notificationId String @map("notification_id") @db.Uuid
+  userAccountId String @map("user_account_id") @db.Uuid
+  readAt DateTime? @map("read_at") @db.Timestamptz(3)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userAccount UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Restrict)
+  @@id([notificationId, userAccountId])
+  @@index([userAccountId, readAt], map: "notification_recipient_inbox_idx")
+  @@map("notification_recipient")
+}
+
+enum ApplicationBasis {
+  WORK_DATE
+  TAX_YEAR
+  PAYMENT_DATE
+}
+
+enum SitePolicyKey {
+  CUTOFF_DAY
+}
+
+enum PolicyStatus {
+  SIMULATION
+  BUSINESS_CONFIRMED
+}
+
+enum BusinessPeriodType {
+  ATTENDANCE
+}
+
+enum BusinessPeriodStatus {
+  PLANNED
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum AttendanceWorkshopClosureAction {
+  CLOSE
+  RETURN
+}
+
+enum AttendancePeriodLockAction {
+  RETURN
+  LOCK
+}
+
+model LegalParameter {
+  id                    String           @id @default(uuid()) @db.Uuid
+  paramCode             String           @map("param_code") @db.VarChar(80)
+  scopeKey              String           @map("scope_key") @db.VarChar(64)
+  subjectType           String           @map("subject_type") @db.VarChar(64)
+  applicationBasis      ApplicationBasis @map("application_basis")
+  value                 Json
+  unit                  String           @db.VarChar(32)
+  effectiveFrom         DateTime         @map("effective_from") @db.Date
+  effectiveTo           DateTime?        @map("effective_to") @db.Date
+  documentEffectiveDate DateTime         @map("document_effective_date") @db.Date
+  legalBasis            String           @map("legal_basis")
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([paramCode, scopeKey, subjectType, applicationBasis, effectiveFrom, effectiveTo])
+  @@map("legal_parameter")
+}
+
+model SitePolicy {
+  id                String        @id @default(uuid()) @db.Uuid
+  orgUnitId         String        @map("org_unit_id") @db.Uuid
+  policyKey         SitePolicyKey @map("policy_key")
+  value             Int
+  status            PolicyStatus
+  decisionReference String        @map("decision_reference") @db.VarChar(200)
+  effectiveFrom     DateTime      @map("effective_from") @db.Date
+  effectiveTo       DateTime?     @map("effective_to") @db.Date
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  periods BusinessPeriod[]
+  @@index([orgUnitId, policyKey, effectiveFrom, effectiveTo])
+  @@map("site_policy")
+}
+
+model BusinessPeriod {
+  id              String               @id @default(uuid()) @db.Uuid
+  code            String               @db.VarChar(64)
+  periodType      BusinessPeriodType   @default(ATTENDANCE) @map("period_type")
+  scopeOrgUnitId  String               @map("scope_org_unit_id") @db.Uuid
+  dateFrom        DateTime             @map("date_from") @db.Date
+  dateTo          DateTime             @map("date_to") @db.Date
+  cutoffDay       Int                  @map("cutoff_day")
+  cutoffPolicyId  String               @map("cutoff_policy_id") @db.Uuid
+  status          BusinessPeriodStatus @default(PLANNED)
+  revision        Int                  @default(0)
+  openedAt        DateTime?            @map("opened_at") @db.Timestamptz(3)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  scopeOrgUnit OrgUnit @relation(fields: [scopeOrgUnitId], references: [id])
+  cutoffPolicy SitePolicy @relation(fields: [cutoffPolicyId], references: [id])
+  attendanceImports AttendanceImport[]
+  attendanceDays DailyAttendance[]
+  punchProcessing PunchProcessing[]
+  overtimeActuals OvertimeActual[]
+  corrections AttendanceCorrection[]
+  correctionItems AttendanceCorrectionItem[]
+  sourceCoverage AttendanceSourceCoverage[]
+  teamConfirmations AttendanceTeamConfirmation[]
+  workshopClosures AttendanceWorkshopClosure[]
+  periodLockEvents AttendancePeriodLockEvent[]
+  overtimePayBuckets OvertimePayBucket[]
+  @@unique([code])
+  @@index([periodType, scopeOrgUnitId, dateFrom, dateTo])
+  @@map("business_period")
+}
+
+enum PayrollPeriodStatus {
+  OPEN
+  LOCKED
+}
+
+enum PayrollInputStatus {
+  DRAFT
+  VALIDATED
+  CONFIRMED
+  RETURNED
+  SUPERSEDED
+}
+
+enum PayrollInputProvenance {
+  SIMULATION
+  BUSINESS_CONFIRMED
+}
+
+model PayrollPeriod {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(64)
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  dateFrom DateTime @map("date_from") @db.Date
+  dateTo DateTime @map("date_to") @db.Date
+  expectedPaymentDate DateTime? @map("expected_payment_date") @db.Date
+  status PayrollPeriodStatus @default(OPEN)
+  isInitial Boolean @default(false) @map("is_initial")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id])
+  batches PayrollInputBatch[]
+  retroCandidates RetroCandidate[]
+  insuranceContributions InsuranceContribution[]
+  taxWithholdings TaxWithholding[]
+  salaryPaymentItems SalaryPaymentItem[]
+  bonusPlans BonusPlan[]
+  retroCalculations RetroCalculation[]
+  adjustmentsTargeted PayrollAdjustment[] @relation("PayrollAdjustmentTarget")
+  adjustmentsOriginated PayrollAdjustment[] @relation("PayrollAdjustmentOrigin")
+  adjustmentsApplied PayrollAdjustment[] @relation("PayrollAdjustmentApplied")
+  payrollRuns PayrollRun[]
+  payrollSheet PayrollSheet?
+  @@index([siteOrgUnitId, dateFrom, dateTo])
+  terminationPaymentItems TerminationPaymentItem[]
+  benefitBatches BenefitAllocationBatch[]
+  benefitAllocations BenefitAllocation[]
+  @@map("payroll_period")
+}
+
+model PayrollInputBatch {
+  id String @id @default(uuid()) @db.Uuid
+  payrollPeriodId String @map("payroll_period_id") @db.Uuid
+  sourceSystem String @map("source_system") @db.VarChar(80)
+  sourceDocumentNo String @map("source_document_no") @db.VarChar(160)
+  sourceVersion String @map("source_version") @db.VarChar(80)
+  mappingVersion String @map("mapping_version") @db.VarChar(80)
+  provenance PayrollInputProvenance
+  preparedBy String @map("prepared_by") @db.VarChar(200)
+  sourceApprovedBy String? @map("source_approved_by") @db.VarChar(200)
+  sourceApprovedAt DateTime? @map("source_approved_at") @db.Date
+  sourceApprovalReference String? @map("source_approval_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  attendancePeriodIds String[] @map("attendance_period_ids") @db.Uuid
+  status PayrollInputStatus @default(DRAFT)
+  revision Int @default(1)
+  contentHash String @map("content_hash") @db.Char(64)
+  payloadCipher String @map("payload_cipher")
+  validationCipher String? @map("validation_cipher")
+  fileName String? @map("file_name") @db.VarChar(255)
+  fileHash String? @map("file_hash") @db.Char(64)
+  supersedesBatchId String? @map("supersedes_batch_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+  createdBy UserAccount @relation("PayrollInputBatchCreator", fields: [createdById], references: [id])
+  supersedesBatch PayrollInputBatch? @relation("PayrollInputBatchReplacement", fields: [supersedesBatchId], references: [id])
+  replacements PayrollInputBatch[] @relation("PayrollInputBatchReplacement")
+  lines PayrollInputLine[]
+  teamAllocations PayrollInputTeamAllocation[]
+  evidence PayrollInputEvidence[]
+  history PayrollInputHistory[]
+  @@unique([sourceSystem, sourceDocumentNo, sourceVersion])
+  @@index([payrollPeriodId, status])
+  @@index([sourceSystem, sourceDocumentNo, status])
+  @@map("payroll_input_batch")
+}
+
+model PayrollInputLine {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  sourceLineId String @map("source_line_id") @db.VarChar(160)
+  employeeId String @map("employee_id") @db.Uuid
+  componentId String @map("component_id") @db.Uuid
+  inputType String @map("input_type") @db.VarChar(32)
+  workFrom DateTime @map("work_from") @db.Date
+  workTo DateTime @map("work_to") @db.Date
+  valueState String @map("value_state") @db.VarChar(32)
+  calculationMode String @map("calculation_mode") @db.VarChar(16)
+  businessReference String? @map("business_reference") @db.VarChar(500)
+  adjustmentOfLineId String? @map("adjustment_of_line_id") @db.Uuid
+  teamAllocationKey String? @map("team_allocation_key") @db.VarChar(160)
+  payloadCipher String @map("payload_cipher")
+  bindingSnapshotCipher String? @map("binding_snapshot_cipher")
+  inputHash String @map("input_hash") @db.Char(64)
+  supersedesLineId String? @map("supersedes_line_id") @db.Uuid
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  component SalaryComponent @relation(fields: [componentId], references: [id])
+  adjustmentOfLine PayrollInputLine? @relation("PayrollInputLineAdjustment", fields: [adjustmentOfLineId], references: [id])
+  adjustments PayrollInputLine[] @relation("PayrollInputLineAdjustment")
+  supersedesLine PayrollInputLine? @relation("PayrollInputLineReplacement", fields: [supersedesLineId], references: [id])
+  replacements PayrollInputLine[] @relation("PayrollInputLineReplacement")
+  @@unique([batchId, sourceLineId])
+  @@index([employeeId, componentId, workFrom, workTo])
+  @@map("payroll_input_line")
+}
+
+model PayrollInputTeamAllocation {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  allocationKey String @map("allocation_key") @db.VarChar(160)
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  acceptedAmountCipher String @map("accepted_amount_cipher") @db.Text
+  reference String @db.VarChar(500)
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id])
+  @@unique([batchId, allocationKey])
+  @@map("payroll_input_team_allocation")
+}
+
+model PayrollInputEvidence {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(255)
+  contentType String @map("content_type") @db.VarChar(100)
+  size Int
+  sha256 String @db.Char(64)
+  contentCipher String @map("content_cipher")
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  uploadedBy UserAccount @relation(fields: [uploadedById], references: [id])
+  @@map("payroll_input_evidence")
+}
+
+model PayrollInputHistory {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(40)
+  fromStatus PayrollInputStatus? @map("from_status")
+  toStatus PayrollInputStatus @map("to_status")
+  reason String @db.VarChar(2000)
+  revision Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  batch PayrollInputBatch @relation(fields: [batchId], references: [id])
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  @@index([batchId, createdAt])
+  @@map("payroll_input_history")
+}
+
+
+enum EmploymentContractType {
+  INDEFINITE
+  FIXED_TERM
+  PROBATION
+  UNDER_ONE_MONTH
+  PIECEWORK
+  COLLABORATOR
+}
+
+enum EmploymentContractStatus {
+  DRAFT
+  ACTIVE
+}
+
+enum SalaryBasis {
+  MONTHLY
+  HOURLY
+}
+
+enum ProbationClass {
+  TECHNICAL
+  WORKER
+}
+
+model EmploymentContract {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  employeeId           String                   @map("employee_id") @db.Uuid
+  number               String                   @db.VarChar(80)
+  type                 EmploymentContractType  @map("contract_type")
+  status               EmploymentContractStatus @default(DRAFT)
+  startDate            DateTime                 @map("start_date") @db.Date
+  endDate              DateTime?                @map("end_date") @db.Date
+  signedDate           DateTime                 @map("signed_date") @db.Date
+  salaryCipher         String                   @map("salary_cipher")
+  officialSalaryCipher String?                  @map("official_salary_cipher")
+  salaryBasis          SalaryBasis              @map("salary_basis")
+  probationClass       ProbationClass?          @map("probation_class")
+  insuranceEligible    Boolean                  @default(false) @map("insurance_eligible")
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  terminatedOn         DateTime?                @map("terminated_on") @db.Date
+  terminationDecisionId String?                 @map("termination_decision_id") @db.Uuid
+  terminationDecision  TerminationDecision?     @relation(fields: [terminationDecisionId], references: [id], onDelete: Restrict)
+  employee             Employee                 @relation(fields: [employeeId], references: [id])
+  annexes              ContractAnnex[]
+
+  @@unique([employeeId, number])
+  @@index([employeeId, status, startDate, endDate])
+  @@map("employment_contract")
+}
+
+model ContractAnnex {
+  id            String             @id @default(uuid()) @db.Uuid
+  contractId    String             @map("contract_id") @db.Uuid
+  number        String             @db.VarChar(80)
+  effectiveFrom DateTime           @map("effective_from") @db.Date
+  signedDate    DateTime           @map("signed_date") @db.Date
+  contentCipher String             @map("content_cipher")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  contract      EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, number])
+  @@index([contractId, effectiveFrom])
+  @@map("contract_annex")
+}
+
+model PersonnelTransfer {
+  id             String   @id @default(uuid()) @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  fromOrgUnitId  String   @map("from_org_unit_id") @db.Uuid
+  toOrgUnitId    String   @map("to_org_unit_id") @db.Uuid
+  effectiveFrom  DateTime @map("effective_from") @db.Date
+  decisionNumber String   @map("decision_number") @db.VarChar(80)
+  decisionDate   DateTime @map("decision_date") @db.Date
+  reason         String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  fromOrgUnit OrgUnit @relation("TransferFrom", fields: [fromOrgUnitId], references: [id])
+  toOrgUnit OrgUnit @relation("TransferTo", fields: [toOrgUnitId], references: [id])
+
+  @@unique([employeeId, effectiveFrom])
+  @@index([employeeId, effectiveFrom])
+  @@index([fromOrgUnitId, effectiveFrom])
+  @@index([toOrgUnitId, effectiveFrom])
+  @@map("personnel_transfer")
+}
+
+
+
+enum ShiftKind {
+  ADMINISTRATIVE
+  DAY
+  NIGHT
+}
+
+enum ShiftPlanStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  RETURNED
+  CANCELLED
+}
+
+model ShiftDefinition {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  code String @db.VarChar(32)
+  name String @db.VarChar(120)
+  kind ShiftKind
+  startTime String @map("start_time") @db.VarChar(5)
+  endTime String @map("end_time") @db.VarChar(5)
+  crossesMidnight Boolean @map("crosses_midnight")
+  breakStartOffset Int @map("break_start_offset")
+  breakMinutes Int @map("break_minutes")
+  paidBreak Boolean @map("paid_break")
+  workMinutes Int @map("work_minutes")
+  isNightShift Boolean @map("is_night_shift")
+  active Boolean @default(true)
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  schedules ShiftSchedule[]
+  @@unique([orgUnitId, code])
+  swapsFrom ShiftSwapRequest[] @relation("ShiftSwapOld")
+  swapsTo ShiftSwapRequest[] @relation("ShiftSwapNew")
+  @@map("shift_definition")
+}
+
+model ShiftPlan {
+  id String @id @default(uuid()) @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  title String @db.VarChar(160)
+  status ShiftPlanStatus @default(DRAFT)
+  revision Int @default(0)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id])
+  schedules ShiftSchedule[]
+  history ShiftPlanHistory[]
+  @@index([teamOrgUnitId, status])
+  swaps ShiftSwapRequest[]
+  @@map("shift_plan")
+}
+
+model ShiftSchedule {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  shiftId String @map("shift_id") @db.Uuid
+  startAt DateTime @map("start_at") @db.Timestamptz(3)
+  endAt DateTime @map("end_at") @db.Timestamptz(3)
+  workMinutes Int @map("work_minutes")
+  plan ShiftPlan @relation(fields: [planId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  shift ShiftDefinition @relation(fields: [shiftId], references: [id])
+  attendanceDay DailyAttendance?
+  punchProcessing PunchProcessing[]
+  @@unique([planId, employeeId, workDate])
+  @@index([employeeId, workDate])
+  swaps ShiftSwapRequest[]
+  @@map("shift_schedule")
+}
+
+model ShiftPlanHistory {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(24)
+  fromStatus ShiftPlanStatus? @map("from_status")
+  toStatus ShiftPlanStatus @map("to_status")
+  revision Int
+  reason String? @db.VarChar(2000)
+  snapshot Json
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  plan ShiftPlan @relation(fields: [planId], references: [id])
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  @@unique([planId, revision])
+  @@map("shift_plan_history")
+}
+
+model AttendanceImportProfile {
+  id String @id @default(uuid()) @db.Uuid
+  siteId String @map("site_id") @db.Uuid
+  name String @db.VarChar(120)
+  mapping Json
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  site Site @relation(fields: [siteId], references: [id])
+  imports AttendanceImport[]
+  @@unique([siteId, name])
+  @@map("attendance_import_profile")
+}
+
+model AttendanceImport {
+  id String @id @default(uuid()) @db.Uuid
+  siteId String @map("site_id") @db.Uuid
+  referencePeriodId String @map("reference_period_id") @db.Uuid
+  profileId String? @map("profile_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(255)
+  fileHash String @map("file_hash") @db.Char(64)
+  mapping Json
+  status String @db.VarChar(32)
+  totalRows Int @map("total_rows")
+  summary Json
+  errors Json
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  site Site @relation(fields: [siteId], references: [id])
+  referencePeriod BusinessPeriod @relation(fields: [referencePeriodId], references: [id])
+  profile AttendanceImportProfile? @relation(fields: [profileId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id])
+  punches RawPunch[]
+  @@index([siteId, createdAt])
+  @@map("attendance_import")
+}
+
+model RawPunch {
+  id String @id @default(uuid()) @db.Uuid
+  siteId String @map("site_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  punchedAt DateTime @map("punched_at") @db.Timestamptz(3)
+  deviceCode String @map("device_code") @db.VarChar(80)
+  direction String @db.VarChar(4)
+  batchId String @map("batch_id") @db.Uuid
+  rowNumber Int @map("row_number")
+  source Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  site Site @relation(fields: [siteId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  batch AttendanceImport @relation(fields: [batchId], references: [id])
+  processing PunchProcessing?
+  checkInDays DailyAttendance[] @relation("AttendanceCheckIn")
+  checkOutDays DailyAttendance[] @relation("AttendanceCheckOut")
+  @@unique([siteId, deviceCode, employeeId, punchedAt])
+  @@index([siteId, punchedAt])
+  @@index([employeeId, punchedAt])
+  @@map("raw_punch")
+}
+
+model PunchProcessing {
+  punchId String @id @map("punch_id") @db.Uuid
+  scheduleId String? @map("schedule_id") @db.Uuid
+  periodId String? @map("period_id") @db.Uuid
+  workDate DateTime? @map("work_date") @db.Date
+  state String @db.VarChar(16)
+  reason String? @db.VarChar(80)
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+  punch RawPunch @relation(fields: [punchId], references: [id])
+  schedule ShiftSchedule? @relation(fields: [scheduleId], references: [id])
+  period BusinessPeriod? @relation(fields: [periodId], references: [id])
+  @@index([periodId, state])
+  @@map("punch_processing")
+}
+
+model DailyAttendance {
+  id String @id @default(uuid()) @db.Uuid
+  scheduleId String @unique @map("schedule_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  checkInId String? @map("check_in_id") @db.Uuid
+  checkOutId String? @map("check_out_id") @db.Uuid
+  effectiveCheckInAt DateTime? @map("effective_check_in_at") @db.Timestamptz(3)
+  effectiveCheckOutAt DateTime? @map("effective_check_out_at") @db.Timestamptz(3)
+  adjustmentId String? @map("adjustment_id") @db.Uuid
+  adjustment AttendanceCorrectionItem? @relation(fields: [adjustmentId], references: [id])
+  status String @db.VarChar(3)
+  flags String[]
+  workedMinutes Decimal @map("worked_minutes") @db.Decimal(12,6)
+  dayMinutes Decimal @map("day_minutes") @db.Decimal(12,6)
+  nightMinutes Decimal @map("night_minutes") @db.Decimal(12,6)
+  lateMinutes Int @map("late_minutes")
+  earlyMinutes Int @map("early_minutes")
+  absent Boolean
+  workUnits Decimal @map("work_units") @db.Decimal(10,6)
+  segments Json
+  leave Json @default("{}")
+  rules Json
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+  schedule ShiftSchedule @relation(fields: [scheduleId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  checkIn RawPunch? @relation("AttendanceCheckIn", fields: [checkInId], references: [id])
+  checkOut RawPunch? @relation("AttendanceCheckOut", fields: [checkOutId], references: [id])
+  @@index([periodId, orgUnitId, workDate])
+  @@index([employeeId, workDate])
+  @@map("daily_attendance")
+}
+
+enum OvertimeStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  RETURNED
+  REJECTED
+  CANCELLED
+}
+
+model OvertimeRequest {
+  id String @id @default(uuid()) @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  title String @db.VarChar(160)
+  workDate DateTime @map("work_date") @db.Date
+  startAt DateTime @map("start_at") @db.Timestamptz(3)
+  endAt DateTime @map("end_at") @db.Timestamptz(3)
+  requestedMinutes Int @map("requested_minutes")
+  reason String @db.VarChar(2000)
+  status OvertimeStatus @default(DRAFT)
+  revision Int @default(0)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id])
+  members OvertimeMember[]
+  history OvertimeHistory[]
+  @@index([teamOrgUnitId, workDate, status])
+  @@index([startAt, endAt])
+  @@map("overtime_request")
+}
+
+model OvertimeMember {
+  id String @id @default(uuid()) @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  consentReference String @map("consent_reference") @db.VarChar(500)
+  request OvertimeRequest @relation(fields: [requestId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  @@unique([requestId, employeeId])
+  @@index([employeeId])
+  @@map("overtime_member")
+}
+
+model OvertimeHistory {
+  id String @id @default(uuid()) @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(24)
+  fromStatus OvertimeStatus? @map("from_status")
+  toStatus OvertimeStatus @map("to_status")
+  revision Int
+  reason String? @db.VarChar(2000)
+  snapshot Json
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  request OvertimeRequest @relation(fields: [requestId], references: [id])
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  @@unique([requestId, revision])
+  @@map("overtime_history")
+}
+
+model OvertimeActual {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  sourceDates DateTime[] @map("source_dates") @db.Date
+  requestedMinutes Decimal @map("requested_minutes") @db.Decimal(12,6)
+  approvedMinutes Decimal @map("approved_minutes") @db.Decimal(12,6)
+  actualMinutes Decimal @map("actual_minutes") @db.Decimal(12,6)
+  eligibleMinutes Decimal @map("eligible_minutes") @db.Decimal(12,6)
+  dayMinutes Decimal @map("day_minutes") @db.Decimal(12,6)
+  nightMinutes Decimal @map("night_minutes") @db.Decimal(12,6)
+  unapprovedMinutes Decimal @map("unapproved_minutes") @db.Decimal(12,6)
+  unworkedApprovedMinutes Decimal @map("unworked_approved_minutes") @db.Decimal(12,6)
+  flags String[]
+  evidence Json
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+  adjustmentId String? @map("adjustment_id") @db.Uuid
+  adjustment AttendanceCorrectionItem? @relation(fields: [adjustmentId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  @@unique([employeeId, orgUnitId, workDate])
+  @@index([periodId, orgUnitId, workDate])
+  @@map("overtime_actual")
+}
+
+
+model AttendanceCorrection {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  kind String @db.VarChar(16)
+  status String @default("DRAFT") @db.VarChar(16)
+  revision Int @default(1)
+  reason String
+  evidenceReference String? @map("evidence_reference")
+  incidentReference String? @map("incident_reference")
+  warnings String[]
+  createdById String @map("created_by_id") @db.Uuid
+  decidedById String? @map("decided_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  appliedOrder BigInt? @map("applied_order")
+  decisionReason String? @map("decision_reason")
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  createdBy UserAccount @relation("CorrectionCreator", fields: [createdById], references: [id])
+  decidedBy UserAccount? @relation("CorrectionReviewer", fields: [decidedById], references: [id])
+  items AttendanceCorrectionItem[]
+  evidence AttendanceCorrectionEvidence[]
+  history AttendanceCorrectionHistory[]
+  @@index([periodId, status, createdAt])
+  @@map("attendance_correction")
+}
+
+model AttendanceCorrectionItem {
+  id String @id @default(uuid()) @db.Uuid
+  correctionId String @map("correction_id") @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  sourceDates DateTime[] @map("source_dates") @db.Date
+  intervals Json?
+  excuseLateEarly Boolean @default(false) @map("excuse_late_early")
+  sourceHash String? @map("source_hash") @db.Char(64)
+  beforeSnapshot Json? @map("before_snapshot")
+  afterSnapshot Json? @map("after_snapshot")
+  correction AttendanceCorrection @relation(fields: [correctionId], references: [id])
+  period BusinessPeriod @relation(fields: [periodId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  attendanceDays DailyAttendance[]
+  overtimeActuals OvertimeActual[]
+  @@unique([correctionId, employeeId, orgUnitId, workDate])
+  @@index([employeeId, orgUnitId, workDate])
+  @@map("attendance_correction_item")
+}
+
+model AttendanceCorrectionEvidence {
+  id String @id @default(uuid()) @db.Uuid
+  correctionId String @map("correction_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(255)
+  contentType String @map("content_type") @db.VarChar(80)
+  size Int
+  sha256 String @db.Char(64)
+  content Bytes
+  uploadedById String @map("uploaded_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  correction AttendanceCorrection @relation(fields: [correctionId], references: [id])
+  uploadedBy UserAccount @relation(fields: [uploadedById], references: [id])
+  @@index([correctionId])
+  @@map("attendance_correction_evidence")
+}
+
+model AttendanceCorrectionHistory {
+  id String @id @default(uuid()) @db.Uuid
+  correctionId String @map("correction_id") @db.Uuid
+  action String @db.VarChar(24)
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  reason String?
+  oldValue Json? @map("old_value")
+  newValue Json @map("new_value")
+  correction AttendanceCorrection @relation(fields: [correctionId], references: [id])
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  @@index([correctionId, occurredAt])
+  @@map("attendance_correction_history")
+}
+
+model LeaveType {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  code String @db.VarChar(32)
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions LeaveTypeVersion[]
+  requests LeaveRequest[]
+  @@unique([orgUnitId, code])
+  @@map("leave_type")
+}
+
+model LeaveTypeVersion {
+  id String @id @default(uuid()) @db.Uuid
+  leaveTypeId String @map("leave_type_id") @db.Uuid
+  name String @db.VarChar(150)
+  active Boolean @default(true)
+  isPaid Boolean @map("is_paid")
+  countsAsWorkday Boolean @map("counts_as_workday")
+  deductsAnnualQuota Boolean @map("deducts_annual_quota")
+  siPaid Boolean @map("si_paid")
+  requiresDocument Boolean @map("requires_document")
+  maxDays Decimal? @map("max_days") @db.Decimal(8,2)
+  attendanceSymbol String @map("attendance_symbol") @db.VarChar(12)
+  status PolicyStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+  createdBy UserAccount? @relation(fields: [createdById], references: [id])
+  @@unique([leaveTypeId, effectiveFrom])
+  @@map("leave_type_version")
+}
+
+model LeavePolicy {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @unique @map("org_unit_id") @db.Uuid
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions LeavePolicyVersion[]
+  @@map("leave_policy")
+}
+
+model LeavePolicyVersion {
+  id String @id @default(uuid()) @db.Uuid
+  policyId String @map("policy_id") @db.Uuid
+  name String @db.VarChar(150)
+  normalDays Int @map("normal_days")
+  hazardousDays Int @map("hazardous_days")
+  extremeDays Int @map("extreme_days")
+  carryLimitDays Decimal @map("carry_limit_days") @db.Decimal(8,2)
+  carryExpiryMonth Int @map("carry_expiry_month")
+  carryExpiryDay Int @map("carry_expiry_day")
+  advanceLimitDays Decimal @map("advance_limit_days") @db.Decimal(8,2)
+  status PolicyStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  policy LeavePolicy @relation(fields: [policyId], references: [id])
+  createdBy UserAccount? @relation(fields: [createdById], references: [id])
+  @@unique([policyId, effectiveFrom])
+  @@map("leave_policy_version")
+}
+
+model LeaveBalance {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  year Int
+  revision Int @default(0)
+  calculation Json?
+  employee Employee @relation(fields: [employeeId], references: [id])
+  entries LeaveLedgerEntry[]
+  @@unique([employeeId, year])
+  @@map("annual_leave_balance")
+}
+
+model LeaveOperation {
+  id String @id @default(uuid()) @db.Uuid
+  sequence BigInt @unique @default(autoincrement())
+  requestId String @unique @map("request_id") @db.Uuid
+  requestHash String @map("request_hash") @db.Char(64)
+  kind String @db.VarChar(24)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  reason String @db.VarChar(2000)
+  reference String @db.VarChar(500)
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actorId String @map("actor_id") @db.Uuid
+  actor UserAccount @relation(fields: [actorId], references: [id])
+  leaveRequestId String? @map("leave_request_id") @db.Uuid
+  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id])
+  entries LeaveLedgerEntry[]
+  @@index([leaveRequestId])
+  @@map("leave_operation")
+}
+
+model LeaveLedgerEntry {
+  id String @id @default(uuid()) @db.Uuid
+  balanceId String @map("balance_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  kind String @db.VarChar(24)
+  bucket String @db.VarChar(12)
+  days Decimal @db.Decimal(8,2)
+  expiresAt DateTime? @map("expires_at") @db.Date
+  balance LeaveBalance @relation(fields: [balanceId], references: [id])
+  operation LeaveOperation @relation(fields: [operationId], references: [id])
+  @@unique([operationId, balanceId, kind])
+  @@index([balanceId])
+  @@map("leave_ledger_entry")
+}
+
+model LeaveRequest {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  leaveTypeId String @map("leave_type_id") @db.Uuid
+  createdById String @map("created_by_id") @db.Uuid
+  status String @default("DRAFT") @db.VarChar(24)
+  revision Int @default(1)
+  dateFrom DateTime @map("date_from") @db.Date
+  dateTo DateTime @map("date_to") @db.Date
+  unit String @db.VarChar(12)
+  half String? @db.VarChar(12)
+  startAt DateTime? @map("start_at") @db.Timestamptz(3)
+  endAt DateTime? @map("end_at") @db.Timestamptz(3)
+  reason String @db.VarChar(2000)
+  documentReference String? @map("document_reference") @db.VarChar(500)
+  snapshot Json
+  integration Json @default("{}")
+  operations LeaveOperation[]
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  history LeaveRequestHistory[]
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([employeeId, dateFrom, dateTo])
+  sicknessMaternityRecords SicknessMaternityRecord[]
+  @@map("leave_request")
+}
+
+model LeaveRequestHistory {
+  id String @id @default(uuid()) @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(24)
+  revision Int
+  fromStatus String? @map("from_status") @db.VarChar(24)
+  reason String? @db.VarChar(2000)
+  snapshot Json
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  request LeaveRequest @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([requestId, revision])
+  @@map("leave_request_history")
+}
+
+model AttendanceSourceCoverage {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  revision Int
+  sourceHash String @map("source_hash") @db.Char(64)
+  coveredFrom DateTime @map("covered_from") @db.Timestamptz(3)
+  coveredUntil DateTime @map("covered_until") @db.Timestamptz(3)
+  reference String @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  batchIds String[] @map("batch_ids") @db.Uuid
+  snapshot Json
+  actorId String @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, teamOrgUnitId, revision])
+  @@map("attendance_source_coverage")
+}
+
+model AttendanceWorkshopClosure {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  workshopOrgUnitId String @map("workshop_org_unit_id") @db.Uuid
+  revision Int
+  action AttendanceWorkshopClosureAction
+  sourceHash String @map("source_hash") @db.Char(64)
+  note String @db.VarChar(2000)
+  snapshot Json
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshopOrgUnit OrgUnit @relation(fields: [workshopOrgUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, workshopOrgUnitId, revision])
+  @@index([periodId, workshopOrgUnitId, revision])
+  @@map("attendance_workshop_closure")
+}
+
+model AttendancePeriodLockEvent {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  revision Int
+  action AttendancePeriodLockAction
+  sourceHash String @map("source_hash") @db.Char(64)
+  note String @db.VarChar(2000)
+  snapshot Json
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, revision])
+  @@index([periodId, revision])
+  @@map("attendance_period_lock_event")
+}
+
+model AttendanceTeamConfirmation {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  revision Int
+  sourceHash String @map("source_hash") @db.Char(64)
+  snapshot Json
+  note String @db.VarChar(2000)
+  actorId String @map("actor_id") @db.Uuid
+  confirmedAt DateTime @default(now()) @map("confirmed_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teamOrgUnit OrgUnit @relation(fields: [teamOrgUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor UserAccount @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([periodId, teamOrgUnitId, revision])
+  @@map("attendance_team_confirmation")
+}
+
+enum SalaryComponentType {
+  EARNING
+  DEDUCTION
+  EMPLOYER_COST
+}
+
+enum SalaryTaxClassification {
+  TAXABLE
+  NON_TAXABLE
+  CONDITIONAL
+}
+
+enum PayrollConfigurationKind {
+  PRICE
+  FORMULA
+}
+enum PayrollPriceType {
+  MONTHLY
+  DAILY
+  HOURLY
+  PRODUCT
+  PIECEWORK
+  COMMISSION
+  P1
+  P2
+  P3
+}
+enum FormulaRoundingMode {
+  NONE
+  HALF_UP
+  HALF_EVEN
+  DOWN
+  UP
+  FLOOR
+  CEIL
+}
+
+model PayrollConfiguration {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  kind PayrollConfigurationKind
+  code String @db.VarChar(80)
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions PayrollConfigurationVersion[]
+  @@unique([orgUnitId, kind, code])
+  @@map("payroll_configuration")
+}
+
+model PayrollConfigurationVersion {
+  id String @id @default(uuid()) @db.Uuid
+  configurationId String @map("configuration_id") @db.Uuid
+  name String @db.VarChar(150)
+  unit String @db.VarChar(32)
+  active Boolean
+  status PolicyStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  priceType PayrollPriceType? @map("price_type")
+  amount Decimal? @db.Decimal(26, 6)
+  productCode String? @map("product_code") @db.VarChar(80)
+  operationCode String? @map("operation_code") @db.VarChar(80)
+  componentId String? @map("component_id") @db.Uuid
+  expression String? @db.VarChar(2000)
+  variables Json?
+  roundingMode FormulaRoundingMode? @map("rounding_mode")
+  roundingScale Int? @map("rounding_scale")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  configuration PayrollConfiguration @relation(fields: [configurationId], references: [id])
+  component SalaryComponent? @relation(fields: [componentId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@unique([configurationId, effectiveFrom])
+  @@index([componentId])
+  @@map("payroll_configuration_version")
+}
+model SalaryComponent {
+  id String @id @default(uuid()) @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  code String @db.VarChar(32)
+  revision Int @default(1)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id])
+  versions SalaryComponentVersion[]
+  payrollConfigurationVersions PayrollConfigurationVersion[]
+  payrollInputLines PayrollInputLine[]
+  @@unique([orgUnitId, code])
+  @@map("salary_component")
+  bonusPlans BonusPlan[]
+}
+
+model SalaryComponentVersion {
+  id String @id @default(uuid()) @db.Uuid
+  componentId String @map("component_id") @db.Uuid
+  name String @db.VarChar(150)
+  componentType SalaryComponentType @map("component_type")
+  active Boolean
+  isInsurable Boolean @map("is_insurable")
+  taxClassification SalaryTaxClassification @map("tax_classification")
+  isOtBase Boolean @map("is_ot_base")
+  isProrated Boolean @map("is_prorated")
+  displayOrder Int @map("display_order")
+  status PolicyStatus
+  classificationBasis String @map("classification_basis") @db.VarChar(2000)
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  component SalaryComponent @relation(fields: [componentId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@unique([componentId, effectiveFrom])
+  @@map("salary_component_version")
+}
+
+enum EmployeePayMode {
+  MONTHLY
+  DAILY
+  HOURLY
+  PRODUCT
+  PIECEWORK
+  COMMISSION
+  THREE_P
+}
+
+enum EmployeePayPlanStatus {
+  SIMULATION
+  BUSINESS_CONFIRMED
+}
+
+enum EmployeePayPlanLineRole {
+  BASE
+  ADDITIONAL
+  NOT_APPLICABLE
+}
+
+enum EmployeePayPlanSourceType {
+  TIME
+  PRODUCT
+  PIECEWORK
+  COMMISSION
+  THREE_P
+  ALLOWANCE
+  BONUS
+  DEDUCTION
+  EMPLOYER_COST
+}
+
+enum EmployeePayPlanAllocation {
+  INDIVIDUAL
+  CONFIRMED_TEAM_ALLOCATION
+}
+
+model EmployeePayPlan {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @unique @map("employee_id") @db.Uuid
+  revision Int @default(1)
+  employee Employee @relation(fields: [employeeId], references: [id])
+  versions EmployeePayPlanVersion[]
+  @@map("employee_pay_plan")
+}
+
+model EmployeePayPlanVersion {
+  id String @id @default(uuid()) @db.Uuid
+  payPlanId String @map("pay_plan_id") @db.Uuid
+  name String @db.VarChar(150)
+  payMode EmployeePayMode @map("pay_mode")
+  status EmployeePayPlanStatus
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  lines Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  payPlan EmployeePayPlan @relation(fields: [payPlanId], references: [id])
+  createdBy UserAccount @relation(fields: [createdById], references: [id])
+  @@unique([payPlanId, effectiveFrom])
+  @@index([payPlanId, effectiveFrom, effectiveTo])
+  @@map("employee_pay_plan_version")
+}
+
+enum OvertimePayBucketKind {
+  OT
+  NIGHT_REGULAR
+}
+
+enum OvertimeDayType {
+  THUONG
+  NGHI_TUAN
+  LE_TET
+}
+
+enum OvertimePaySourceStatus {
+  DRAFT
+  LOCKED
+}
+
+model OvertimePayBucket {
+  id String @id @default(uuid()) @db.Uuid
+  periodId String @map("period_id") @db.Uuid
+  lockEventId String? @map("lock_event_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  kind OvertimePayBucketKind
+  dayType OvertimeDayType @map("day_type")
+  isNight Boolean @map("is_night")
+  hasDayOt Boolean @map("has_day_ot")
+  minutes Decimal @db.Decimal(12,6)
+  rate Decimal @db.Decimal(10,6)
+  rateBreakdown Json @map("rate_breakdown")
+  sourceStatus OvertimePaySourceStatus @map("source_status")
+  sourceHash String @map("source_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  period BusinessPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id], onDelete: Restrict)
+  @@unique([periodId, employeeId, orgUnitId, workDate, kind, dayType, isNight, hasDayOt], map: "overtime_pay_bucket_key")
+  @@index([periodId, orgUnitId, workDate])
+  @@index([employeeId, workDate])
+  @@map("overtime_pay_bucket")
+}
+
+enum IdentityDocumentType {
+  CCCD
+  PASSPORT
+}
+
+enum TaxResidency {
+  RESIDENT
+  NON_RESIDENT
+}
+
+enum EmployeeSpecialStatusType {
+  FOREIGN_WORKER
+  PENSIONER
+  MINOR
+  FEMALE
+  VOCATIONAL_TRAINED
+}
+
+model Bank {
+  code String @id @db.VarChar(20)
+  name String @db.VarChar(200)
+  shortName String @map("short_name") @db.VarChar(60)
+  active Boolean @default(true)
+  status PolicyStatus
+  accounts EmployeeBankAccount[]
+  @@map("bank")
+  fileTemplates BankFileTemplate[]
+}
+
+model EmployeeIdentity {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @unique @map("employee_id") @db.Uuid
+  documentType IdentityDocumentType @map("document_type")
+  idNumberCipher String @map("id_number_cipher")
+  idNumberHash String @unique @map("id_number_hash") @db.VarChar(80)
+  idIssueDate DateTime? @map("id_issue_date") @db.Date
+  idIssuePlace String? @map("id_issue_place") @db.VarChar(200)
+  taxCodeCipher String? @map("tax_code_cipher")
+  taxCodeHash String? @unique @map("tax_code_hash") @db.VarChar(80)
+  siBookCipher String? @map("si_book_cipher")
+  siBookHash String? @unique @map("si_book_hash") @db.VarChar(80)
+  emergencyContactName String? @map("emergency_contact_name") @db.VarChar(120)
+  emergencyContactPhone String? @map("emergency_contact_phone") @db.VarChar(30)
+  emergencyContactRelation String? @map("emergency_contact_relation") @db.VarChar(60)
+  documentReference String? @map("document_reference") @db.VarChar(500)
+  dataStatus PolicyStatus @map("data_status")
+  revision Int @default(1)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedById String? @map("updated_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  updatedBy UserAccount? @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+  @@map("employee_identity")
+}
+
+model EmployeeIdentityHistory {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  revision Int
+  snapshot Json
+  reason String @db.VarChar(2000)
+  actorId String? @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  actor UserAccount? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@unique([employeeId, revision])
+  @@map("employee_identity_history")
+}
+
+model EmployeeBankAccount {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  bankCode String @map("bank_code") @db.VarChar(20)
+  accountNumberCipher String @map("account_number_cipher")
+  accountNumberHash String @map("account_number_hash") @db.VarChar(80)
+  accountHolder String @map("account_holder") @db.VarChar(120)
+  branch String? @db.VarChar(150)
+  reason String @db.VarChar(2000)
+  dataStatus PolicyStatus @map("data_status")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  bank Bank @relation(fields: [bankCode], references: [code], onDelete: Restrict)
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  paymentItems SalaryPaymentItem[]
+  @@index([employeeId, effectiveFrom])
+  @@map("employee_bank_account")
+}
+
+model TaxProfile {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  residency TaxResidency
+  commitmentReference String? @map("commitment_reference") @db.VarChar(500)
+  commitmentTemplateVersion String? @map("commitment_template_version") @db.VarChar(80)
+  finalizationAuthorized Boolean @default(false) @map("finalization_authorized")
+  reason String @db.VarChar(2000)
+  dataStatus PolicyStatus @map("data_status")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@index([employeeId, effectiveFrom])
+  finalizations AnnualTaxFinalization[]
+  @@map("tax_profile")
+}
+
+model EmployeeSpecialStatus {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  statusType EmployeeSpecialStatusType @map("status_type")
+  workPermitNumber String? @map("work_permit_number") @db.VarChar(80)
+  permitExpiry DateTime? @map("permit_expiry") @db.Date
+  reference String @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  dataStatus PolicyStatus @map("data_status")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@index([employeeId, effectiveFrom])
+  @@map("employee_special_status")
+}
+
+model EmployeeDependent {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  dependentKey String @map("dependent_key") @db.Uuid
+  version Int
+  fullName String @map("full_name") @db.VarChar(120)
+  relationship String @db.VarChar(40)
+  taxCodeCipher String? @map("tax_code_cipher")
+  birthDate DateTime? @map("birth_date") @db.Date
+  deductionFromMonth String @map("deduction_from_month") @db.Char(7)
+  deductionToMonth String? @map("deduction_to_month") @db.Char(7)
+  evidenceReference String @map("evidence_reference") @db.VarChar(500)
+  reason String @db.VarChar(2000)
+  dataStatus PolicyStatus @map("data_status")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@unique([dependentKey, version])
+  @@index([employeeId, dependentKey, version])
+  @@map("employee_dependent")
+}
+
+enum RetroCandidateStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+model SalaryDecision {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  decisionNumber String @map("decision_number") @db.VarChar(80)
+  decisionDate DateTime @map("decision_date") @db.Date
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  reason String @db.VarChar(2000)
+  legalBasis String @map("legal_basis") @db.VarChar(1000)
+  warnings Json @default("[]")
+  warningAcknowledgement String? @map("warning_acknowledgement") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  lines EmployeeSalary[]
+  retroCandidates RetroCandidate[]
+  @@unique([employeeId, decisionNumber])
+  @@index([employeeId, effectiveFrom])
+  @@map("salary_decision")
+  retroCalculations RetroCalculation[]
+}
+
+model EmployeeSalary {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  decisionId String @map("decision_id") @db.Uuid
+  componentId String? @map("component_id") @db.Uuid
+  amountCipher String @map("amount_cipher")
+  salaryBasis SalaryBasis @map("salary_basis")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  decision SalaryDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  @@index([employeeId, effectiveFrom])
+  @@map("employee_salary")
+}
+
+model RetroCandidate {
+  id String @id @default(uuid()) @db.Uuid
+  decisionId String @map("decision_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  payrollPeriodId String @map("payroll_period_id") @db.Uuid
+  status RetroCandidateStatus @default(PENDING)
+  note String? @db.VarChar(2000)
+  resolvedById String? @map("resolved_by_id") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  decision SalaryDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  resolvedBy UserAccount? @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
+  @@unique([decisionId, payrollPeriodId])
+  @@index([status, payrollPeriodId])
+  @@map("retro_candidate")
+}
+
+enum InsuranceType {
+  BHXH
+  BHYT
+  BHTN
+  KPCD
+}
+
+enum InsuranceCapReference {
+  BASE_SALARY
+  REGIONAL_MINIMUM
+  NONE
+}
+
+model InsuranceRate {
+  id String @id @default(uuid()) @db.Uuid
+  insuranceType InsuranceType @map("insurance_type")
+  regionCode String? @map("region_code") @db.VarChar(3)
+  employeeRate Decimal @map("employee_rate") @db.Decimal(8,6)
+  employerRate Decimal @map("employer_rate") @db.Decimal(8,6)
+  fundDetail Json @default("{}") @map("fund_detail")
+  floorRegionalMinimum Boolean @map("floor_regional_minimum")
+  capReference InsuranceCapReference @map("cap_reference")
+  capMultiplier Decimal? @map("cap_multiplier") @db.Decimal(8,4)
+  legalBasis String @map("legal_basis") @db.VarChar(1000)
+  status PolicyStatus
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  region WageRegion? @relation(fields: [regionCode], references: [code], onDelete: Restrict)
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@index([insuranceType, effectiveFrom], map: "insurance_rate_type_effective_idx")
+  @@map("insurance_rate")
+}
+
+model InsuranceContribution {
+  id String @id @default(uuid()) @db.Uuid
+  payrollPeriodId String @map("payroll_period_id") @db.Uuid
+  payrollEmployeeId String @unique @map("payroll_employee_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  contributionMonth String @map("contribution_month") @db.Char(7)
+  eligible Json
+  insurableSalaryCipher String? @map("insurable_salary_cipher")
+  detailCipher String @map("detail_cipher")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  payrollEmployee PayrollEmployee @relation(fields: [payrollEmployeeId], references: [id], onDelete: Cascade)
+  @@index([employeeId, contributionMonth], map: "insurance_contribution_employee_month_idx")
+  @@map("insurance_contribution")
+}
+
+enum TaxSubject {
+  RESIDENT_PROGRESSIVE
+  RESIDENT_FLAT_10
+  NON_RESIDENT
+}
+
+enum TaxExemptionMode {
+  PREMIUM_ONLY
+  ELIGIBLE_PAYMENT
+}
+
+enum PitBracketBasis {
+  MONTH
+  YEAR
+}
+
+enum PaymentDateStatus {
+  PROJECTED
+  ACTUAL
+}
+
+enum TaxWithholdingStatus {
+  DRAFT
+  LOCKED
+}
+
+enum TaxFilingStatus {
+  NOT_FILED
+  FILED
+}
+
+model TaxRuleset {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(40)
+  subject TaxSubject
+  exemptionMode TaxExemptionMode @map("exemption_mode")
+  settings Json
+  legalBasis String @map("legal_basis") @db.VarChar(1000)
+  status PolicyStatus
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  brackets PitBracket[]
+  withholdings TaxWithholding[]
+  finalizations AnnualTaxFinalization[]
+  @@map("tax_ruleset")
+}
+
+model PitBracket {
+  id String @id @default(uuid()) @db.Uuid
+  rulesetId String @map("ruleset_id") @db.Uuid
+  basis PitBracketBasis
+  bracketNo Int @map("bracket_no")
+  lowerBound Decimal @map("lower_bound") @db.Decimal(18,0)
+  upperBound Decimal? @map("upper_bound") @db.Decimal(18,0)
+  rate Decimal @db.Decimal(6,4)
+  ruleset TaxRuleset @relation(fields: [rulesetId], references: [id], onDelete: Restrict)
+  @@unique([rulesetId, basis, bracketNo], map: "pit_bracket_key")
+  @@map("pit_bracket")
+}
+
+model TaxWithholding {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  paymentKey String @map("payment_key") @db.VarChar(160)
+  payrollPeriodId String? @map("payroll_period_id") @db.Uuid
+  paymentDate DateTime @map("payment_date") @db.Date
+  paymentDateStatus PaymentDateStatus @map("payment_date_status")
+  taxPeriod String @map("tax_period") @db.Char(7)
+  subject TaxSubject
+  branch String @db.VarChar(20)
+  rulesetId String @map("ruleset_id") @db.Uuid
+  status TaxWithholdingStatus @default(DRAFT)
+  filingStatus TaxFilingStatus @default(NOT_FILED) @map("filing_status")
+  originalWithholdingId String? @map("original_withholding_id") @db.Uuid
+  reason String? @db.VarChar(2000)
+  contextFlag String? @map("context_flag") @db.VarChar(30)
+  hasExceptions Boolean @default(false) @map("has_exceptions")
+  detailCipher String @map("detail_cipher")
+  revision Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  payrollPeriod PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  ruleset TaxRuleset @relation(fields: [rulesetId], references: [id], onDelete: Restrict)
+  original TaxWithholding? @relation("TaxWithholdingAdjustment", fields: [originalWithholdingId], references: [id], onDelete: Restrict)
+  adjustments TaxWithholding[] @relation("TaxWithholdingAdjustment")
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  exemptionLines TaxExemptionLine[]
+  @@index([employeeId, taxPeriod], map: "tax_withholding_employee_period_idx")
+  finalizationLines AnnualTaxFinalizationLine[]
+  @@map("tax_withholding")
+}
+
+model TaxExemptionLine {
+  id String @id @default(uuid()) @db.Uuid
+  withholdingId String @map("withholding_id") @db.Uuid
+  sourceRef String @map("source_ref") @db.VarChar(200)
+  kind String @db.VarChar(30)
+  rule String @db.VarChar(40)
+  exceptionCode String? @map("exception_code") @db.VarChar(60)
+  evidenceRef String? @map("evidence_ref") @db.VarChar(500)
+  amountsCipher String @map("amounts_cipher")
+  withholding TaxWithholding @relation(fields: [withholdingId], references: [id], onDelete: Cascade)
+  @@unique([withholdingId, sourceRef], map: "tax_exemption_line_key")
+  @@map("tax_exemption_line")
+}
+
+model TaxDeductionUsage {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  taxYear Int @map("tax_year")
+  kind String @db.VarChar(30)
+  usedAmountCipher String @map("used_amount_cipher")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  @@unique([employeeId, taxYear, kind], map: "tax_deduction_usage_key")
+  @@map("tax_deduction_usage")
+}
+
+enum PayrollRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PayrollSheetStatus {
+  DRAFT
+  APPROVED
+  LOCKED
+}
+
+enum PayrollEmployeeStatus {
+  OK
+  ERROR
+}
+
+enum ComplianceSeverity {
+  BLOCKING
+  WARNING
+}
+
+model PayrollRun {
+  id String @id @default(uuid()) @db.Uuid
+  payrollPeriodId String @map("payroll_period_id") @db.Uuid
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  status PayrollRunStatus @default(RUNNING)
+  scope Json @default("{}")
+  progressTotal Int @default(0) @map("progress_total")
+  progressDone Int @default(0) @map("progress_done")
+  errorCount Int @default(0) @map("error_count")
+  cancelRequested Boolean @default(false) @map("cancel_requested")
+  sourceHash String? @map("source_hash") @db.Char(64)
+  paramSnapshotHash String? @map("param_snapshot_hash") @db.Char(64)
+  versionSet Json @default("{}") @map("version_set")
+  attendanceLocks Json @default("[]") @map("attendance_locks")
+  failure String? @db.VarChar(2000)
+  startedById String @map("started_by_id") @db.Uuid
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id], onDelete: Restrict)
+  startedBy UserAccount @relation(fields: [startedById], references: [id], onDelete: Restrict)
+  sheets PayrollSheet[]
+  employees PayrollEmployee[]
+  errors PayrollRunError[]
+  compliance ComplianceCheckResult[]
+  @@index([payrollPeriodId, startedAt], map: "payroll_run_period_idx")
+  @@map("payroll_run")
+}
+
+model PayrollSheet {
+  id String @id @default(uuid()) @db.Uuid
+  payrollPeriodId String @unique(map: "payroll_sheet_period_key") @map("payroll_period_id") @db.Uuid
+  status PayrollSheetStatus @default(DRAFT)
+  calcCount Int @default(0) @map("calc_count")
+  lastRunId String? @map("last_run_id") @db.Uuid
+  sourceHash String? @map("source_hash") @db.Char(64)
+  revision Int @default(1)
+  approvedSourceHash String? @map("approved_source_hash") @db.Char(64)
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  approvedById String? @map("approved_by_id") @db.Uuid
+  lockedAt DateTime? @map("locked_at") @db.Timestamptz(3)
+  lockedById String? @map("locked_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  lastRun PayrollRun? @relation(fields: [lastRunId], references: [id], onDelete: Restrict)
+  approvedBy UserAccount? @relation("PayrollSheetApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  lockedBy UserAccount? @relation("PayrollSheetLocker", fields: [lockedById], references: [id], onDelete: Restrict)
+  history PayrollSheetHistory[]
+  snapshot PayrollSnapshot?
+  employees PayrollEmployee[]
+  compliance ComplianceCheckResult[]
+  payslipExports PayslipExport[]
+  payslips Payslip[]
+  paymentItems SalaryPaymentItem[]
+  @@map("payroll_sheet")
+}
+
+model PayrollEmployee {
+  id String @id @default(uuid()) @db.Uuid
+  sheetId String @map("sheet_id") @db.Uuid
+  runId String @map("run_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  status PayrollEmployeeStatus
+  errors Json @default("[]")
+  sourceHash String @map("source_hash") @db.Char(64)
+  totalsCipher String @map("totals_cipher")
+  netPayCipher String @map("net_pay_cipher")
+  insurableSalaryCipher String? @map("insurable_salary_cipher")
+  detailCipher String @map("detail_cipher")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  sheet PayrollSheet @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  run PayrollRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  lines PayrollLine[]
+  insuranceContribution InsuranceContribution?
+  payslips Payslip[]
+  paymentItems SalaryPaymentItem[]
+  @@unique([sheetId, employeeId], map: "payroll_employee_sheet_employee_key")
+  @@index([employeeId], map: "payroll_employee_employee_idx")
+  @@map("payroll_employee")
+}
+
+model PayrollLine {
+  id String @id @default(uuid()) @db.Uuid
+  payrollEmployeeId String @map("payroll_employee_id") @db.Uuid
+  lineNo Int @map("line_no")
+  lineType String @map("line_type") @db.VarChar(30)
+  label String @db.VarChar(200)
+  componentId String? @map("component_id") @db.Uuid
+  componentCode String? @map("component_code") @db.VarChar(80)
+  paramCode String? @map("param_code") @db.VarChar(80)
+  sourceReference String? @map("source_reference") @db.VarChar(500)
+  amountCipher String @map("amount_cipher")
+  traceCipher String @map("trace_cipher")
+  payrollEmployee PayrollEmployee @relation(fields: [payrollEmployeeId], references: [id], onDelete: Cascade)
+  inputs PayrollLineInput[]
+  @@unique([payrollEmployeeId, lineNo], map: "payroll_line_employee_no_key")
+  @@map("payroll_line")
+}
+
+model PayrollLineInput {
+  id String @id @default(uuid()) @db.Uuid
+  payrollLineId String @map("payroll_line_id") @db.Uuid
+  sourceType String @map("source_type") @db.VarChar(40)
+  sourceId String @map("source_id") @db.VarChar(200)
+  versionId String? @map("version_id") @db.VarChar(80)
+  sourceHash String? @map("source_hash") @db.VarChar(64)
+  payrollLine PayrollLine @relation(fields: [payrollLineId], references: [id], onDelete: Cascade)
+  @@index([payrollLineId], map: "payroll_line_input_line_idx")
+  @@index([sourceType, sourceId], map: "payroll_line_input_source_idx")
+  @@map("payroll_line_input")
+}
+
+model PayrollRunError {
+  id String @id @default(uuid()) @db.Uuid
+  runId String @map("run_id") @db.Uuid
+  employeeId String? @map("employee_id") @db.Uuid
+  code String @db.VarChar(60)
+  message String @db.VarChar(2000)
+  detail Json @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  run PayrollRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  @@index([runId], map: "payroll_run_error_run_idx")
+  @@map("payroll_run_error")
+}
+
+model ComplianceCheckResult {
+  id String @id @default(uuid()) @db.Uuid
+  runId String @map("run_id") @db.Uuid
+  sheetId String @map("sheet_id") @db.Uuid
+  code String @db.VarChar(20)
+  severity ComplianceSeverity
+  violationCount Int @map("violation_count")
+  detailsCipher String @map("details_cipher")
+  employeeIds String[] @default([]) @map("employee_ids") @db.Uuid
+  acknowledgements Json @default("[]")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  run PayrollRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  sheet PayrollSheet @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  @@unique([runId, code], map: "compliance_check_result_run_code_key")
+  @@index([sheetId, createdAt], map: "compliance_check_result_sheet_idx")
+  @@map("compliance_check_result")
+}
+
+model PayrollSheetHistory {
+  id String @id @default(uuid()) @db.Uuid
+  sheetId String @map("sheet_id") @db.Uuid
+  action String @db.VarChar(30)
+  fromStatus String @map("from_status") @db.VarChar(20)
+  toStatus String @map("to_status") @db.VarChar(20)
+  revision Int
+  sourceHash String? @map("source_hash") @db.Char(64)
+  totalsCipher String? @map("totals_cipher")
+  reason String? @db.VarChar(2000)
+  actorId String? @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  sheet PayrollSheet @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  actor UserAccount? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([sheetId, createdAt], map: "payroll_sheet_history_sheet_idx")
+  @@map("payroll_sheet_history")
+}
+
+model PayrollSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  sheetId String @unique(map: "payroll_snapshot_sheet_key") @map("sheet_id") @db.Uuid
+  contentCipher String @map("content_cipher")
+  contentHash String @map("content_hash") @db.Char(64)
+  sourceHash String @map("source_hash") @db.Char(64)
+  compliance Json
+  parameters Json
+  complianceResultIds String[] @map("compliance_result_ids") @db.Uuid
+  lockedAt DateTime @default(now()) @map("locked_at") @db.Timestamptz(3)
+  lockedById String @map("locked_by_id") @db.Uuid
+  sheet PayrollSheet @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  lockedBy UserAccount @relation(fields: [lockedById], references: [id], onDelete: Restrict)
+  @@map("payroll_snapshot")
+}
+
+enum PayslipExportStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  DOWNLOADED
+  EXPIRED
+}
+enum PayslipStatus {
+  ISSUED
+  FAILED
+}
+enum BankFileType {
+  CSV
+  XLSX
+}
+enum SalaryPaymentStatus {
+  EXPORTED
+  PAID
+  CANCELLED
+}
+enum PayrollAdjustmentStatus {
+  DRAFT
+  CONFIRMED
+  DISMISSED
+}
+model PayslipExport {
+  id String @id @default(uuid()) @db.Uuid
+  sheetId String @map("sheet_id") @db.Uuid
+  status PayslipExportStatus @default(RUNNING)
+  progressTotal Int @default(0) @map("progress_total")
+  progressDone Int @default(0) @map("progress_done")
+  errorCount Int @default(0) @map("error_count")
+  archivePath String? @map("archive_path") @db.VarChar(500)
+  archiveHash String? @map("archive_hash") @db.Char(64)
+  archiveBytes Int? @map("archive_bytes")
+  failure String? @db.VarChar(2000)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(3)
+  downloadedAt DateTime? @map("downloaded_at") @db.Timestamptz(3)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  sheet PayrollSheet @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  payslips Payslip[]
+  @@index([sheetId, createdAt], map: "payslip_export_sheet_idx")
+  @@map("payslip_export")
+}
+model Payslip {
+  id String @id @default(uuid()) @db.Uuid
+  exportId String? @map("export_id") @db.Uuid
+  sheetId String @map("sheet_id") @db.Uuid
+  payrollEmployeeId String @map("payroll_employee_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  status PayslipStatus
+  channel String @db.VarChar(20)
+  fileName String? @map("file_name") @db.VarChar(200)
+  fileHash String? @map("file_hash") @db.Char(64)
+  snapshotHash String @map("snapshot_hash") @db.Char(64)
+  errorCode String? @map("error_code") @db.VarChar(60)
+  errorMessage String? @map("error_message") @db.VarChar(2000)
+  issuedById String @map("issued_by_id") @db.Uuid
+  issuedAt DateTime @default(now()) @map("issued_at") @db.Timestamptz(3)
+  export PayslipExport? @relation(fields: [exportId], references: [id], onDelete: Restrict)
+  sheet PayrollSheet @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  payrollEmployee PayrollEmployee @relation(fields: [payrollEmployeeId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  issuedBy UserAccount @relation(fields: [issuedById], references: [id], onDelete: Restrict)
+  @@index([sheetId, employeeId, issuedAt], map: "payslip_sheet_employee_idx")
+  @@index([exportId], map: "payslip_export_idx")
+  @@map("payslip")
+}
+model BankFileTemplate {
+  id String @id @default(uuid()) @db.Uuid
+  bankCode String @map("bank_code") @db.VarChar(20)
+  version Int
+  name String @db.VarChar(200)
+  fileType BankFileType @map("file_type")
+  columns Json
+  splitBySite Boolean @default(false) @map("split_by_site")
+  includeHeader Boolean @default(true) @map("include_header")
+  active Boolean @default(true)
+  status PolicyStatus
+  reason String @db.VarChar(2000)
+  createdById String? @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  bank Bank @relation(fields: [bankCode], references: [code], onDelete: Restrict)
+  createdBy UserAccount? @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  batches SalaryPaymentBatch[]
+  @@unique([bankCode, version], map: "bank_file_template_version_key")
+  @@map("bank_file_template")
+}
+model SalaryPaymentBatch {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique(map: "salary_payment_batch_code_key") @db.VarChar(64)
+  templateId String @map("template_id") @db.Uuid
+  status SalaryPaymentStatus @default(EXPORTED)
+  itemCount Int @map("item_count")
+  totalCipher String @map("total_cipher")
+  fileHash String @map("file_hash") @db.Char(64)
+  dueDate DateTime @map("due_date") @db.Date
+  paidDate DateTime? @map("paid_date") @db.Date
+  lateDays Int? @map("late_days")
+  revision Int @default(1)
+  note String? @db.VarChar(2000)
+  cancelReason String? @map("cancel_reason") @db.VarChar(2000)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  paidById String? @map("paid_by_id") @db.Uuid
+  paidAt DateTime? @map("paid_at") @db.Timestamptz(3)
+  cancelledById String? @map("cancelled_by_id") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  template BankFileTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("SalaryPaymentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  paidBy UserAccount? @relation("SalaryPaymentPayer", fields: [paidById], references: [id], onDelete: Restrict)
+  cancelledBy UserAccount? @relation("SalaryPaymentCanceller", fields: [cancelledById], references: [id], onDelete: Restrict)
+  items SalaryPaymentItem[]
+  @@map("salary_payment_batch")
+}
+model SalaryPaymentItem {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  sheetId String @map("sheet_id") @db.Uuid
+  payrollPeriodId String @map("payroll_period_id") @db.Uuid
+  payrollEmployeeId String @map("payroll_employee_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  bankAccountId String @map("bank_account_id") @db.Uuid
+  amountCipher String @map("amount_cipher")
+  active Boolean @default(true)
+  batch SalaryPaymentBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  sheet PayrollSheet @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  payrollEmployee PayrollEmployee @relation(fields: [payrollEmployeeId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id], onDelete: Restrict)
+  bankAccount EmployeeBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  @@index([batchId], map: "salary_payment_item_batch_idx")
+  @@map("salary_payment_item")
+}
+model PayrollAdjustment {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  kind String @db.VarChar(40)
+  status PayrollAdjustmentStatus
+  label String @db.VarChar(200)
+  originPayrollPeriodId String @map("origin_payroll_period_id") @db.Uuid
+  appliedPayrollPeriodId String? @map("applied_payroll_period_id") @db.Uuid
+  amountCipher String @map("amount_cipher")
+  detailCipher String @map("detail_cipher")
+  sourceType String @map("source_type") @db.VarChar(40)
+  sourceId String @map("source_id") @db.Uuid
+  retroCalculationId String? @map("retro_calculation_id") @db.Uuid
+  targetPayrollPeriodId String? @map("target_payroll_period_id") @db.Uuid
+  createdById String? @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  confirmedById String? @map("confirmed_by_id") @db.Uuid
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  appliedAt DateTime? @map("applied_at") @db.Timestamptz(3)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  originPayrollPeriod PayrollPeriod @relation("PayrollAdjustmentOrigin", fields: [originPayrollPeriodId], references: [id], onDelete: Restrict)
+  appliedPayrollPeriod PayrollPeriod? @relation("PayrollAdjustmentApplied", fields: [appliedPayrollPeriodId], references: [id], onDelete: Restrict)
+  retroCalculation RetroCalculation? @relation(fields: [retroCalculationId], references: [id], onDelete: Restrict)
+  targetPayrollPeriod PayrollPeriod? @relation("PayrollAdjustmentTarget", fields: [targetPayrollPeriodId], references: [id], onDelete: Restrict)
+  createdBy UserAccount? @relation("PayrollAdjustmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedBy UserAccount? @relation("PayrollAdjustmentConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  @@unique([sourceType, sourceId, kind], map: "payroll_adjustment_source_key")
+  @@map("payroll_adjustment")
+}
+
+enum BonusType {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  KPI
+  HOLIDAY
+  SENIORITY
+  AD_HOC
+}
+enum BonusPlanStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+enum RetroCalculationStatus {
+  CALCULATED
+  CONFIRMED
+  DISCARDED
+}
+model BonusPlan {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique(map: "bonus_plan_code_key") @db.VarChar(64)
+  bonusType BonusType @map("bonus_type")
+  name String @db.VarChar(200)
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  independentDecisionRef String? @map("independent_decision_ref") @db.VarChar(500)
+  kpiSourceReference String? @map("kpi_source_reference") @db.VarChar(200)
+  earnFrom DateTime @map("earn_from") @db.Date
+  earnTo DateTime @map("earn_to") @db.Date
+  payPayrollPeriodId String @map("pay_payroll_period_id") @db.Uuid
+  componentId String? @map("component_id") @db.Uuid
+  calculationMode String @map("calculation_mode") @db.VarChar(10)
+  amountCipher String? @map("amount_cipher")
+  formula String? @db.VarChar(2000)
+  variables Json @default("[]")
+  status BonusPlanStatus @default(DRAFT)
+  revision Int @default(1)
+  reason String @db.VarChar(2000)
+  cancelReason String? @map("cancel_reason") @db.VarChar(2000)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  confirmedById String? @map("confirmed_by_id") @db.Uuid
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  payPayrollPeriod PayrollPeriod @relation(fields: [payPayrollPeriodId], references: [id], onDelete: Restrict)
+  component SalaryComponent? @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("BonusPlanCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedBy UserAccount? @relation("BonusPlanConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  allocations BonusAllocation[]
+  @@index([payPayrollPeriodId, status], map: "bonus_plan_pay_period_idx")
+  @@map("bonus_plan")
+}
+model BonusAllocation {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  inputsCipher String @map("inputs_cipher")
+  amountCipher String @map("amount_cipher")
+  conflictCode String? @map("conflict_code") @db.VarChar(40)
+  conflictDetail String? @map("conflict_detail") @db.VarChar(2000)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  plan BonusPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@unique([planId, employeeId], map: "bonus_allocation_plan_employee_key")
+  @@map("bonus_allocation")
+}
+model RetroCalculation {
+  id String @id @default(uuid()) @db.Uuid
+  decisionId String @map("decision_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  candidateIds String[] @map("candidate_ids") @db.Uuid
+  targetPayrollPeriodId String @map("target_payroll_period_id") @db.Uuid
+  status RetroCalculationStatus @default(CALCULATED)
+  resultCipher String @map("result_cipher")
+  resultHash String @map("result_hash") @db.Char(64)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  decidedById String? @map("decided_by_id") @db.Uuid
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  decision SalaryDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  targetPayrollPeriod PayrollPeriod @relation(fields: [targetPayrollPeriodId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("RetroCalculationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  decidedBy UserAccount? @relation("RetroCalculationDecider", fields: [decidedById], references: [id], onDelete: Restrict)
+  adjustments PayrollAdjustment[]
+  @@index([employeeId, createdAt], map: "retro_calculation_employee_idx")
+  @@map("retro_calculation")
+}
+
+enum InsuranceChangeListStatus {
+  DRAFT
+  FINALIZED
+}
+
+enum InsuranceChangeType {
+  INCREASE
+  DECREASE
+  ADJUST
+}
+
+enum InsuranceFileTemplateKind {
+  EXPORT
+  C12
+}
+
+enum C12DifferenceCategory {
+  MISSING_IN_C12
+  MISSING_IN_SYSTEM
+  AMOUNT_DIFF
+  SALARY_BASE_DIFF
+}
+
+model InsuranceFileTemplate {
+  id String @id @default(uuid()) @db.Uuid
+  kind InsuranceFileTemplateKind
+  code String @db.VarChar(64)
+  version Int
+  name String @db.VarChar(200)
+  headerRow Int @default(1) @map("header_row")
+  columns Json
+  status PolicyStatus
+  legalBasis String @map("legal_basis") @db.VarChar(500)
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  imports C12Import[]
+  @@unique([kind, code, version], map: "insurance_file_template_code_version_key")
+  @@map("insurance_file_template")
+}
+
+model InsuranceChangeList {
+  id String @id @default(uuid()) @db.Uuid
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  month String @db.Char(7)
+  status InsuranceChangeListStatus @default(DRAFT)
+  revision Int @default(1)
+  itemCount Int @default(0) @map("item_count")
+  contentHash String? @map("content_hash") @db.Char(64)
+  generatedAt DateTime? @map("generated_at") @db.Timestamptz(3)
+  generatedById String? @map("generated_by_id") @db.Uuid
+  finalizedAt DateTime? @map("finalized_at") @db.Timestamptz(3)
+  finalizedById String? @map("finalized_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id], onDelete: Restrict)
+  generatedBy UserAccount? @relation("InsuranceListGenerator", fields: [generatedById], references: [id], onDelete: Restrict)
+  finalizedBy UserAccount? @relation("InsuranceListFinalizer", fields: [finalizedById], references: [id], onDelete: Restrict)
+  states InsuranceChangeState[]
+  items InsuranceChangeItem[]
+  @@unique([siteOrgUnitId, month], map: "insurance_change_list_site_month_key")
+  @@map("insurance_change_list")
+}
+
+model InsuranceChangeState {
+  listId String @map("list_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  eligible Json
+  reasonCode String @map("reason_code") @db.VarChar(40)
+  stateCipher String @map("state_cipher")
+  list InsuranceChangeList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  @@id([listId, employeeId])
+  @@map("insurance_change_state")
+}
+
+model InsuranceChangeItem {
+  id String @id @default(uuid()) @db.Uuid
+  listId String @map("list_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  changeType InsuranceChangeType @map("change_type")
+  reasonCode String @map("reason_code") @db.VarChar(40)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  valuesCipher String @map("values_cipher")
+  source Json @default("{}")
+  late Boolean @default(false)
+  originMonth String? @map("origin_month") @db.Char(7)
+  list InsuranceChangeList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  arrears InsuranceArrears[]
+  @@index([listId], map: "insurance_change_item_list_idx")
+  @@index([employeeId, originMonth], map: "insurance_change_item_employee_idx")
+  @@map("insurance_change_item")
+}
+
+model InsuranceArrears {
+  id String @id @default(uuid()) @db.Uuid
+  itemId String @map("item_id") @db.Uuid
+  originMonth String @map("origin_month") @db.Char(7)
+  direction String @db.VarChar(10)
+  detailCipher String @map("detail_cipher")
+  item InsuranceChangeItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  @@unique([itemId, originMonth], map: "insurance_arrears_item_month_key")
+  @@map("insurance_arrears")
+}
+
+model C12Import {
+  id String @id @default(uuid()) @db.Uuid
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  month String @db.Char(7)
+  templateId String @map("template_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(255)
+  fileHash String @map("file_hash") @db.Char(64)
+  rowCount Int @map("row_count")
+  summary Json
+  importedById String @map("imported_by_id") @db.Uuid
+  importedAt DateTime @default(now()) @map("imported_at") @db.Timestamptz(3)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id], onDelete: Restrict)
+  template InsuranceFileTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  importedBy UserAccount @relation(fields: [importedById], references: [id], onDelete: Restrict)
+  differences C12Difference[]
+  @@index([siteOrgUnitId, month, importedAt(sort: Desc)], map: "c12_import_site_month_idx")
+  @@map("c12_import")
+}
+
+model C12Difference {
+  id String @id @default(uuid()) @db.Uuid
+  importId String @map("import_id") @db.Uuid
+  category C12DifferenceCategory
+  employeeId String? @map("employee_id") @db.Uuid
+  rowNumber Int? @map("row_number")
+  detailCipher String @map("detail_cipher")
+  import C12Import @relation(fields: [importId], references: [id], onDelete: Restrict)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  @@index([importId, category], map: "c12_difference_import_idx")
+  @@map("c12_difference")
+}
+
+enum TerminationStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum TerminationReason {
+  RESIGNATION
+  JOB_LOSS
+  CONTRACT_EXPIRY
+  MUTUAL_AGREEMENT
+  OTHER
+}
+
+model TerminationDecision {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  decisionNumber String @map("decision_number") @db.VarChar(80)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  reason TerminationReason
+  allowanceKind String @map("allowance_kind") @db.VarChar(16)
+  legalBasis String @map("legal_basis") @db.VarChar(1000)
+  note String? @db.VarChar(2000)
+  externalUnemploymentMonths Int @default(0) @map("external_unemployment_months")
+  externalUnemploymentEvidence String? @map("external_unemployment_evidence") @db.VarChar(500)
+  status TerminationStatus @default(DRAFT)
+  revision Int @default(1)
+  previewCipher String @map("preview_cipher")
+  previewHash String @map("preview_hash") @db.Char(64)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  confirmedById String? @map("confirmed_by_id") @db.Uuid
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason String? @map("cancel_reason") @db.VarChar(2000)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("TerminationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedBy UserAccount? @relation("TerminationConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  allowance SeveranceAllowance?
+  paymentItems TerminationPaymentItem[]
+  contracts EmploymentContract[]
+  @@unique([employeeId, decisionNumber], map: "termination_decision_number_key")
+  @@map("termination_decision")
+}
+
+model SeveranceAllowance {
+  id String @id @default(uuid()) @db.Uuid
+  decisionId String @unique(map: "severance_allowance_decision_key") @map("decision_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  allowanceKind String @map("allowance_kind") @db.VarChar(16)
+  serviceMonths Int @map("service_months")
+  detailCipher String @map("detail_cipher")
+  amountCipher String @map("amount_cipher")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  decision TerminationDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  @@index([employeeId], map: "severance_allowance_employee_idx")
+  @@map("severance_allowance")
+}
+
+model TerminationPaymentItem {
+  id String @id @default(uuid()) @db.Uuid
+  decisionId String @map("decision_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  kind String @db.VarChar(24)
+  label String @db.VarChar(200)
+  amountCipher String @map("amount_cipher")
+  detailCipher String @map("detail_cipher")
+  payrollPeriodId String? @map("payroll_period_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  decision TerminationDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id], onDelete: Restrict)
+  payrollPeriod PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  @@unique([decisionId, kind], map: "termination_payment_item_decision_kind_key")
+  @@index([payrollPeriodId], map: "termination_payment_item_period_idx")
+  @@map("termination_payment_item")
+}
+
+enum BenefitTaxTreatment {
+  TAXABLE
+  NON_TAXABLE
+  EXEMPT_UP_TO_LIMIT
+}
+
+enum BenefitBatchStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+model BenefitCatalog {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique(map: "benefit_catalog_code_key") @db.VarChar(64)
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  category String @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  orgUnit OrgUnit @relation(fields: [orgUnitId], references: [id], onDelete: Restrict)
+  versions BenefitCatalogVersion[]
+  batches BenefitAllocationBatch[]
+  allocations BenefitAllocation[]
+  @@map("benefit_catalog")
+}
+
+model BenefitCatalogVersion {
+  id String @id @default(uuid()) @db.Uuid
+  catalogId String @map("catalog_id") @db.Uuid
+  name String @db.VarChar(200)
+  amount Decimal @db.Decimal(18, 0)
+  taxTreatment BenefitTaxTreatment @map("tax_treatment")
+  exemptLimit Decimal? @map("exempt_limit") @db.Decimal(18, 0)
+  payrollIncluded Boolean @map("payroll_included")
+  eligibility Json @default("{}")
+  decisionReference String @map("decision_reference") @db.VarChar(500)
+  status PolicyStatus
+  active Boolean @default(true)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdById String? @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  catalog BenefitCatalog @relation(fields: [catalogId], references: [id], onDelete: Restrict)
+  createdBy UserAccount? @relation("BenefitVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  batches BenefitAllocationBatch[]
+  allocations BenefitAllocation[]
+  @@map("benefit_catalog_version")
+}
+
+model BenefitAllocationBatch {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique(map: "benefit_allocation_batch_code_key") @db.VarChar(64)
+  catalogId String @map("catalog_id") @db.Uuid
+  versionId String @map("version_id") @db.Uuid
+  periodCode String @map("period_code") @db.VarChar(32)
+  referenceDate DateTime @map("reference_date") @db.Date
+  scopeOrgUnitId String @map("scope_org_unit_id") @db.Uuid
+  payrollPeriodId String? @map("payroll_period_id") @db.Uuid
+  status BenefitBatchStatus @default(DRAFT)
+  revision Int @default(1)
+  note String? @db.VarChar(2000)
+  result Json?
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  confirmedById String? @map("confirmed_by_id") @db.Uuid
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  cancelReason String? @map("cancel_reason") @db.VarChar(2000)
+  catalog BenefitCatalog @relation(fields: [catalogId], references: [id], onDelete: Restrict)
+  version BenefitCatalogVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  scopeOrgUnit OrgUnit @relation("BenefitBatchScope", fields: [scopeOrgUnitId], references: [id], onDelete: Restrict)
+  payrollPeriod PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("BenefitBatchCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedBy UserAccount? @relation("BenefitBatchConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  candidates BenefitAllocationCandidate[]
+  allocations BenefitAllocation[]
+  @@map("benefit_allocation_batch")
+}
+
+model BenefitAllocationCandidate {
+  batchId String @map("batch_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  eligible Boolean
+  failedRules Json @default("[]") @map("failed_rules")
+  manual Boolean @default(false)
+  manualReason String? @map("manual_reason") @db.VarChar(2000)
+  batch BenefitAllocationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  @@id([batchId, employeeId])
+  @@map("benefit_allocation_candidate")
+}
+
+model BenefitAllocation {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  catalogId String @map("catalog_id") @db.Uuid
+  versionId String @map("version_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  periodCode String @map("period_code") @db.VarChar(32)
+  amountCipher String @map("amount_cipher")
+  taxTreatment BenefitTaxTreatment @map("tax_treatment")
+  payrollPeriodId String? @map("payroll_period_id") @db.Uuid
+  orgUnitId String @map("org_unit_id") @db.Uuid
+  costCenterCode String? @map("cost_center_code") @db.VarChar(40)
+  costMonth String @map("cost_month") @db.Char(7)
+  manualReason String? @map("manual_reason") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  batch BenefitAllocationBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  catalog BenefitCatalog @relation(fields: [catalogId], references: [id], onDelete: Restrict)
+  version BenefitCatalogVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  payrollPeriod PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  orgUnit OrgUnit @relation("BenefitAllocationUnit", fields: [orgUnitId], references: [id], onDelete: Restrict)
+  @@unique([catalogId, employeeId, periodCode], map: "benefit_allocation_unique_key")
+  @@index([payrollPeriodId], map: "benefit_allocation_payroll_idx")
+  @@index([costMonth, costCenterCode], map: "benefit_allocation_cost_idx")
+  @@map("benefit_allocation")
+}
+
+enum TaxFinalizationStatus {
+  DRAFT
+  DONE
+}
+
+model AnnualTaxFinalization {
+  id String @id @default(uuid()) @db.Uuid
+  taxYear Int @map("tax_year")
+  employeeId String @map("employee_id") @db.Uuid
+  version Int
+  status TaxFinalizationStatus @default(DRAFT)
+  rulesetId String @map("ruleset_id") @db.Uuid
+  taxProfileId String @map("tax_profile_id") @db.Uuid
+  summaryCipher String @map("summary_cipher")
+  direction String @db.VarChar(8)
+  issues Json @default("[]")
+  sourceHash String @map("source_hash") @db.Char(64)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedById String? @map("completed_by_id") @db.Uuid
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  ruleset TaxRuleset @relation(fields: [rulesetId], references: [id], onDelete: Restrict)
+  taxProfile TaxProfile @relation(fields: [taxProfileId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("TaxFinalizationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  completedBy UserAccount? @relation("TaxFinalizationCompleter", fields: [completedById], references: [id], onDelete: Restrict)
+  lines AnnualTaxFinalizationLine[]
+  @@unique([taxYear, employeeId, version], map: "annual_tax_finalization_version_key")
+  @@index([taxYear, employeeId, version(sort: Desc)], map: "annual_tax_finalization_year_idx")
+  @@map("annual_tax_finalization")
+}
+
+model AnnualTaxFinalizationLine {
+  id String @id @default(uuid()) @db.Uuid
+  finalizationId String @map("finalization_id") @db.Uuid
+  kind String @db.VarChar(24)
+  withholdingId String? @map("withholding_id") @db.Uuid
+  detailCipher String @map("detail_cipher")
+  finalization AnnualTaxFinalization @relation(fields: [finalizationId], references: [id], onDelete: Restrict)
+  withholding TaxWithholding? @relation(fields: [withholdingId], references: [id], onDelete: Restrict)
+  @@index([finalizationId], map: "annual_tax_finalization_line_idx")
+  @@map("annual_tax_finalization_line")
+}
+
+model TaxFinalizationTemplate {
+  id String @id @default(uuid()) @db.Uuid
+  code String @db.VarChar(64)
+  version Int
+  name String @db.VarChar(200)
+  appendixColumns Json @map("appendix_columns")
+  status PolicyStatus
+  legalBasis String @map("legal_basis") @db.VarChar(500)
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([code, version], map: "tax_finalization_template_key")
+  @@map("tax_finalization_template")
+}
+
+enum ShiftSwapStatus {
+  PENDING
+  APPROVED
+  RETURNED
+  REJECTED
+  CANCELLED
+}
+
+model ShiftRotationPattern {
+  id String @id @default(uuid()) @db.Uuid
+  siteOrgUnitId String @map("site_org_unit_id") @db.Uuid
+  code String @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  siteOrgUnit OrgUnit @relation(fields: [siteOrgUnitId], references: [id], onDelete: Restrict)
+  versions ShiftRotationPatternVersion[]
+  @@unique([siteOrgUnitId, code], map: "shift_rotation_pattern_code_key")
+  @@map("shift_rotation_pattern")
+}
+
+model ShiftRotationPatternVersion {
+  id String @id @default(uuid()) @db.Uuid
+  patternId String @map("pattern_id") @db.Uuid
+  name String @db.VarChar(160)
+  cycleDays Int @map("cycle_days")
+  sequence Json
+  minRestMinutes Int @map("min_rest_minutes")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  pattern ShiftRotationPattern @relation(fields: [patternId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("RotationVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  @@map("shift_rotation_pattern_version")
+}
+
+model ShiftSwapRequest {
+  id String @id @default(uuid()) @db.Uuid
+  scheduleId String @map("schedule_id") @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  teamOrgUnitId String @map("team_org_unit_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  oldShiftId String @map("old_shift_id") @db.Uuid
+  newShiftId String @map("new_shift_id") @db.Uuid
+  reason String @db.VarChar(2000)
+  status ShiftSwapStatus @default(PENDING)
+  revision Int @default(1)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  decidedById String? @map("decided_by_id") @db.Uuid
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  decisionReason String? @map("decision_reason") @db.VarChar(2000)
+  schedule ShiftSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  plan ShiftPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  teamOrgUnit OrgUnit @relation("ShiftSwapTeam", fields: [teamOrgUnitId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  oldShift ShiftDefinition @relation("ShiftSwapOld", fields: [oldShiftId], references: [id], onDelete: Restrict)
+  newShift ShiftDefinition @relation("ShiftSwapNew", fields: [newShiftId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("ShiftSwapCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  decidedBy UserAccount? @relation("ShiftSwapDecider", fields: [decidedById], references: [id], onDelete: Restrict)
+  history ShiftSwapHistory[]
+  @@index([teamOrgUnitId, status, workDate], map: "shift_swap_request_team_idx")
+  @@map("shift_swap_request")
+}
+
+model ShiftSwapHistory {
+  id String @id @default(uuid()) @db.Uuid
+  swapId String @map("swap_id") @db.Uuid
+  action String @db.VarChar(24)
+  fromStatus ShiftSwapStatus? @map("from_status")
+  toStatus ShiftSwapStatus @map("to_status")
+  actorId String @map("actor_id") @db.Uuid
+  reason String? @db.VarChar(2000)
+  snapshot Json
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  swap ShiftSwapRequest @relation(fields: [swapId], references: [id], onDelete: Restrict)
+  actor UserAccount @relation("ShiftSwapActor", fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([swapId, occurredAt], map: "shift_swap_history_swap_idx")
+  @@map("shift_swap_history")
+}
+
+enum SiBenefitType {
+  SICK
+  CHILD_SICK
+  MATERNITY
+  PRENATAL
+  RECOVERY
+}
+
+model SicknessMaternityRecord {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  benefitType SiBenefitType @map("benefit_type")
+  leaveRequestId String? @map("leave_request_id") @db.Uuid
+  documentNumber String @map("document_number") @db.VarChar(80)
+  facility String @db.VarChar(200)
+  dateFrom DateTime @map("date_from") @db.Date
+  dateTo DateTime @map("date_to") @db.Date
+  externalContributionMonths Int @default(0) @map("external_contribution_months")
+  externalEvidence String? @map("external_evidence") @db.VarChar(500)
+  evidenceFileName String @map("evidence_file_name") @db.VarChar(255)
+  evidenceContentType String @map("evidence_content_type") @db.VarChar(100)
+  evidenceSize Int @map("evidence_size")
+  evidenceSha256 String @map("evidence_sha256") @db.Char(64)
+  evidenceCipher String @map("evidence_cipher")
+  benefitDays Decimal? @map("benefit_days") @db.Decimal(8, 2)
+  estimateCipher String @map("estimate_cipher")
+  estimateStatus String @map("estimate_status") @db.VarChar(20)
+  paidAmountCipher String? @map("paid_amount_cipher")
+  paidDate DateTime? @map("paid_date") @db.Date
+  paidReference String? @map("paid_reference") @db.VarChar(200)
+  revision Int @default(1)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  paidRecordedById String? @map("paid_recorded_by_id") @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: Restrict)
+  createdBy UserAccount @relation("SiBenefitCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  paidRecordedBy UserAccount? @relation("SiBenefitPayer", fields: [paidRecordedById], references: [id], onDelete: Restrict)
+  @@map("sickness_maternity_record")
+}
+
+enum ReportRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model ReportRun {
+  id String @id @default(uuid()) @db.Uuid
+  reportType String @map("report_type") @db.VarChar(40)
+  params Json
+  format String @db.VarChar(8)
+  status ReportRunStatus @default(RUNNING)
+  dataStatus String? @map("data_status") @db.VarChar(12)
+  source String? @db.VarChar(500)
+  sourceHash String? @map("source_hash") @db.Char(64)
+  rowCount Int? @map("row_count")
+  rowWarning Boolean @default(false) @map("row_warning")
+  fileName String? @map("file_name") @db.VarChar(255)
+  fileSha256 String? @map("file_sha256") @db.Char(64)
+  fileCipher String? @map("file_cipher")
+  failure String? @db.VarChar(2000)
+  durationMs Int? @map("duration_ms")
+  requestedById String @map("requested_by_id") @db.Uuid
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  requestedBy UserAccount @relation("ReportRunRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  @@index([requestedById, requestedAt(sort: Desc)], map: "report_run_requester_idx")
+  @@map("report_run")
+}

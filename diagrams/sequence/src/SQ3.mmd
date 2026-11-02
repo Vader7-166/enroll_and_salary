@@ -1,0 +1,37 @@
+sequenceDiagram
+autonumber
+actor TT as Tổ trưởng
+actor QD as Quản đốc
+actor KT as Kế toán
+participant HT as Chấm công và kỳ
+participant DB as CSDL
+TT->>HT: Giải trình công kèm lý do/chứng cứ (4.3)
+HT->>DB: Kiểm tra kỳ OPEN và quyền tổ, lưu dẫn xuất/audit
+HT->>DB: Hủy xác nhận/chốt liên quan nếu dữ liệu đổi
+TT->>HT: Xác nhận công đủ căn cứ (4.4)
+HT->>DB: Lưu xác nhận tổ tại revision hiện tại
+QD->>HT: Chốt công xưởng (4.5)
+HT->>DB: Kiểm tra cửa sổ Ra cuối, đủ nguồn, hết tác vụ/chờ và XC
+alt Chưa thu đủ hoặc còn ngoại lệ chặn
+  HT-->>QD: COLLECTION_INCOMPLETE và danh sách cần xử lý
+else Đủ điều kiện và tổ đã xác nhận
+  HT->>DB: WORKSHOP_CLOSED, lưu đối soát và audit
+  opt Mọi xưởng trong kỳ đã chốt
+    HT->>DB: Kỳ OPEN sang CLOSED tại revision đã kiểm tra
+  end
+end
+opt Phát hiện sai trước khóa
+  KT->>HT: Trả kỳ CLOSED về OPEN, có lý do
+  HT->>DB: Ghi trạng thái/revision và audit
+  QD->>HT: Trả xưởng cần sửa về nháp
+  Note over TT,DB: Sửa xong phải xác nhận và chốt lại
+end
+KT->>HT: Khóa kỳ CLOSED (1.5)
+HT->>DB: Khóa phạm vi, kiểm tra lại revision/đủ nguồn/thứ tự kỳ
+alt Có xung đột hoặc chưa đủ điều kiện
+  HT-->>KT: Không khóa, trả điều kiện còn thiếu
+else Đủ điều kiện
+  HT->>DB: Snapshot/hash và LOCKED nguyên tử, audit
+  HT-->>KT: Chỉ đọc snapshot, sẵn sàng làm nguồn lương
+end
+Note over KT,DB: Log sau khóa chỉ thêm hồ sơ muộn; điều chỉnh vào kỳ mở

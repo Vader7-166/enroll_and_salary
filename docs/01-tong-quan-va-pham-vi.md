@@ -1,5 +1,10 @@
 # 01. Tổng quan và phạm vi dự án
 
+**Bản đầu R1:** [baseline 19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md) chốt 152/158 FR
+thuộc bản đầu, sáu FR để sau; 10 phân hệ và 49 chức năng BFD được phân biệt 48 hoạt động
+và 5.5 chỉ kiểm tra chưa kích hoạt. Phúc lợi, quyết toán năm, báo cáo và đủ hình thức lương
+đều thuộc R1. Đây là phạm vi thiết kế cần cài đặt/nghiệm thu, không phải tiến độ đã hoàn thành.
+
 ## 1. Bối cảnh
 
 Doanh nghiệp là công ty sản xuất linh kiện điện tử, quy mô **1.500 – 3.000 lao động**, vận
@@ -61,6 +66,11 @@ chậm lương hoặc trừ lương thay kỷ luật. Bối cảnh này chuyển
 
 ### 3.3. Mục tiêu kỹ thuật
 
+**Nền tảng đã xác nhận:** chỉ xây dựng website dùng qua trình duyệt. Không xây kèm
+ứng dụng mobile, desktop, hybrid hoặc PWA cài đặt/offline. Giao diện responsive trên
+máy tính/máy tính bảng vẫn là cùng website; không phát sinh một sản phẩm ứng dụng riêng.
+Frontend React và backend NestJS là hai thành phần của cùng hệ thống website.
+
 1. Tham số hóa toàn bộ giá trị pháp lý theo khoảng hiệu lực — đổi chính sách không sửa mã.
 2. Bộ máy công thức khai báo bằng dữ liệu cho cấu phần lương.
 3. Tính lương **idempotent**: chạy lại cùng dữ liệu đầu vào cho cùng kết quả.
@@ -81,7 +91,7 @@ chậm lương hoặc trừ lương thay kỷ luật. Bối cảnh này chuyển
 | Vùng lương tối thiểu | **3 vùng khác nhau**: Vùng I (Hà Nội, Bắc Ninh), Vùng II (Hà Nam), Vùng III (Nghệ An) — tham số hóa theo từng địa điểm, không hardcode |
 | Kỳ công | Cut-off ngày 26 tháng trước → 25 tháng hiện tại |
 | Kỳ chi lương | Ngày 10 tháng sau |
-| Hình thức trả lương | Văn phòng: lương thời gian + phụ cấp. Sản xuất: lương thời gian / sản phẩm theo KPI + phụ cấp |
+| Hình thức trả lương | Giữ đủ thời gian/sản phẩm/khoán/hoa hồng/3P theo DEC-02; phương án/đầu vào từng loại tại [18](18-xac-nhan-chinh-sach-va-dau-vao-tinh-luong.md). Các cấu hình khảo sát dùng cho mô phỏng đồ án theo DEC-03 |
 | Loại HĐLĐ | Không xác định thời hạn, xác định thời hạn, thử việc/thực tập, thời vụ/mùa vụ |
 | Nghỉ giữa ca | 30 phút, tính vào giờ làm việc |
 
@@ -99,7 +109,7 @@ thực hiện. **Công nhân không đăng nhập hệ thống** — họ là đ
 | 2 | Hồ sơ và hợp đồng | 2.1 Hồ sơ nhân viên, người phụ thuộc · 2.2 Quản lý HĐLĐ và phụ lục · 2.3 Quyết định điều chuyển, thay đổi lương · 2.4 Cảnh báo hết hạn hợp đồng · 2.5 Chấm dứt hợp đồng (đều do KT) |
 | 3 | Ca làm việc | 3.1 Định nghĩa ca, lịch nghỉ lễ (AD) · 3.2 Xếp ca, xoay ca cho tổ (TT) · 3.3 Đề xuất đổi ca (TT) · 3.4 Duyệt lịch ca toàn xưởng (QĐ) |
 | 4 | Chấm công | 4.1 Tiếp nhận dữ liệu chấm công các cơ sở (AD) · 4.2 Ghép cặp vào/ra theo ca (Hệ thống) · 4.3 Xử lý ngoại lệ, giải trình công (TT) · 4.4 Xác nhận công thực tế (TT) · 4.5 Tổng hợp và chốt bảng công (QĐ, KT) |
-| 5 | Làm thêm giờ | 5.1 Đề xuất OT (TT) · 5.2 Duyệt OT cấp 2 (QĐ) · 5.3 Kiểm soát trần OT (QĐ) · 5.4 Tính giờ OT theo hệ số (Hệ thống) · 5.5 Quy đổi nghỉ bù (KT) |
+| 5 | Làm thêm giờ | 5.1 Đề xuất OT (TT) · 5.2 Duyệt OT cấp 2 (QĐ) · 5.3 Kiểm soát trần OT (QĐ) · 5.4 Tính giờ OT theo hệ số (Hệ thống) · 5.5 Kiểm tra chưa kích hoạt quy đổi nghỉ bù (KT, DEC-01) |
 | 6 | Nghỉ phép và chế độ | 6.1 Danh mục loại nghỉ (AD) · 6.2 Quản lý quỹ phép năm (KT) · 6.3 Ghi nhận, duyệt đơn nghỉ cấp 1 (TT) · 6.4 Theo dõi ốm đau, thai sản (KT) · 6.5 Theo dõi tỷ lệ vắng mặt (QĐ) |
 | 7 | Tính lương và thưởng | 7.1 Cấu hình cơ cấu lương, công thức · 7.2 Tính lương theo vùng, cơ sở · 7.3 Tính thưởng · 7.4 Truy lĩnh, truy thu · 7.5 Duyệt và khóa bảng lương · 7.6 Phiếu lương, file chi lương (đều do KT) |
 | 8 | Bảo hiểm và thuế TNCN | 8.1 Mức đóng BH theo vùng (sàn, trần) · 8.2 Tính BHXH, BHYT, BHTN, KPCĐ · 8.3 Báo tăng, giảm BH · 8.4 Khấu trừ thuế TNCN · 8.5 Quyết toán thuế năm (đều do KT) |
@@ -134,7 +144,8 @@ thực hiện. **Công nhân không đăng nhập hệ thống** — họ là đ
 | NĐ 293/2025/NĐ-CP | Lương tối thiểu vùng 2026, hiệu lực 01/01/2026 |
 | NĐ 283/2026/NĐ-CP | Xử phạt vi phạm hành chính lao động, hiệu lực 10/09/2026 |
 | NĐ 13/2023/NĐ-CP | Bảo vệ dữ liệu cá nhân |
-| NĐ 320/2025/NĐ-CP | Miễn thuế TNCN phần thu nhập chênh lệch do làm thêm giờ / làm đêm |
+| TT 111/2013/TT-BTC và NQ 954/2020/UBTVQH14 | Bộ thuế lịch sử 2025: biểu 7 bậc, giảm trừ 11 / 4,4 triệu và miễn phần chênh lệch OT/đêm |
+| NĐ 253/2026/NĐ-CP | Hướng dẫn TNCN: miễn OT/đêm đủ điều kiện; ngưỡng khấu trừ 10%; tiền ăn ca và chuyển tiếp 2026 — xem [12 §2.7](12-tuan-thu-phap-ly.md) |
 | Luật Thuế TNCN 109/2025/QH15 | Biểu thuế lũy tiến 5 bậc (5% – 35%) với thu nhập từ tiền lương, áp dụng từ kỳ tính thuế 2026 |
 | NQ 110/2025/UBTVQH15 | Giảm trừ gia cảnh 15,5 triệu đồng/tháng (bản thân) và 6,2 triệu đồng/tháng (mỗi người phụ thuộc) từ kỳ tính thuế 2026 |
 
@@ -161,7 +172,7 @@ thực hiện. **Công nhân không đăng nhập hệ thống** — họ là đ
 | **Ngày T** | Ngày bắt đầu ca; ca C bắt đầu 22:00 ngày T kết thúc 06:00 ngày T+1 vẫn thuộc ngày T |
 | **TT / QĐ / KT / AD** | Bốn tác nhân của hệ thống: Tổ trưởng, Quản đốc, Kế toán, Admin |
 | **BFD** | Sơ đồ phân rã chức năng 10 phân hệ / 49 chức năng; mã chức năng dạng `1.1` … `10.4` dùng xuyên suốt tài liệu |
-| **Kỳ nghiệp vụ** | Kỳ công hoặc kỳ lương của một phạm vi (cơ sở / đơn vị), trạng thái Mở → Đã chốt → Đã khóa; kỳ trước cùng loại, cùng phạm vi phải đã khóa mới mở được kỳ sau |
+| **Kỳ nghiệp vụ** | Kỳ công hoặc kỳ lương theo phạm vi: Lập kế hoạch → Mở → Đã chốt → Đã khóa. Được mở kỳ sau khi kỳ trước còn đối soát; chỉ khóa theo thứ tự. Kỳ công xác định bằng ngày bắt đầu ca đã duyệt; xem [17](17-vong-doi-ky-cong-va-ca-qua-ngay-chot.md) |
 | **Kỳ công** (attendance period) | Chu kỳ chốt dữ liệu chấm công, ở đây 26 tháng trước → 25 tháng hiện tại |
 | **Kỳ lương** (payroll period) | Chu kỳ tính và chi trả lương, chi ngày 10 tháng sau |
 | **Cut-off** | Thời điểm khóa kỳ công, sau đó bảng công trở thành chỉ đọc |

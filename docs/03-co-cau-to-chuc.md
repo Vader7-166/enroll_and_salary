@@ -23,8 +23,10 @@
 | 4 | `DEPARTMENT` | Phòng ban / Phân xưởng | **Mang cost center**; phạm vi dữ liệu `DEPARTMENT` (gồm cả cây con) |
 | 5 | `TEAM` | Tổ / Nhóm / Chuyền | Đơn vị xếp ca và xác nhận công; phạm vi dữ liệu `TEAM` |
 
-Cây **không giới hạn cứng ở 5 cấp** — hệ thống hỗ trợ cây sâu tùy ý; 5 cấp là mô hình đang
-áp dụng cho doanh nghiệp này.
+**R1 giới hạn tối đa 5 cấp** như FR-1.2.2, chặn vòng lặp và sai cơ sở. Cây sâu tùy ý chưa
+thuộc R1; muốn mở rộng phải cập nhật đặc tả/ràng buộc trong lần thay đổi phạm vi sau.
+Sơ đồ tổ chức trực quan và tuyến báo cáo chức năng bổ sung nằm ở backlog theo [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md),
+không ảnh hưởng quyền R1 được cấp bằng vai trò/phạm vi đơn vị.
 
 ### 1.2. Nguyên tắc cấu trúc
 
@@ -35,6 +37,11 @@ Cây **không giới hạn cứng ở 5 cấp** — hệ thống hỗ trợ cây
 | 3 | Mọi đơn vị có cặp `effective_from` / `effective_to`; thay đổi cấu trúc tạo **phiên bản mới**, không ghi đè |
 | 4 | Cost center gắn ở cấp `DEPARTMENT`; đơn vị cấp `TEAM` kế thừa cost center của phòng ban/phân xưởng cha |
 | 5 | Nhân sự được phân công vào cấp thấp nhất có thể (thường là `TEAM` với khối trực tiếp, `DEPARTMENT` với khối gián tiếp) |
+
+**Bộ dữ liệu local:** seed doanh nghiệp giả lập áp dụng quy mô 2.200 người và cơ cấu
+trực tiếp/gián tiếp ở dưới; danh tính một số đơn vị nền đã có được giữ để bảo toàn
+phân quyền, phân công và kỳ công. Đối chiếu mã triển khai tại [20 §7.9](20-tech-stack-va-moi-truong-phat-trien.md).
+Đây không phải dữ liệu thực hoặc xác nhận doanh nghiệp đã khai báo đầy đủ để vận hành.
 
 ---
 

@@ -2,6 +2,11 @@
 
 Mỗi yêu cầu có mã `NFR-xx` và **cách đo** để nghiệm thu được.
 
+R1 áp dụng **60 NFR** dưới đây theo [19](19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md), gồm
+đo hiệu năng và kiểm chứng khôi phục trước nghiệm thu, không đợi giai đoạn sau. Nội dung
+tùy chọn chỉ áp dụng khi có yêu cầu tương ứng; R1 dùng tiếng Việt, thông báo trong ứng dụng,
+không mặc định bổ sung email/đa ngôn ngữ hoặc tích hợp ngoài để đạt một NFR có điều kiện.
+
 ---
 
 ## 1. Độ chính xác số học
@@ -10,10 +15,10 @@ Mỗi yêu cầu có mã `NFR-xx` và **cách đo** để nghiệm thu được.
 |---|---|---|
 | **NFR-01** | Mọi số tiền dùng kiểu **decimal** có độ chính xác xác định. **Cấm dùng float** | Quy tắc lint/test tự động chặn kiểu float trên cột và biến tiền tệ; chạy trong CI |
 | **NFR-02** | Chính sách làm tròn khai báo tường minh: làm tròn ở bước nào, đến hàng nào | Cấu hình hiển thị được trên giao diện; test đối chiếu hai chiến lược (làm tròn từng thành phần vs làm tròn tổng) |
-| **NFR-03** | Tính lương **idempotent**: chạy lại cùng dữ liệu đầu vào cho cùng kết quả tuyệt đối | UAT-12, TC-P06: chạy 2 lần, so khớp từng dòng `payroll_line` |
+| **NFR-03** | Tính lương idempotent theo bộ nguồn CONFIRMED/hash/phương án; nhập lại không cộng tiền hai lần, thiếu dữ liệu không tự thành 0 | UAT-12, TC-P06, TC-I01…TC-I12; so từng dòng payroll_line, version nguồn và kết quả 9 fixture trong 18 |
 | **NFR-04** | Gross-up hội tụ với sai số ≤ **1 đồng** | TC-P03; kiểm thử với 50 mức NET khác nhau trải đủ các bậc của biểu 5 bậc (2026) và 7 bậc (2025) |
-| **NFR-05** | Tra tham số theo **ngày nghiệp vụ**, không theo ngày chạy | TC-P05: chạy lại kỳ cũ ra tham số cũ |
-| **NFR-06** | Hệ số OT là kết quả tính từ công thức, không phải hằng số | TC-O05: đổi tham số hệ số OT ngày → hệ số OT đêm tự đổi tương ứng |
+| **NFR-05** | Tra tham số theo thời gian nghiệp vụ của từng loại: lương/BH theo kỳ gốc, TNCN theo thời điểm chi trả và bộ quy tắc tương ứng; tái hiện hồ sơ đã khai dùng snapshot | TC-P05, TC-T04/05/09/10: qua năm chi trả, mốc 01/07 ăn ca và chuyển tiếp không ghi đè hồ sơ lịch sử |
+| **NFR-06** | Hệ số OT là kết quả tính từ công thức, không phải hằng số | TC-O05 / TC-O05b: đổi riêng OT ngày thường lên 160% → OT đêm **222%** khi đã có OT ban ngày, **210%** khi chưa có; TC-O05c: OT ban ngày thường **160%**, OT đêm nghỉ hằng tuần / lễ Tết vẫn **270% / 390%** |
 
 ---
 
@@ -32,6 +37,20 @@ Mỗi yêu cầu có mã `NFR-xx` và **cách đo** để nghiệm thu được.
 > **Rủi ro đã lường trước.** Formula engine khai báo bằng dữ liệu chậm hơn mã biên dịch. Biện
 > pháp: cache tham số và định nghĩa công thức trong một lần chạy lô; đo hiệu năng với 3.000
 > nhân sự **từ giai đoạn sớm**, không để tới khi nghiệm thu mới phát hiện.
+
+**Kết quả đo gần nhất** (`npm run benchmark:nightly`, 01/11/2026, build `18c7683` + thay đổi chưa commit; i5-12450H 12 nhân,
+15 GB, Node 26, PostgreSQL 18 local; báo cáo `.local/benchmarks/`). Đây là số đo trên máy phát triển với dữ liệu mô phỏng,
+**chưa phải nghiệm thu** trên môi trường đích.
+
+| Mã | Đo được | Kết quả | Ghi chú phạm vi đo |
+|---|---|---|---|
+| NFR-07 | 1,5 s | Đạt (engine) | Engine lương + BH + thuế cho 3.000 NV/4 cơ sở, **không gồm đọc/ghi DB**; đo trọn luồng HTTP còn mở |
+| NFR-08 | 27,6 s | Đạt | Nhập + ghép tệp một ngày 4.500 lượt, 2.250 NV một cơ sở |
+| NFR-09 | p95 262 ms (tổ) / 292 ms (xưởng) | Đạt | 20 lần mỗi loại, bảng công 2.500 NV |
+| NFR-10 | 55,6 s | Đạt | 1.100 PDF có mật khẩu đóng gói, không gồm đọc DB |
+| NFR-11 | p95 116 ms | Đạt | 40 lần drill-down trên bảng lương của bộ kiểm thử (quy mô nhỏ) |
+| NFR-12 | 11,6 s | Đạt | Bảng chấm công tháng XLSX 3.000 NV, end-to-end qua HTTP |
+| NFR-13 | kiểm tra 1,3 s · nhập + ghép 75,0 s | **Không đạt** (trọn luồng) | Tệp 10.000 dòng: phần kiểm tra và trả lỗi đạt; lưu + ghép đầy đủ vượt 60 s → change `add-r1-gap-closure` |
 
 ---
 
@@ -67,7 +86,7 @@ Mỗi yêu cầu có mã `NFR-xx` và **cách đo** để nghiệm thu được.
 | **NFR-25** | Mọi thay đổi dữ liệu nghiệp vụ ghi audit log đủ trường bắt buộc (người, thời điểm, cũ, mới, IP, lý do) |
 | **NFR-26** | Audit log không thể sửa/xóa kể cả bởi quản trị viên; có chuỗi băm và tác vụ kiểm tra toàn vẹn định kỳ |
 | **NFR-27** | Không xóa cứng dữ liệu; xóa mềm có ngày và lý do |
-| **NFR-28** | Snapshot kỳ đã chốt kèm mã băm; truy vấn kỳ cũ luôn trả về dữ liệu snapshot |
+| **NFR-28** | Snapshot kỳ đã **khóa** bất biến kèm hash; khóa nguyên tử theo revision. Log qua ngày chốt gán theo ca, log muộn không đổi snapshot/không sinh trùng; kiểm chứng TC-A04…TC-A04f và TC-K01…TC-K08 |
 
 ---
 
