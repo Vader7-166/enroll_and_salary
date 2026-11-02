@@ -5,7 +5,8 @@ const Decimal = require('decimal.js');
 const data = require('../backend/prisma/payroll-demo-data.cjs');
 
 const root = resolve(__dirname, '..');
-process.loadEnvFile(resolve(root, 'backend/.env'));
+// Docker-only machines may have no backend/.env: npm run demo:setup then passes DATABASE_URL and PORT itself.
+if (require('node:fs').existsSync(resolve(root, 'backend/.env'))) process.loadEnvFile(resolve(root, 'backend/.env'));
 const database = new URL(process.env.DATABASE_URL);
 if (!['127.0.0.1', 'localhost'].includes(database.hostname) || database.pathname !== '/hrtp_demo') {
   throw new Error('This command is only for the local hrtp_demo database, not an operational environment.');

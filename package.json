@@ -53,6 +53,8 @@
     "benchmark:payslips": "npm run build --workspace backend && node scripts/benchmark-payslips.cjs",
     "demo:payroll": "node scripts/seed-payroll-demo.cjs",
     "demo:payroll:verify": "node scripts/seed-payroll-demo.cjs --verify-only",
+    "demo:accounts": "node scripts/demo-accounts.cjs",
+    "demo:setup": "node scripts/demo-setup.cjs",
     "verify:audit": "npm run build --workspace backend && node --test backend/test/audit-search.test.cjs",
     "verify:cache": "npm run build --workspace backend && node --test backend/test/reference-cache.test.cjs",
     "verify:notifications": "npm run build --workspace backend && node --test backend/test/notifications.test.cjs",

@@ -37,15 +37,18 @@ const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s ?? '');
 
     await sim.login();
     console.log('Đã đăng nhập với', config.username);
-    console.log('Tạo kỳ công và lịch ca…');
-    const prep = await sim.prepareSchedules(from, to, siteCodes);
-    console.log('  lịch ca mới:', prep.schedules, '· kế hoạch:', prep.plans);
+    console.log('Tạo ca và kỳ công…');
+    await sim.ensureShifts();
+    await sim.ensurePeriods(siteCodes, from, to);
 
     const totals = { files: 0, rows: 0, inserted: 0, duplicates: 0, waiting: 0, late: 0, exceptionDays: 0, rejected: 0, ms: 0 };
     const started = Date.now();
     // Mỗi lượt một tuần: đủ nhỏ để tệp ≤ 8.000 dòng/kỳ và vẫn theo thứ tự thời gian.
     for (let cursor = from; cursor <= to; cursor = addDays(cursor, 7)) {
       const end = addDays(cursor, 6) < to ? addDays(cursor, 6) : to;
+      // Lịch ca tạo theo từng tuần ngay trước khi nhập, như lịch được duyệt dần: mỗi lần nhập backend xử lý lại mọi lịch ca
+      // của các kỳ liền kề, nên tạo sẵn cả 3 tháng khiến lần nhập đầu phải ghi hàng chục nghìn ngày vắng cùng lúc.
+      const prep = await sim.prepareSchedules(cursor, end, siteCodes);
       const punches = await sim.planPunches(cursor, end, siteCodes);
       // Ca đêm của ngày cuối tuần có lượt ra sang tuần sau: gửi cùng tuần, kỳ công được suy từ ngày quẹt.
       const results = await sim.send(punches, 'lichsu');
@@ -54,7 +57,7 @@ const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s ?? '');
         if (r.status === 'ERROR' || r.status === 'REJECTED') { totals.rejected++; console.log('  ✗', r.site, r.period, r.status, JSON.stringify(r.errors)); continue; }
         for (const k of ['inserted', 'duplicates', 'waiting', 'late', 'exceptionDays']) totals[k] += r.summary?.[k] ?? 0;
       }
-      console.log(cursor + ' → ' + end + ': ' + punches.length + ' lượt quẹt, ' + results.length + ' tệp, ' + Math.round((Date.now() - started) / 1000) + 's');
+      console.log(cursor + ' → ' + end + ': ' + prep.schedules + ' lịch ca mới, ' + punches.length + ' lượt quẹt, ' + results.length + ' tệp, ' + Math.round((Date.now() - started) / 1000) + 's');
     }
     console.log('Xong:', JSON.stringify(totals));
     if (totals.rejected) process.exitCode = 1;

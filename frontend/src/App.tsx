@@ -54,6 +54,10 @@ import { WelfareWorkspace } from "./components/WelfareWorkspace";
 import { ReportsWorkspace } from "./components/ReportsWorkspace";
 import { NotificationBell } from "./components/NotificationBell";
 import { AssistantButton } from "./components/AssistantDrawer";
+
+/** Local demo only (build arg VITE_DEMO_PASSWORD from DEMO_PASSWORD in .env): show the shared demo password in plain
+ * text on the login form. Empty in any real deployment, which keeps the masked field. */
+const DEMO_PASSWORD = (import.meta.env.VITE_DEMO_PASSWORD as string | undefined) || undefined;
 const { Header, Sider, Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
 type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "employee-pay-plans" | "payroll-inputs" | "payroll" | "audit" | "contracts" | "welfare" | "reports" | "health";
@@ -167,6 +171,7 @@ function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
           onFinish={(values) => mutation.mutate(values)}
           disabled={mutation.isPending}
           autoComplete="on"
+          initialValues={DEMO_PASSWORD ? { password: DEMO_PASSWORD } : undefined}
         >
           <Form.Item
             name="username"
@@ -180,7 +185,7 @@ function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
             label="Mật khẩu"
             rules={[{ required: true, message: "Nhập mật khẩu." }]}
           >
-            <Input.Password autoComplete="current-password" />
+            {DEMO_PASSWORD ? <Input autoComplete="current-password" /> : <Input.Password autoComplete="current-password" />}
           </Form.Item>
           <Button
             htmlType="submit"
@@ -193,7 +198,9 @@ function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
           </Button>
         </Form>
         <Text type="secondary" className="login-note">
-          Phiên làm việc được bảo vệ và tự hết hạn theo chính sách hệ thống.
+          {DEMO_PASSWORD
+            ? <>Bản demo: mọi tài khoản dùng mật khẩu <code>{DEMO_PASSWORD}</code> (vd. <code>kt.all</code>, <code>tt.bn</code>, <code>qd.bn</code>, <code>admin</code>).</>
+            : "Phiên làm việc được bảo vệ và tự hết hạn theo chính sách hệ thống."}
         </Text>
       </section>
     </main>

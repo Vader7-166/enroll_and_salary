@@ -310,7 +310,15 @@ class Simulator {
         form.set('file', new Blob([csv]), label + '-' + group.siteCode + '-' + vnDate(slice[0].at) + '.csv');
         form.set('siteId', group.siteId); form.set('referencePeriodId', group.periodId);
         const started = Date.now();
-        const res = await this.api.request('/attendance/imports', form);
+        // A 5xx (e.g. the 90 s import transaction timing out under load) rolls the whole file back, and re-sending the same
+        // punches is idempotent (duplicates are skipped), so retry a couple of times before reporting the file as failed.
+        let res;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          res = await this.api.request('/attendance/imports', form);
+          if (res.status < 500) break;
+          this.log('Tệp ' + group.siteCode + ' ' + group.periodCode + ' lỗi ' + res.status + ', thử lại lần ' + attempt);
+          await new Promise(done => setTimeout(done, 15_000 * attempt));
+        }
         const batch = res.body?.batch;
         results.push({
           site: group.siteCode, period: group.periodCode, rows: slice.length, ms: Date.now() - started, httpStatus: res.status,

@@ -7,6 +7,9 @@ COPY frontend/package.json frontend/
 # Scripts are skipped: the root postinstall generates the backend Prisma client.
 RUN npm ci --workspace frontend --include-workspace-root --ignore-scripts
 COPY frontend frontend
+# Local demo only: shows the shared demo password on the login form; leave empty in real deployments.
+ARG VITE_DEMO_PASSWORD=
+ENV VITE_DEMO_PASSWORD=$VITE_DEMO_PASSWORD
 COPY docs/config/hrtp-ui-tokens.json docs/config/
 RUN npm run build --workspace frontend
 

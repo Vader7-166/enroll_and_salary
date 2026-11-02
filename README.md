@@ -249,6 +249,35 @@ Seed trong Docker chỉ tạo **một tài khoản Admin** (phạm vi toàn côn
 
 Dữ liệu database nằm trong volume `pgdata`. Dừng bằng `docker compose down`; thêm `-v` để **xóa toàn bộ dữ liệu**. Sau khi sửa code, chạy lại `docker compose up -d --build`. Giữ bản sao `HR_DATA_KEY`: mất khóa thì không giải mã được hợp đồng đã lưu.
 
+#### Dựng nhanh bộ demo đầy đủ (máy mới, bạn cùng nhóm)
+
+Dữ liệu demo **không chép qua lại giữa các máy**: mỗi máy tự sinh lại bằng một lệnh. Seed và công cụ giả lập đều xác định
+(cùng mã nhân viên, cùng lịch ca, cùng lượt quẹt theo từng ngày), nên hai máy chạy cùng khoảng ngày có cùng dữ liệu chấm công.
+
+```bash
+cp .env.example .env            # điền POSTGRES_PASSWORD, HR_DATA_KEY, ADMIN_USERNAME/ADMIN_PASSWORD
+# và DEMO_PASSWORD=Hrtp@Demo2026 (mật khẩu chung cho mọi tài khoản, chỉ dùng cho demo)
+npm ci
+docker compose up -d --build --wait
+npm run demo:setup              # seed → tài khoản demo + mật khẩu chung → cấu hình lương mẫu → chấm công lịch sử
+# npm run demo:setup -- --from 2026-10-01 --to 2026-10-31   (khoảng ngày ngắn hơn, nhanh hơn)
+# npm run demo:setup -- --skip-history                      (bỏ bước sinh chấm công)
+```
+
+`npm run demo:accounts` tạo `tt.bn`, `qd.bn`, `kt.bn`, `kt.all`, `ad.demo` (quyền hiệu lực từ ngày đơn vị bắt đầu) và đặt
+`DEMO_PASSWORD` cho **mọi** tài khoản; mật khẩu vẫn được băm trong CSDL. Khi frontend build với `DEMO_PASSWORD`, form
+đăng nhập hiện và điền sẵn mật khẩu dạng chữ thường. Để trống `DEMO_PASSWORD` cho mọi môi trường thật.
+
+Muốn trao **đúng bản đang có** (kể cả dữ liệu tự nhập tay) thì sao lưu và khôi phục cả CSDL, kèm **đúng `HR_DATA_KEY`**
+(hợp đồng/lương được mã hóa bằng khóa này):
+
+```bash
+docker compose exec -T db pg_dump -U hrtp_demo -d hrtp_demo -Fc > hrtp-demo.dump          # máy gửi
+docker compose exec -T db pg_restore -U hrtp_demo -d hrtp_demo --clean --if-exists < hrtp-demo.dump   # máy nhận (cùng HR_DATA_KEY)
+```
+
+Bản dump chứa toàn bộ dữ liệu mô phỏng và mật khẩu đã băm; chỉ chia sẻ trong nhóm, không đưa lên git.
+
 <a id="demo"></a>
 ## Tài khoản & trải nghiệm demo
 

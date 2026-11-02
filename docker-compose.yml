@@ -70,6 +70,9 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        # Demo only: DEMO_PASSWORD in .env is shown in plain text on the login form. Leave unset in real deployments.
+        VITE_DEMO_PASSWORD: ${DEMO_PASSWORD:-}
     restart: unless-stopped
     depends_on:
       backend:
@@ -98,9 +101,9 @@ services:
       HRTP_SIM_API: http://backend:3000/api
       HRTP_SIM_HOST: 0.0.0.0
       HRTP_SIM_PORT: 4100
-      # Tự đăng nhập bằng Admin của seed; nếu mật khẩu đã đổi, đăng nhập trên giao diện hoặc đặt SIM_PASSWORD.
+      # Tự đăng nhập bằng Admin: SIM_PASSWORD, rồi DEMO_PASSWORD (npm run demo:accounts), rồi mật khẩu Admin của seed.
       HRTP_SIM_USER: ${SIM_USERNAME:-${ADMIN_USERNAME}}
-      HRTP_SIM_PASSWORD: ${SIM_PASSWORD:-${ADMIN_PASSWORD}}
+      HRTP_SIM_PASSWORD: ${SIM_PASSWORD:-${DEMO_PASSWORD:-${ADMIN_PASSWORD}}}
       # true: đồng hồ tự chạy từ giờ hiện tại khi container khởi động (SIM_SPEED=1 là đúng thời gian thực).
       HRTP_SIM_AUTOSTART: ${SIM_AUTOSTART:-false}
       HRTP_SIM_SPEED: ${SIM_SPEED:-1}

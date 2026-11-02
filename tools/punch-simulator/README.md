@@ -18,7 +18,7 @@ Mặc định đồng hồ **không** tự chạy, nên bật dự án không gh
 | Biến trong `.env` | Mặc định | Ý nghĩa |
 |---|---|---|
 | `SIM_PORT` | `4100` | Cổng trên máy (chỉ mở ở 127.0.0.1) |
-| `SIM_USERNAME` / `SIM_PASSWORD` | Admin của seed | Tài khoản để nhập chấm công |
+| `SIM_USERNAME` / `SIM_PASSWORD` | Admin; mật khẩu lấy `SIM_PASSWORD`, rồi `DEMO_PASSWORD`, rồi `ADMIN_PASSWORD` | Tài khoản để nhập chấm công |
 | `SIM_AUTOSTART` | `false` | `true`: đồng hồ tự chạy từ giờ hiện tại khi container khởi động |
 | `SIM_SPEED` | `1` | Tốc độ khi tự chạy (`1` = đúng thời gian thực) |
 
@@ -44,6 +44,14 @@ Lệnh này làm các bước sau:
 3. Ghi kế hoạch ca ở trạng thái **APPROVED** trực tiếp vào CSDL. Khối trực tiếp xoay A→B→C theo tuần (Nghệ An chỉ A→B),
    khối gián tiếp làm hành chính T2–T7, nghỉ Chủ nhật và ngày 02/09. Ngày đã có lịch được giữ nguyên.
 4. Sinh lượt quẹt rồi nhập theo từng tuần, mỗi tệp tối đa 8.000 dòng.
+
+Lịch ca được tạo **theo từng tuần ngay trước khi nhập tuần đó** (như lịch duyệt dần), vì mỗi lần nhập backend xử lý lại
+mọi lịch ca của các kỳ liền kề. Tệp lỗi 5xx (ví dụ giao dịch nhập quá 90 s khi máy bận) được thử lại tối đa 3 lần; nếu vẫn
+lỗi, chạy lại đúng khoảng ngày đó — lượt quẹt trùng được bỏ qua nên an toàn.
+Nếu một cơ sở lớn (Bắc Ninh ~1.100 người) vẫn lỗi khi nạp bù nhiều tuần cùng lúc — mỗi lần nhập phải xử lý lại toàn bộ lịch ca
+của ba kỳ liền kề và chèn lần đầu các ngày chưa có — tạm đặt `ATTENDANCE_TRANSACTION_TIMEOUT_MS=300000` trong `.env`,
+`docker compose up -d backend`, chạy lại khoảng ngày lỗi (`--from … --to … --sites NM-BN`), rồi xóa dòng đó. Dựng trọn bộ demo trên máy mới: `npm run demo:setup`
+(xem README gốc, mục Docker).
 
 Phân phối lượt quẹt bám cửa sổ ghép công mặc định: vào từ −30 đến +15 phút, ra từ −15 đến +30 phút. Khoảng 96% ngày công
 ra OK. Phần còn lại gồm khoảng 6% đi muộn, 2,5% về sớm (đều nằm trong cửa sổ nên ra cờ LATE/EARLY), 1,2% vắng,
