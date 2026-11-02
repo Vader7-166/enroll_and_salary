@@ -107,6 +107,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      # The acceptance map includes the FR-X.4 restore drill (payroll-lock.test.cjs), which needs pg_dump 18 like the verify jobs;
+      # the runner image only ships PostgreSQL 16 client tools.
+      - name: PostgreSQL 18 client (pg_dump/pg_restore for the backup drill)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -q && sudo apt-get install -yq postgresql-client-18
       - run: npm ci
       - run: bash scripts/ci-env.sh
       - run: npm run db:deploy
