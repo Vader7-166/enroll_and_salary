@@ -7,13 +7,18 @@
 #   the first backup of each month younger than BACKUP_KEEP_MONTHS (36 → the 3-year attendance/payroll retention).
 # BACKUP_ONCE=true runs one backup and exits; BACKUP_RETENTION_ONLY=true only prunes.
 set -eu
-set -o pipefail 2>/dev/null || true
+# `set` is a POSIX special builtin: an unknown option (dash before 0.5.13 has no pipefail, e.g. Ubuntu's /bin/sh)
+# exits the whole shell even with `|| true`, so probe in a subshell first. backup() does not rely on it anyway.
+if (set -o pipefail) 2>/dev/null; then set -o pipefail; fi
 DIR=${BACKUP_DIR:-/backups}
 INTERVAL=${BACKUP_INTERVAL_SECONDS:-3600}
 KEEP_HOURS=${BACKUP_KEEP_HOURS:-48}
 KEEP_DAYS=${BACKUP_KEEP_DAYS:-90}
 KEEP_MONTHS=${BACKUP_KEEP_MONTHS:-36}
 mkdir -p "$DIR"
+if [ "${BACKUP_RETENTION_ONLY:-false}" != true ] && [ -z "${BACKUP_ENCRYPTION_KEY:-}" ]; then
+  echo "Set BACKUP_ENCRYPTION_KEY in .env for the backup profile (separate from HR_DATA_KEY)" >&2; exit 1
+fi
 umask 077
 
 stamp_at() { date -u -d "@$1" +%Y%m%dT%H%M%SZ; }
@@ -43,7 +48,16 @@ backup() {
   target="$DIR/hrtp-$stamp.dump.enc"
   partial="$DIR/.hrtp-$stamp.partial"
   started=$(date -u +%s)
-  pg_dump -Fc --no-owner --no-privileges | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_ENCRYPTION_KEY -out "$partial"
+  # Portable pipeline status: a failed pg_dump leaves a marker, so an empty-but-encrypted dump is never published
+  # even on shells without pipefail.
+  rm -f "$partial.failed"
+  if ! { pg_dump -Fc --no-owner --no-privileges || : > "$partial.failed"; } \
+      | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_ENCRYPTION_KEY -out "$partial" \
+      || [ -e "$partial.failed" ]; then
+    rm -f "$partial" "$partial.failed"
+    echo "backup failed: pg_dump or encryption error" >&2
+    return 1
+  fi
   mv "$partial" "$target"
   (cd "$DIR" && sha256sum "$(basename "$target")" > "$(basename "$target").sha256")
   echo "backup $(basename "$target") $(wc -c < "$target") bytes in $(( $(date -u +%s) - started )) s"

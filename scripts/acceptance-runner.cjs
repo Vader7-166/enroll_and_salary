@@ -26,37 +26,26 @@ const files = only ?? (all
   ? readdirSync(testDir).filter(name => name.endsWith('.test.cjs')).sort()
   : [...new Set(map.cases.flatMap(item => item.tests.map(test => test.file)))].sort());
 
-const xmlPath = join(os.tmpdir(), 'hrtp-acceptance-' + process.pid + '.xml');
-// JUnit drops a parent test whose own body fails after passing subtests (failures="0"); TAP keeps it as `not ok`.
-const tapPath = join(os.tmpdir(), 'hrtp-acceptance-' + process.pid + '.tap');
+// Results come from scripts/acceptance-reporter.cjs (file + parent per test). The built-in JUnit reporter only records
+// the test file on Node ≥ 23, so on the pinned Node 22 nothing matched the map.
+const resultPath = join(os.tmpdir(), 'hrtp-acceptance-' + process.pid + '.jsonl');
 const started = Date.now();
-const run = spawnSync(process.execPath, ['--test', '--test-concurrency=' + concurrency, '--test-reporter=junit', '--test-reporter-destination=' + xmlPath,
-  '--test-reporter=tap', '--test-reporter-destination=' + tapPath, '--test-reporter=spec', '--test-reporter-destination=stdout', ...files.map(name => join(testDir, name))], { cwd: root, stdio: ['ignore', 'inherit', 'inherit'], env: process.env });
+const run = spawnSync(process.execPath, ['--test', '--test-concurrency=' + concurrency, '--test-reporter=' + join(__dirname, 'acceptance-reporter.cjs'), '--test-reporter-destination=' + resultPath,
+  '--test-reporter=spec', '--test-reporter-destination=stdout', ...files.map(name => join(testDir, name))], { cwd: root, stdio: ['ignore', 'inherit', 'inherit'], env: process.env });
 const durationMs = Date.now() - started;
 
-const unescape = value => value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
-const attr = (tag, name) => { const match = new RegExp('\\s' + name + '="([^"]*)"').exec(tag); return match ? unescape(match[1]) : null; };
-let xml = '';
-try { xml = readFileSync(xmlPath, 'utf8'); } catch {}
-rmSync(xmlPath, { force: true });
+let lines = [];
+try { lines = readFileSync(resultPath, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch {}
+rmSync(resultPath, { force: true });
 const tests = [];
-for (const match of xml.matchAll(/<(testcase|testsuite)\s[^>]*>/g)) {
-  const tag = match[0];
-  if (match[1] === 'testsuite') continue;
-  const rest = xml.slice(match.index + tag.length, match.index + tag.length + 200);
-  const skipped = !tag.endsWith('/>') && /^\s*<skipped/.test(rest);
-  tests.push({ file: basename(attr(tag, 'file') ?? ''), suite: attr(tag, 'classname'), name: attr(tag, 'name'),
-    status: attr(tag, 'failure') !== null ? 'FAIL' : skipped ? 'SKIP' : 'PASS', durationMs: Math.round(Number(attr(tag, 'time') ?? 0) * 1000) });
-}
-let tap = '';
-try { tap = readFileSync(tapPath, 'utf8'); } catch {}
-rmSync(tapPath, { force: true });
-for (const match of tap.matchAll(/^\s*not ok \d+ - (.+?)(?: # .*)?$/gm)) {
-  const name = match[1].trim();
-  if (tests.some(test => test.name === name && test.status === 'FAIL')) continue;
-  // A suite-level failure (setup, cleanup, server start): attribute it to the file of its subtests.
-  const child = tests.find(test => test.suite === name);
-  tests.push({ file: child?.file ?? '', suite: null, name, status: 'FAIL', durationMs: 0, level: 'SUITE' });
+for (const result of lines) {
+  const file = basename(result.file ?? '');
+  // Leaves are the mapped tests. A parent only matters when its own body (setup, cleanup, server start) failed after
+  // its subtests: it becomes a SUITE failure that fails every case in the same file.
+  // A file that fails to load reports one failure named after the file itself: treat it like a failed suite body.
+  const fileFailure = result.status === 'FAIL' && !result.parent && result.file && basename(result.name) === file;
+  if (!result.children && !fileFailure) tests.push({ file, suite: result.parent, name: result.name, status: result.status, durationMs: result.durationMs });
+  else if (result.status === 'FAIL') tests.push({ file, suite: null, name: result.name, status: 'FAIL', durationMs: result.durationMs, level: 'SUITE' });
 }
 
 const cases = map.cases.map(item => {

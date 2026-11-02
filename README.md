@@ -227,7 +227,7 @@ Website preview chạy tại [127.0.0.1:4173](http://127.0.0.1:4173). Vite previ
 <a id="docker"></a>
 ### 5. Chạy bằng Docker
 
-Cần Docker Engine với Docker Compose v2. Compose chạy ba service: `db` (PostgreSQL 18.3), `backend` (NestJS, tự chạy `prisma migrate deploy` khi khởi động) và `frontend` (bản build Vite phục vụ bằng nginx, proxy `/api` sang backend).
+Cần Docker Engine với Docker Compose v2. Compose chạy bốn service: `db` (PostgreSQL 18.3), `backend` (NestJS, tự chạy `prisma migrate deploy` khi khởi động), `frontend` (bản build Vite phục vụ bằng nginx, proxy `/api` sang backend) và `simulator` (giả lập máy chấm công cho demo, xem [tools/punch-simulator](tools/punch-simulator/README.md)).
 
 ```bash
 cp .env.example .env
@@ -245,6 +245,7 @@ Seed trong Docker chỉ tạo **một tài khoản Admin** (phạm vi toàn côn
 | [localhost:8080](http://localhost:8080) | Website (đổi bằng `WEB_PORT`) |
 | [127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health) | API trực tiếp (`API_PORT`) |
 | `127.0.0.1:5434` | PostgreSQL, user/db `hrtp_demo` (`DB_PORT`) |
+| [127.0.0.1:4100](http://127.0.0.1:4100) | Giả lập máy chấm công (`SIM_PORT`); tự đăng nhập bằng Admin, đồng hồ chỉ chạy khi bấm **Bắt đầu** |
 
 Dữ liệu database nằm trong volume `pgdata`. Dừng bằng `docker compose down`; thêm `-v` để **xóa toàn bộ dữ liệu**. Sau khi sửa code, chạy lại `docker compose up -d --build`. Giữ bản sao `HR_DATA_KEY`: mất khóa thì không giải mã được hợp đồng đã lưu.
 
