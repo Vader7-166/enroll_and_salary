@@ -61,11 +61,11 @@ function Preview() {
         { key: "floor", label: "Sàn", children: data.salary ? money(data.salary.floor) : "—" },
       ]} />
       {data.cp07 && <Alert type="error" showIcon message={`${data.cp07.code}: ${data.cp07.message}`} description={data.missing.length ? "Thiếu: " + data.missing.join(", ") : undefined} />}
-      {data.contribution && <Table size="small" rowKey="kind" pagination={false} dataSource={data.contribution.lines} scroll={{ x: 600 }} columns={[
+      {data.contribution && <section className="workspace-table" role="region" tabIndex={0} aria-label="Kết quả chạy thử mức đóng bảo hiểm; dùng phím mũi tên để cuộn"><Table     size="small" rowKey="kind" pagination={false} dataSource={data.contribution.lines} scroll={{ x: 600 }} columns={[
         { title: "Khoản", dataIndex: "kind" }, { title: "Mức đóng", dataIndex: "base", align: "right", render: money },
         { title: "NLĐ", render: (_, row) => <>{money(row.employee)} <Text type="secondary">({percent(row.employeeRate)})</Text></> },
         { title: "DN", render: (_, row) => <>{money(row.employer)} <Text type="secondary">({percent(row.employerRate)})</Text></> },
-      ]} summary={() => <Table.Summary.Row><Table.Summary.Cell index={0} colSpan={2}>Tổng</Table.Summary.Cell><Table.Summary.Cell index={2}>{money(data.contribution!.employeeTotal)}</Table.Summary.Cell><Table.Summary.Cell index={3}>{money(data.contribution!.employerTotal)}</Table.Summary.Cell></Table.Summary.Row>} />}
+      ]} summary={() => <Table.Summary.Row><Table.Summary.Cell index={0} colSpan={2}>Tổng</Table.Summary.Cell><Table.Summary.Cell index={2}>{money(data.contribution!.employeeTotal)}</Table.Summary.Cell><Table.Summary.Cell index={3}>{money(data.contribution!.employerTotal)}</Table.Summary.Cell></Table.Summary.Row>} /></section>}
     </>}
   </section>;
 }
@@ -76,13 +76,13 @@ export function InsuranceRatesPanel({ canManage }: { canManage: boolean }) {
   return <div className="tab-stack">
     <div className="tab-actions"><Title level={4}>Mức đóng BH theo hiệu lực</Title>{canManage && <Button icon={<PlusOutlined />} onClick={() => setAdding(true)}>Thêm phiên bản</Button>}</div>
     {rates.isError && <Alert type="error" showIcon message="Không tải được mức đóng" description={errorMessage(rates.error)} />}
-    <Table<InsuranceRate> size="small" rowKey="id" loading={rates.isLoading} dataSource={rates.data?.items ?? []} pagination={false} scroll={{ x: 820 }} columns={[
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Mức đóng bảo hiểm theo hiệu lực; dùng phím mũi tên để cuộn"><Table<InsuranceRate>     size="small" rowKey="id" loading={rates.isLoading} dataSource={rates.data?.items ?? []} pagination={false} scroll={{ x: 820 }} columns={[
       { title: "Loại", dataIndex: "insuranceType", width: 80 }, { title: "Vùng", dataIndex: "regionCode", width: 70, render: value => value ?? "Mọi vùng" },
-      { title: "NLĐ", dataIndex: "employeeRate", render: percent }, { title: "DN", dataIndex: "employerRate", render: percent },
+      { title: "NLĐ", dataIndex: "employeeRate", align: "right", render: percent }, { title: "DN", dataIndex: "employerRate", align: "right", render: percent },
       { title: "Trần", render: (_, row) => row.capReference === "NONE" ? "Không" : `${row.capMultiplier} × ${CAP[row.capReference]}` },
       { title: "Hiệu lực", render: (_, row) => `${row.effectiveFrom} → ${row.effectiveTo ?? "nay"}` },
       { title: "Căn cứ", dataIndex: "legalBasis", ellipsis: true }, { title: "Nguồn", dataIndex: "status", render: value => <Tag color={value === "SIMULATION" ? "gold" : "success"}>{value === "SIMULATION" ? "Mô phỏng" : "Đã xác nhận"}</Tag> },
-    ]} />
+    ]} /></section>
     <Preview />
     {adding && <AddRate onClose={() => setAdding(false)} />}
   </div>;

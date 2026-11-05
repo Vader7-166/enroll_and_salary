@@ -274,7 +274,7 @@ function CorrectionEditor({
           <Text type="secondary">Chọn trong trang hiện tại; mỗi yêu cầu tối đa 100 người.</Text>
         </div>
         {!workDate ? <Alert type="info" showIcon message="Chọn ngày công trước để tìm dữ liệu có thể giải trình." /> : targetQuery.isError ? <Alert type="error" showIcon message="Không tải được dữ liệu cần giải trình" description={errorMessage(targetQuery.error)} /> : <>
-          <div className="table-panel attendance-table correction-target-table">
+          <div className="table-panel attendance-table correction-target-table" role="region" tabIndex={0} aria-label="Ngày công có thể giải trình">
             <Table<CorrectionTarget>
               rowKey={targetKey}
               components={{ body: { wrapper: TableBody } }}
@@ -473,7 +473,7 @@ export function AttendanceCorrectionsPanel({
     {focusCorrectionId && focused.isFetching && <div className="workspace-loading"><Spin /> Đang mở hồ sơ giải trình…</div>}
     {focusCorrectionId && focused.isError && <Alert type="error" showIcon message="Không mở được hồ sơ giải trình" description={errorMessage(focused.error)} />}
     {corrections.isLoading ? <div className="attendance-workspace"><Spin /></div> : !corrections.isError && !corrections.data?.items.length ? <Empty description="Không có giải trình phù hợp." /> : <>
-      <div className="table-panel attendance-table">
+      <div className="table-panel attendance-table" role="region" tabIndex={0} aria-label="Danh sách giải trình chấm công">
         <Table<Correction> rowKey="id" components={{ body: { wrapper: TableBody } }} columns={columns} dataSource={corrections.data?.items ?? []} loading={corrections.isFetching} pagination={false} scroll={{ x: 1280 }} onRow={correction => ({ className: "clickable-row", onClick: () => setSelected(correction) })} />
       </div>
       {corrections.data && <Pagination className="attendance-pagination" current={corrections.data.page} pageSize={corrections.data.pageSize} total={corrections.data.total} showSizeChanger={false} onChange={setPage} />}

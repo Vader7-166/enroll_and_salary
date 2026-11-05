@@ -24,14 +24,16 @@ function ScheduleTableBody(props: HTMLAttributes<HTMLTableSectionElement>) {
 }
 
 function ScheduleTable({ entries }: { entries: ScheduleEntry[] }) {
-  return <Table<ScheduleEntry> components={{ body: { wrapper: ScheduleTableBody } }} rowKey="id" dataSource={entries} size="small" pagination={{ pageSize: 20, showSizeChanger: false }} scroll={{ x: 950 }} locale={{ emptyText: <Empty description="Chưa có lịch chính thức trong khoảng ngày này" /> }} columns={[
-    { title: "Ngày công", dataIndex: "workDate", width: 120 },
-    { title: "Nhân sự", render: (_, row) => <><strong>{row.employee.code}</strong><br />{row.employee.fullName}</> },
-    { title: "Ca", render: (_, row) => <>{row.shift.code} · {row.shift.name}{row.shift.crossesMidnight && <><br /><Tag>Qua ngày +1</Tag></>}</> },
-    { title: "Bắt đầu (giờ Việt Nam)", render: (_, row) => timeFormatter.format(new Date(row.startAt)), width: 180 },
-    { title: "Kết thúc (giờ Việt Nam)", render: (_, row) => timeFormatter.format(new Date(row.endAt)), width: 180 },
-    { title: "Giờ chuẩn", align: "right", render: (_, row) => row.workMinutes / 60, width: 95 },
-  ]} />;
+  return <div className="table-panel" role="region" tabIndex={0} aria-label="Các lượt phân ca">
+    <Table<ScheduleEntry> components={{ body: { wrapper: ScheduleTableBody } }} rowKey="id" dataSource={entries} size="small" pagination={{ pageSize: 20, showSizeChanger: false }} scroll={{ x: 950 }} locale={{ emptyText: <Empty description="Chưa có lịch chính thức trong khoảng ngày này" /> }} columns={[
+      { title: "Ngày công", dataIndex: "workDate", width: 120 },
+      { title: "Nhân sự", render: (_, row) => <><strong>{row.employee.code}</strong><br />{row.employee.fullName}</> },
+      { title: "Ca", render: (_, row) => <>{row.shift.code} · {row.shift.name}{row.shift.crossesMidnight && <><br /><Tag>Qua ngày +1</Tag></>}</> },
+      { title: "Bắt đầu (giờ Việt Nam)", render: (_, row) => timeFormatter.format(new Date(row.startAt)), width: 180 },
+      { title: "Kết thúc (giờ Việt Nam)", render: (_, row) => timeFormatter.format(new Date(row.endAt)), width: 180 },
+      { title: "Giờ chuẩn", align: "right", render: (_, row) => row.workMinutes / 60, width: 95 },
+    ]} />
+  </div>;
 }
 
 function DefinitionEditor({ shift, units, onClose }: { shift: Shift | null; units: OrgUnit[]; onClose: () => void }) {
@@ -141,7 +143,7 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
   const active = useMutation({ mutationFn: ({ shift, value }: { shift: Shift; value: boolean }) => shiftsApi.active(shift, value), onSuccess: () => { void client.invalidateQueries({ queryKey: ["shifts"] }); } });
   const action = useMutation({ mutationFn: ({ name, reason }: { name: "submit" | "approve" | "return" | "cancel"; reason?: string }) => shiftsApi.action(plan!.id, name, plan!.revision, reason), onSuccess: () => { setReasonAction(null); setReason(""); void client.invalidateQueries({ queryKey: ["shifts"] }); } });
   const units = context.data?.units ?? [];
-  const toolbar = <div className="shift-filters">
+  const toolbar = <div className="context-strip shift-filters" aria-label="Bộ lọc lịch ca">
     <label>Từ ngày<Input aria-label="Lịch ca từ ngày" type="date" value={filters.dateFrom} onChange={e => setFilters({ ...filters, dateFrom: e.target.value })} /></label>
     <label>Đến ngày<Input aria-label="Lịch ca đến ngày" type="date" value={filters.dateTo} onChange={e => setFilters({ ...filters, dateTo: e.target.value })} /></label>
     <label>Đơn vị<Select className="full-width" aria-label="Lọc đơn vị lịch ca" allowClear showSearch optionFilterProp="label" value={filters.teamOrgUnitId} options={units.filter(u => u.type === "TEAM" || u.type === "DEPARTMENT").map(u => ({ value: u.id, label: u.pathLabel }))} onChange={teamOrgUnitId => setFilters({ ...filters, teamOrgUnitId })} /></label>
@@ -156,28 +158,32 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
       { key: "definitions", label: "Danh mục ca", children: <div className="tab-stack">
         {definitions.isError && <Alert type="error" showIcon message="Không tải được danh mục ca" description={errorMessage(definitions.error)} />}
         {active.isError && <Alert type="error" showIcon message="Không thể đổi trạng thái ca" description={errorMessage(active.error)} />}
-        <Table<Shift> rowKey="id" size="small" loading={definitions.isLoading} dataSource={definitions.data?.items ?? []} scroll={{ x: 1000 }} locale={{ emptyText: <Empty description="Chưa khai báo ca trong phạm vi. Quản trị viên có thể thêm ca." /> }} columns={[
-          { title: "Mã / tên ca", render: (_, row) => <><strong>{row.code}</strong><br />{row.name}</> },
-          { title: "Đơn vị áp dụng", render: (_, row) => units.find(u => u.id === row.orgUnitId)?.name ?? "Kế thừa từ đơn vị cấp trên" },
-          { title: "Loại", render: (_, row) => kindLabels[row.kind] },
-          { title: "Khung giờ", render: (_, row) => <>{row.startTime} → {row.endTime}{row.crossesMidnight && <><br /><Tag>Ngày hôm sau +1</Tag></>}</> },
-          { title: "Nghỉ giữa ca", render: (_, row) => <>{row.breakMinutes} phút sau {row.breakStartOffset} phút<br /><Text type="secondary">{row.paidBreak ? "Tính vào giờ làm" : "Không tính giờ làm"}</Text></> },
-          { title: "Giờ chuẩn", align: "right", render: (_, row) => row.workMinutes / 60 },
-          { title: "Trạng thái", render: (_, row) => <Tag color={row.active ? "success" : "default"}>{row.active ? "Đang dùng" : "Ngừng dùng"}</Tag> },
-          ...(manage ? [{ title: "Thao tác", render: (_: unknown, row: Shift) => <Space><Button size="small" onClick={() => setEditor({ shift: row })}>Sửa</Button><Popconfirm title={row.active ? "Ngừng dùng ca cho lịch mới?" : "Cho phép dùng lại ca?"} onConfirm={() => active.mutateAsync({ shift: row, value: !row.active }).then(() => undefined).catch(() => undefined)}><Button size="small" disabled={active.isPending}>{row.active ? "Ngừng dùng" : "Dùng lại"}</Button></Popconfirm></Space> }] : []),
-        ]} />
+        <div className="table-panel" role="region" tabIndex={0} aria-label="Danh mục ca làm việc">
+          <Table<Shift> rowKey="id" size="small" loading={definitions.isLoading} dataSource={definitions.data?.items ?? []} scroll={{ x: 1000 }} locale={{ emptyText: <Empty description="Chưa khai báo ca trong phạm vi. Quản trị viên có thể thêm ca." /> }} columns={[
+            { title: "Mã / tên ca", render: (_, row) => <><strong>{row.code}</strong><br />{row.name}</> },
+            { title: "Đơn vị áp dụng", render: (_, row) => units.find(u => u.id === row.orgUnitId)?.name ?? "Kế thừa từ đơn vị cấp trên" },
+            { title: "Loại", render: (_, row) => kindLabels[row.kind] },
+            { title: "Khung giờ", render: (_, row) => <>{row.startTime} → {row.endTime}{row.crossesMidnight && <><br /><Tag>Ngày hôm sau +1</Tag></>}</> },
+            { title: "Nghỉ giữa ca", render: (_, row) => <>{row.breakMinutes} phút sau {row.breakStartOffset} phút<br /><Text type="secondary">{row.paidBreak ? "Tính vào giờ làm" : "Không tính giờ làm"}</Text></> },
+            { title: "Giờ chuẩn", align: "right", render: (_, row) => row.workMinutes / 60 },
+            { title: "Trạng thái", render: (_, row) => <Tag color={row.active ? "success" : "default"}>{row.active ? "Đang dùng" : "Ngừng dùng"}</Tag> },
+            ...(manage ? [{ title: "Thao tác", render: (_: unknown, row: Shift) => <Space><Button size="small" onClick={() => setEditor({ shift: row })}>Sửa</Button><Popconfirm title={row.active ? "Ngừng dùng ca cho lịch mới?" : "Cho phép dùng lại ca?"} onConfirm={() => active.mutateAsync({ shift: row, value: !row.active }).then(() => undefined).catch(() => undefined)}><Button size="small" disabled={active.isPending}>{row.active ? "Ngừng dùng" : "Dùng lại"}</Button></Popconfirm></Space> }] : []),
+          ]} />
+        </div>
       </div> },
       { key: "plans", label: "Lập & duyệt", children: <div className="tab-stack">{toolbar}
         {!validRange && <Alert type="warning" message="Chọn khoảng ngày hợp lệ, tối đa 93 ngày." />}
         {plans.isError && <Alert type="error" showIcon message="Không tải được lịch phân ca" description={errorMessage(plans.error)} />}
-        <Table rowKey="id" loading={plans.isLoading} dataSource={plans.data?.items ?? []} scroll={{ x: 950 }} locale={{ emptyText: <Empty description="Chưa có lịch trong khoảng ngày và phạm vi đã chọn" /> }} columns={[
-          { title: "Lịch", render: (_, row) => <Button type="link" onClick={() => { action.reset(); setSelectedId(row.id); }}>{row.title}</Button> },
-          { title: "Đơn vị", dataIndex: "teamOrgUnitCode" },
-          { title: "Ngày công", render: (_, row) => row.dateFrom + " → " + row.dateTo },
-          { title: "Lượt phân ca", dataIndex: "entryCount", align: "right" },
-          { title: "Người lập", render: (_, row) => row.createdBy.displayName },
-          { title: "Trạng thái", render: (_, row) => <Tag color={statusColors[row.status]}>{statusLabels[row.status]}</Tag> },
-        ]} />
+        <div className="table-panel" role="region" tabIndex={0} aria-label="Danh sách lịch phân ca">
+          <Table rowKey="id" loading={plans.isLoading} dataSource={plans.data?.items ?? []} scroll={{ x: 950 }} locale={{ emptyText: <Empty description="Chưa có lịch trong khoảng ngày và phạm vi đã chọn" /> }} columns={[
+            { title: "Lịch", render: (_, row) => <Button type="link" onClick={() => { action.reset(); setSelectedId(row.id); }}>{row.title}</Button> },
+            { title: "Đơn vị", dataIndex: "teamOrgUnitCode" },
+            { title: "Ngày công", render: (_, row) => row.dateFrom + " → " + row.dateTo },
+            { title: "Lượt phân ca", dataIndex: "entryCount", align: "right" },
+            { title: "Người lập", render: (_, row) => row.createdBy.displayName },
+            { title: "Trạng thái", render: (_, row) => <Tag color={statusColors[row.status]}>{statusLabels[row.status]}</Tag> },
+          ]} />
+        </div>
       </div> },
       { key: "patterns", label: "Mẫu xoay ca", children: <RotationPatternsTab canManage={manage} units={units} shifts={definitions.data?.items ?? []} /> },
       { key: "swaps", label: "Đổi ca", children: <div className="tab-stack">{toolbar}<SwapsTab user={user} shifts={definitions.data?.items ?? []} official={official.data?.items ?? []} /></div> },

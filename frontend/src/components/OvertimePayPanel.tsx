@@ -1,3 +1,4 @@
+import { LockOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Descriptions, Empty, Select, Spin, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -36,7 +37,7 @@ export function OvertimePayPanel() {
     { title: "Ban đêm", dataIndex: "isNight", width: 90, render: (value: boolean) => value ? "Có" : "Không" },
     { title: "Số giờ", dataIndex: "minutes", width: 100, align: "right", render: hours },
     { title: "Hệ số", dataIndex: "rate", width: 100, align: "right", render: percent },
-    { title: "Nguồn", dataIndex: "sourceStatus", width: 100, render: (value: OvertimePayBucket["sourceStatus"]) => <Tag color={value === "LOCKED" ? "success" : "default"}>{value === "LOCKED" ? "Đã khóa" : "Nháp"}</Tag> },
+    { title: "Nguồn", dataIndex: "sourceStatus", width: 100, render: (value: OvertimePayBucket["sourceStatus"]) => <Tag className={value === "LOCKED" ? "status-locked" : undefined} icon={value === "LOCKED" ? <LockOutlined /> : undefined}>{value === "LOCKED" ? "Đã khóa" : "Nháp"}</Tag> },
   ];
   return <section aria-label="Giờ OT theo hệ số">
     <Paragraph type="secondary">Giờ OT đủ điều kiện (giao giữa thực tế và khoảng đã duyệt) được nhóm theo loại ngày, ban đêm và cờ “đã có OT ban ngày”. Hệ số luôn tính từ tham số pháp lý hiệu lực tại ngày công. Kỳ chưa khóa chỉ là số liệu nháp, không dùng cho bảng lương chính thức.</Paragraph>
@@ -49,8 +50,8 @@ export function OvertimePayPanel() {
         <Alert className="overtime-feedback" type={buckets.data.sourceStatus === "LOCKED" ? "success" : "info"} showIcon
           message={buckets.data.sourceStatus === "LOCKED" ? "Đọc từ snapshot khóa kỳ công — dùng được cho tính lương chính thức." : "Kỳ công chưa khóa — số liệu nháp, bảng lương chính thức sẽ không chấp nhận."} />
         {buckets.data.errors.map(error => <Alert key={error.employeeId + error.workDate} className="overtime-feedback" type="error" showIcon message={`${error.workDate}: ${error.message}`} />)}
-        <Table className="workspace-table" rowKey={row => [row.employeeId, row.orgUnitId, row.workDate, row.kind, row.dayType, row.isNight, row.hasDayOt].join(":")} dataSource={buckets.data.items} columns={columns} scroll={{ x: 950 }}
-          expandable={{ expandedRowRender: row => <RateBreakdown bucket={row} /> }} pagination={{ pageSize: 20, showSizeChanger: false }} locale={{ emptyText: <Empty description="Kỳ công chưa có giờ OT hay giờ đêm đủ điều kiện" /> }} />
+        <section className="workspace-table" role="region" tabIndex={0} aria-label="Bảng giờ OT theo hệ số; dùng phím mũi tên để cuộn"><Table rowKey={row => [row.employeeId, row.orgUnitId, row.workDate, row.kind, row.dayType, row.isNight, row.hasDayOt].join(":")} dataSource={buckets.data.items} columns={columns} scroll={{ x: 950 }}
+          expandable={{ expandedRowRender: row => <RateBreakdown bucket={row} /> }} pagination={{ pageSize: 20, showSizeChanger: false }} locale={{ emptyText: <Empty description="Kỳ công chưa có giờ OT hay giờ đêm đủ điều kiện" /> }} /></section>
       </>}
   </section>;
 }

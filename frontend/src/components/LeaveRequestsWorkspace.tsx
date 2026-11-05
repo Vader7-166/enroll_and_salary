@@ -78,17 +78,19 @@ export function LeaveRequestsWorkspace({canPlan}:{canPlan:boolean}) {
  const item=detail.data?.item;
  return <>
    <div className="leave-heading"><div><Title level={2}>Đơn nghỉ</Title><Paragraph type="secondary">Tổ trưởng ghi nhận và duyệt một cấp trong phạm vi được cấp. Duyệt/hủy cập nhật quỹ phép và công; ngày lễ không trừ phép năm.</Paragraph></div><Space wrap><Button onClick={()=>void refresh()}>Tải lại</Button>{canPlan&&<Button type="primary" onClick={()=>setEditing(null)}>Lập đơn nghỉ</Button>}</Space></div>
-  <Space wrap className="leave-filters"><Input.Search aria-label="Tìm đơn nghỉ" placeholder="Mã hoặc tên nhân sự" onSearch={v=>{setSearch(v.trim());setPage(1);}} allowClear /><Select aria-label="Trạng thái đơn nghỉ" virtual={false} getPopupContainer={trigger=>trigger.parentElement!} value={status} onChange={v=>{setStatus(v);setPage(1);}} options={[{value:"",label:"Tất cả trạng thái"},...Object.entries(statusLabels).map(([value,label])=>({value,label}))]} /></Space>
+  <section className="leave-filters" aria-label="Bộ lọc đơn nghỉ"><Input.Search aria-label="Tìm đơn nghỉ" placeholder="Mã hoặc tên nhân sự" onSearch={v=>{setSearch(v.trim());setPage(1);}} allowClear /><Select aria-label="Trạng thái đơn nghỉ" virtual={false} getPopupContainer={trigger=>trigger.parentElement!} value={status} onChange={v=>{setStatus(v);setPage(1);}} options={[{value:"",label:"Tất cả trạng thái"},...Object.entries(statusLabels).map(([value,label])=>({value,label}))]} /></section>
   {list.isError&&<Alert type="error" message="Không tải được đơn nghỉ" description={errorMessage(list.error)} showIcon />}
-  <Table rowKey="id" loading={list.isLoading} dataSource={list.data?.items??[]} pagination={false} scroll={{x:960}} components={{body:{wrapper:TableBody}}} locale={{emptyText:<Empty description="Chưa có đơn nghỉ trong phạm vi" />}} columns={[
-   {title:"Nhân sự",render:(_,r:LeaveRequestView)=><><Text strong>{r.preview.employee.fullName}</Text><small className="table-subtext">{r.preview.employee.code}</small></>},
-   {title:"Loại nghỉ",render:(_,r:LeaveRequestView)=>r.preview.leaveType.name},
-   {title:"Thời gian",render:(_,r:LeaveRequestView)=>r.dateFrom+(r.dateTo!==r.dateFrom?" → "+r.dateTo:"")},
-   {title:"Đơn vị",render:(_,r:LeaveRequestView)=>unitLabels[r.unit]},
-   {title:"Thời lượng",render:(_,r:LeaveRequestView)=>r.preview.totalDays+" ngày / "+r.preview.totalMinutes+" phút"},
-   {title:"Trạng thái",render:(_,r:LeaveRequestView)=><Tag color={statusColors[r.status]}>{statusLabels[r.status]}</Tag>},
-   {title:"Thao tác",render:(_,r:LeaveRequestView)=><Button onClick={()=>{setSelected(r.id);submit.reset();}}>Chi tiết</Button>}
-  ]} />
+  <div className="table-panel" role="region" tabIndex={0} aria-label="Danh sách đơn nghỉ">
+   <Table rowKey="id" loading={list.isLoading} dataSource={list.data?.items??[]} pagination={false} scroll={{x:960}} components={{body:{wrapper:TableBody}}} locale={{emptyText:<Empty description="Chưa có đơn nghỉ trong phạm vi" />}} columns={[
+    {title:"Nhân sự",render:(_,r:LeaveRequestView)=><><Text strong>{r.preview.employee.fullName}</Text><small className="table-subtext">{r.preview.employee.code}</small></>},
+    {title:"Loại nghỉ",render:(_,r:LeaveRequestView)=>r.preview.leaveType.name},
+    {title:"Thời gian",render:(_,r:LeaveRequestView)=>r.dateFrom+(r.dateTo!==r.dateFrom?" → "+r.dateTo:"")},
+    {title:"Đơn vị",render:(_,r:LeaveRequestView)=>unitLabels[r.unit]},
+    {title:"Thời lượng",render:(_,r:LeaveRequestView)=>r.preview.totalDays+" ngày / "+r.preview.totalMinutes+" phút"},
+    {title:"Trạng thái",render:(_,r:LeaveRequestView)=><Tag color={statusColors[r.status]}>{statusLabels[r.status]}</Tag>},
+    {title:"Thao tác",render:(_,r:LeaveRequestView)=><Button onClick={()=>{setSelected(r.id);submit.reset();}}>Chi tiết</Button>}
+   ]} />
+  </div>
   <Pagination current={page} total={list.data?.total??0} pageSize={20} showSizeChanger={false} onChange={setPage} />
   <Drawer open={Boolean(selected)} title="Chi tiết đơn nghỉ" width={880} onClose={()=>setSelected(null)} className="leave-drawer" destroyOnHidden>
    {detail.isLoading?<Spin tip="Đang tải đơn nghỉ…" />:detail.isError?<Alert type="error" message="Không tải được đơn nghỉ" description={errorMessage(detail.error)} />:item&&<>

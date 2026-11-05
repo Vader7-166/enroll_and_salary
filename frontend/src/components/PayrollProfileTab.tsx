@@ -93,28 +93,28 @@ export function PayrollProfileTab({ employeeId, canManage }: { employeeId: strin
       { key: "status", label: "Nguồn", children: <>{dataStatusTag(identity.dataStatus)} phiên bản {identity.revision}</> },
     ]} /> : <Empty description="Chưa có định danh — engine BH/thuế/chi lương sẽ báo thiếu hồ sơ" />}
     {section("Tài khoản nhận lương", "bank")}
-    <Table size="small" rowKey="id" pagination={false} dataSource={data.bankAccounts} scroll={{ x: 640 }} locale={{ emptyText: "Chưa có tài khoản" }} columns={[
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Tài khoản nhận lương; dùng phím mũi tên để cuộn"><Table     size="small" rowKey="id" pagination={false} dataSource={data.bankAccounts} scroll={{ x: 640 }} locale={{ emptyText: "Chưa có tài khoản" }} columns={[
       { title: "Ngân hàng", dataIndex: "bankName" }, { title: "Số tài khoản", dataIndex: "accountNumber", render: value => <Text code>{value}</Text> },
       { title: "Chủ tài khoản", dataIndex: "accountHolder" }, { title: "Hiệu lực", render: (_, row) => range(row.effectiveFrom, row.effectiveTo) }, { title: "Nguồn", dataIndex: "dataStatus", render: dataStatusTag },
-    ]} />
+    ]} /></section>
     {section("Người phụ thuộc", "dependent")}
-    <Table size="small" rowKey="dependentKey" pagination={false} dataSource={data.dependents} scroll={{ x: 720 }} locale={{ emptyText: "Chưa có người phụ thuộc" }}
-      expandable={{ expandedRowRender: row => <Table size="small" rowKey="version" pagination={false} dataSource={row.history} columns={[{ title: "Phiên bản", dataIndex: "version" }, { title: "Giảm trừ", render: (_, item) => range(item.deductionFromMonth, item.deductionToMonth) }, { title: "Lý do", dataIndex: "reason" }]} /> }}
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách người phụ thuộc; dùng phím mũi tên để cuộn"><Table     size="small" rowKey="dependentKey" pagination={false} dataSource={data.dependents} scroll={{ x: 720 }} locale={{ emptyText: "Chưa có người phụ thuộc" }}
+      expandable={{ expandedRowRender: row => <section className="workspace-table" role="region" tabIndex={0} aria-label="Lịch sử người phụ thuộc"><Table     size="small" rowKey="version" pagination={false} dataSource={row.history} scroll={{ x: 520 }} columns={[{ title: "Phiên bản", dataIndex: "version" }, { title: "Giảm trừ", render: (_, item) => range(item.deductionFromMonth, item.deductionToMonth) }, { title: "Lý do", dataIndex: "reason" }]} /></section> }}
       columns={[
         { title: "Họ tên", dataIndex: "fullName" }, { title: "Quan hệ", dataIndex: "relationship" }, { title: "Giảm trừ", render: (_, row) => range(row.deductionFromMonth, row.deductionToMonth) },
         { title: "Chứng từ", dataIndex: "evidenceReference" }, { title: "Bản", dataIndex: "version", width: 60 },
         ...(canManage ? [{ title: "", width: 90, render: (_: unknown, row: PayrollProfile["dependents"][number]) => <Button size="small" onClick={() => setEditor({ kind: "dependent", dependent: row })}>Sửa</Button> }] : []),
-      ]} />
+      ]} /></section>
     {section("Hồ sơ thuế (cư trú)", "tax")}
-    <Table size="small" rowKey="id" pagination={false} dataSource={data.taxProfiles} scroll={{ x: 640 }} locale={{ emptyText: "Chưa có hồ sơ thuế" }} columns={[
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Hồ sơ thuế; dùng phím mũi tên để cuộn"><Table     size="small" rowKey="id" pagination={false} dataSource={data.taxProfiles} scroll={{ x: 640 }} locale={{ emptyText: "Chưa có hồ sơ thuế" }} columns={[
       { title: "Cư trú", dataIndex: "residency", render: value => value === "RESIDENT" ? "Cư trú" : "Không cư trú" }, { title: "Hiệu lực", render: (_, row) => range(row.effectiveFrom, row.effectiveTo) },
       { title: "Cam kết 08/CK-TNCN", render: (_, row) => row.commitmentReference ? `${row.commitmentReference} (${row.commitmentTemplateVersion})` : "—" }, { title: "Ủy quyền QT", dataIndex: "finalizationAuthorized", render: value => value ? "Có" : "Không" }, { title: "Nguồn", dataIndex: "dataStatus", render: dataStatusTag },
-    ]} />
+    ]} /></section>
     {section("Diện đặc thù", "special")}
-    <Table size="small" rowKey="id" pagination={false} dataSource={data.specialStatuses} scroll={{ x: 640 }} locale={{ emptyText: "Không có diện đặc thù" }} columns={[
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Diện đặc thù; dùng phím mũi tên để cuộn"><Table     size="small" rowKey="id" pagination={false} dataSource={data.specialStatuses} scroll={{ x: 640 }} locale={{ emptyText: "Không có diện đặc thù" }} columns={[
       { title: "Diện", dataIndex: "statusType", render: (value: SpecialStatusType) => STATUS_LABEL[value] }, { title: "Hiệu lực", render: (_, row) => range(row.effectiveFrom, row.effectiveTo) },
       { title: "Căn cứ", dataIndex: "reference" }, { title: "Giấy phép", render: (_, row) => row.workPermitNumber ? `${row.workPermitNumber} (đến ${row.permitExpiry})` : "—" },
-    ]} />
+    ]} /></section>
     {editor && <EditorModal employeeId={employeeId} editor={editor} profile={data} onClose={() => setEditor(null)} />}
   </div>;
 }

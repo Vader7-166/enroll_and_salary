@@ -11,6 +11,7 @@ import {
   Alert,
   Button,
   Descriptions,
+  Drawer,
   Empty,
   Form,
   Input,
@@ -121,15 +122,14 @@ export function EmployeeProfileDrawer({ employee, user, onClose }: { employee: E
       ]
     : [];
   return (
-    <Modal
+    <Drawer
       title="Hồ sơ nhân sự"
       open={Boolean(employee)}
-      onCancel={onClose}
-      footer={null}
+      onClose={onClose}
       width={920}
       destroyOnHidden
-      afterClose={() => setActiveTab("profile")}
-      className="employee-profile-modal"
+      afterOpenChange={(visible) => { if (!visible) setActiveTab("profile"); }}
+      className="employee-profile-drawer"
     >
       {detail.isLoading ? <div className="content-loading"><Spin /></div> : detail.isError ? <ApiProblem title="Không tải được hồ sơ" error={detail.error} /> : person ? (
         <div className="drawer-detail">
@@ -141,7 +141,7 @@ export function EmployeeProfileDrawer({ employee, user, onClose }: { employee: E
           <Tabs activeKey={activeTab} onChange={setActiveTab} items={items} />
         </div>
       ) : <Empty description="Không tìm thấy hồ sơ trong phạm vi hiện tại" />}
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -335,7 +335,7 @@ export function PeriodsPage({ user }: { user: AuthUser }) {
   const preview = useQuery({ queryKey: ["period-preview", previewArgs], queryFn: () => periodApi.preview(previewArgs!.scopeOrgUnitId, previewArgs!.month), enabled: Boolean(previewArgs) });
   const openPeriod = useMutation({ mutationFn: ({ id, revision }: AttendancePeriod) => periodApi.open(id, revision), onSuccess: () => void client.invalidateQueries({ queryKey: ["attendance-periods"] }) });
   return <div className="content-stack"><div className="page-heading"><div><p className="eyebrow">CHẤM CÔNG / KỲ HIỆU LỰC</p><Title level={1}>Kỳ công</Title><Paragraph type="secondary">Danh sách kỳ công trong phạm vi được cấp. Kỳ mới dùng chính sách chốt công hiệu lực tại ngày đầu tháng.</Paragraph></div>{canManage && <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo kỳ công</Button>}</div>{canManage && <PeriodPreview onPreview={setPreviewArgs} data={preview.data} loading={preview.isFetching} error={preview.error} isError={preview.isError} />}
-    <section className="panel table-panel">{periods.isError ? <ApiProblem title="Không tải được danh sách kỳ công" error={periods.error} /> : <Table<AttendancePeriod> components={{ body: { wrapper: PeriodTableBody } }} rowKey="id" loading={periods.isLoading} dataSource={periods.data?.items ?? []} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <Empty description="Chưa có kỳ công" /> }} columns={[
+    <section className="panel table-panel" role="region" tabIndex={0} aria-label="Bảng dữ liệu, dùng phím mũi tên hoặc Home/End để cuộn ngang">{periods.isError ? <ApiProblem title="Không tải được danh sách kỳ công" error={periods.error} /> : <Table<AttendancePeriod> components={{ body: { wrapper: PeriodTableBody } }} rowKey="id" loading={periods.isLoading} dataSource={periods.data?.items ?? []} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <Empty description="Chưa có kỳ công" /> }} columns={[
       { title: "Mã kỳ", dataIndex: "code", width: 150 },
       { title: "Phạm vi", dataIndex: "scopeOrgUnitName" },
       { title: "Khoảng công", key: "dates", render: (_, item) => item.dateFrom + " — " + item.dateTo },

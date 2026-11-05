@@ -35,17 +35,19 @@ export function SiBenefitsPanel({ canManage }: { canManage: boolean }) {
   const pay = useMutation({ mutationFn: (values: { amount: string; paidDate: string; reference: string }) => siBenefitApi.pay(paying!, values), onSuccess: () => { setPaying(null); payForm.resetFields(); refresh(); } });
   return <div className="tab-stack">
     <Paragraph type="secondary">Chế độ do quỹ BHXH chi trả: ngày nghỉ không tính lương công ty. Mức hưởng là <b>dự tính</b> theo tham số và lương đóng BHXH đã khóa; hệ thống không lập hồ sơ gửi cơ quan BHXH.</Paragraph>
-    <Space wrap><label>Năm <InputNumber min={2020} max={2100} value={year} onChange={value => value && setYear(value)} /></label>{canManage && <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Nhập hồ sơ</Button>}</Space>
+    <div className="context-strip" aria-label="Bộ lọc hồ sơ bảo hiểm"><Space wrap><label>Năm <InputNumber min={2020} max={2100} value={year} onChange={value => value && setYear(value)} /></label>{canManage && <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Nhập hồ sơ</Button>}</Space></div>
     {list.isError && <Alert type="error" showIcon message="Không tải được hồ sơ" description={errorMessage(list.error)} />}
-    <Table<SiBenefitRecord> rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 1150 }} locale={{ emptyText: <Empty description="Chưa có hồ sơ" /> }} columns={[
-      { title: "Nhân sự", render: (_, row) => <>{row.employee.fullName}<small className="table-subtext">{row.employee.code}</small></> },
-      { title: "Chế độ", width: 120, dataIndex: "benefitLabel" },
-      { title: "Chứng từ", render: (_, row) => <>{row.documentNumber}<small className="table-subtext">{row.facility} · <Button type="link" size="small" onClick={() => void siBenefitApi.evidence(row).then(blob => { const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = row.evidence.fileName; link.click(); URL.revokeObjectURL(link.href); })}>{row.evidence.fileName}</Button></small></> },
-      { title: "Khoảng ngày", width: 200, render: (_, row) => row.dateFrom + " → " + row.dateTo },
-      { title: "Ngày hưởng", width: 100, align: "right", render: (_, row) => row.estimate.days },
-      { title: "Dự tính", width: 200, render: (_, row) => <><Tag color={STATUS[row.estimateStatus][1]}>{STATUS[row.estimateStatus][0]}</Tag>{row.estimate.amount ? vnd(row.estimate.amount) : <small className="table-subtext">{row.estimate.reason}</small>}</> },
-      { title: "Thực chi / chênh lệch", width: 200, render: (_, row) => row.paidAmount ? <>{vnd(row.paidAmount)}<small className="table-subtext">Chênh lệch {vnd(row.difference)}</small></> : canManage ? <Button size="small" onClick={() => setPaying(row)}>Ghi thực chi</Button> : "—" },
-    ]} />
+    <div className="table-panel" role="region" tabIndex={0} aria-label="Danh sách hồ sơ bảo hiểm xã hội">
+      <Table<SiBenefitRecord> rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 1150 }} locale={{ emptyText: <Empty description="Chưa có hồ sơ" /> }} columns={[
+        { title: "Nhân sự", render: (_, row) => <>{row.employee.fullName}<small className="table-subtext">{row.employee.code}</small></> },
+        { title: "Chế độ", width: 120, dataIndex: "benefitLabel" },
+        { title: "Chứng từ", render: (_, row) => <>{row.documentNumber}<small className="table-subtext">{row.facility} · <Button type="link" size="small" onClick={() => void siBenefitApi.evidence(row).then(blob => { const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = row.evidence.fileName; link.click(); URL.revokeObjectURL(link.href); })}>{row.evidence.fileName}</Button></small></> },
+        { title: "Khoảng ngày", width: 200, render: (_, row) => row.dateFrom + " → " + row.dateTo },
+        { title: "Ngày hưởng", width: 100, align: "right", render: (_, row) => row.estimate.days },
+        { title: "Dự tính", width: 200, render: (_, row) => <><Tag color={STATUS[row.estimateStatus][1]}>{STATUS[row.estimateStatus][0]}</Tag>{row.estimate.amount ? vnd(row.estimate.amount) : <small className="table-subtext">{row.estimate.reason}</small>}</> },
+        { title: "Thực chi / chênh lệch", width: 200, render: (_, row) => row.paidAmount ? <>{vnd(row.paidAmount)}<small className="table-subtext">Chênh lệch {vnd(row.difference)}</small></> : canManage ? <Button size="small" onClick={() => setPaying(row)}>Ghi thực chi</Button> : "—" },
+      ]} />
+    </div>
     <Modal title="Nhập hồ sơ ốm đau/thai sản" open={open} onCancel={() => setOpen(false)} footer={null} destroyOnHidden width={620}>
       <Form form={form} layout="vertical" requiredMark="optional" onFinish={values => create.mutate(values)}>
         <Form.Item name="employeeId" label="Nhân sự" rules={[{ required: true }]}><Select showSearch filterOption={false} onSearch={setSearch} options={employees.data?.items.map(item => ({ value: item.id, label: item.code + " — " + item.fullName }))} /></Form.Item>
@@ -87,18 +89,18 @@ export function AbsenceRatePanel() {
   const cell = (orgUnitId: string, workDate: string) => data?.cells.find(row => row.orgUnitId === orgUnitId && row.workDate === workDate);
   return <div className="tab-stack">
     <Paragraph type="secondary">Tỷ lệ vắng = ngày vắng (đơn nghỉ đã duyệt, không gồm ngày lễ, cộng vắng không có đơn) ÷ ca kế hoạch theo lịch đã duyệt. Chỉ xem; quyết định đơn nghỉ thuộc tổ trưởng.</Paragraph>
-    <Space wrap>
+    <div className="context-strip" aria-label="Bộ lọc tỷ lệ vắng"><Space wrap>
       <Select style={{ minWidth: 260 }} placeholder="Chọn phân xưởng/tổ" value={query.workshopOrgUnitId} onChange={value => setQuery({ ...query, workshopOrgUnitId: value })} showSearch optionFilterProp="label" options={(context.data?.units ?? []).filter(unit => unit.type === "DEPARTMENT" || unit.type === "TEAM").map(unit => ({ value: unit.id, label: unit.pathLabel }))} />
       <Input type="date" value={query.dateFrom} onChange={event => setQuery({ ...query, dateFrom: event.target.value })} /><Input type="date" value={query.dateTo} onChange={event => setQuery({ ...query, dateTo: event.target.value })} />
-    </Space>
+    </Space></div>
     {rate.isError && <Alert type="error" showIcon message="Không tải được tỷ lệ vắng" description={errorMessage(rate.error)} />}
     {data && <>
       <Alert type={data.total.warning ? "warning" : "info"} showIcon message={"Toàn " + data.workshop.name + ": " + percent(data.total.rate) + " (" + data.total.absent + "/" + data.total.planned + " ca) — ngưỡng cảnh báo " + percent(data.threshold)} />
-      <Table rowKey="orgUnitId" size="small" pagination={false} scroll={{ x: 300 + days.length * 80 }} dataSource={data.byTeam} locale={{ emptyText: <Empty description="Không có lịch đã duyệt trong khoảng ngày" /> }} columns={[
+      <div className="table-panel" role="region" tabIndex={0} aria-label="Tỷ lệ vắng theo tổ và ngày"><Table rowKey="orgUnitId" size="small" pagination={false} scroll={{ x: 300 + days.length * 80 }} dataSource={data.byTeam} locale={{ emptyText: <Empty description="Không có lịch đã duyệt trong khoảng ngày" /> }} columns={[
         { title: "Tổ", fixed: "left" as const, width: 180, render: (_, row) => <>{row.name}<small className="table-subtext">{percent(row.rate)} · {row.absent}/{row.planned}</small></> },
         ...days.map(workDate => ({ title: workDate.slice(5), key: workDate, width: 80, align: "center" as const, render: (_: unknown, row: AbsenceRate["byTeam"][number]) => { const value = cell(row.orgUnitId, workDate); return value ? <Tag color={value.warning ? "red" : "default"}>{percent(value.rate)}</Tag> : "—"; } })),
-      ]} />
-      <Table rowKey="code" size="small" pagination={false} dataSource={data.byType} columns={[{ title: "Loại vắng", dataIndex: "name" }, { title: "Số ngày", dataIndex: "days", align: "right" }]} />
+      ]} /></div>
+      <div className="table-panel" role="region" tabIndex={0} aria-label="Tổng hợp tỷ lệ vắng theo loại"><Table rowKey="code" size="small" pagination={false} dataSource={data.byType} columns={[{ title: "Loại vắng", dataIndex: "name" }, { title: "Số ngày", dataIndex: "days", align: "right" }]} /></div>
     </>}
   </div>;
 }
