@@ -21,7 +21,7 @@ function Preview() {
   const data = preview.data;
   return <div className="tab-stack">
     <Title level={4}>Chạy thử khấu trừ</Title>
-    <Form layout="inline" initialValues={{ subject: "RESIDENT_PROGRESSIVE", paymentDate: today, salary: 30000000, insurance: 3150000, dependents: 0 }} onFinish={values => preview.mutate(values)}>
+    <Form layout="vertical" className="workspace-filters" initialValues={{ subject: "RESIDENT_PROGRESSIVE", paymentDate: today, salary: 30000000, insurance: 3150000, dependents: 0 }} onFinish={values => preview.mutate(values)}>
       <Form.Item name="subject" label="Đối tượng"><Select style={{ width: 210 }} options={Object.entries(SUBJECT).map(([value, label]) => ({ value, label }))} /></Form.Item>
       <Form.Item name="paymentDate" label="Ngày chi"><Input type="date" /></Form.Item>
       <Form.Item name="salary" label="Lương"><InputNumber min={0} step={100000} /></Form.Item>
@@ -42,7 +42,7 @@ function Preview() {
       ...(data.exemptions.exceptions.length ? [{ key: "exc", label: "Ngoại lệ", children: data.exemptions.exceptions.map(item => <Tag key={item.sourceRef} color="error">{item.code}</Tag>) }] : []),
     ]} />}
     <Title level={4}>Gross-up NET → GROSS</Title>
-    <Form layout="inline" initialValues={{ net: 20000000, paymentDate: today, dependents: 0 }} onFinish={values => gross.mutate(values)}>
+    <Form layout="vertical" className="workspace-filters" initialValues={{ net: 20000000, paymentDate: today, dependents: 0 }} onFinish={values => gross.mutate(values)}>
       <Form.Item name="net" label="NET"><InputNumber min={1} step={100000} /></Form.Item>
       <Form.Item name="paymentDate" label="Ngày chi"><Input type="date" /></Form.Item>
       <Form.Item name="dependents" label="NPT"><InputNumber min={0} max={20} /></Form.Item>
@@ -58,16 +58,16 @@ export function PitRulesetsPanel() {
   return <div className="tab-stack">
     <Title level={4}>Bộ quy tắc thuế TNCN theo hiệu lực (ngày chi trả)</Title>
     {rulesets.isError && <Alert type="error" showIcon message="Không tải được bộ quy tắc" description={errorMessage(rulesets.error)} />}
-    <Table<TaxRuleset> size="small" rowKey="id" loading={rulesets.isLoading} dataSource={rulesets.data?.items ?? []} pagination={false} scroll={{ x: 820 }}
-      expandable={{ rowExpandable: row => row.brackets.length > 0, expandedRowRender: row => <Table size="small" rowKey={b => b.basis + b.bracketNo} pagination={false} dataSource={row.brackets.filter(b => b.basis === "MONTH")} columns={[
-        { title: "Bậc", dataIndex: "bracketNo" }, { title: "Từ", dataIndex: "lower", render: money }, { title: "Đến", dataIndex: "upper", render: value => value ? money(value) : "Trở lên" }, { title: "Thuế suất", dataIndex: "rate", render: value => Number(value) * 100 + "%" },
-      ]} /> }}
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Bộ quy tắc thuế TNCN; dùng phím mũi tên để cuộn"><Table<TaxRuleset>     size="small" rowKey="id" loading={rulesets.isLoading} dataSource={rulesets.data?.items ?? []} pagination={false} scroll={{ x: 820 }}
+      expandable={{ rowExpandable: row => row.brackets.length > 0, expandedRowRender: row => <section className="workspace-table" role="region" tabIndex={0} aria-label="Bậc thuế theo tháng"><Table     size="small" rowKey={b => b.basis + b.bracketNo} pagination={false} dataSource={row.brackets.filter(b => b.basis === "MONTH")} scroll={{ x: 540 }} columns={[
+        { title: "Bậc", dataIndex: "bracketNo" }, { title: "Từ", dataIndex: "lower", align: "right", render: money }, { title: "Đến", dataIndex: "upper", align: "right", render: value => value ? money(value) : "Trở lên" }, { title: "Thuế suất", dataIndex: "rate", align: "right", render: value => Number(value) * 100 + "%" },
+      ]} /></section> }}
       columns={[
         { title: "Mã", dataIndex: "code" }, { title: "Đối tượng", dataIndex: "subject", render: (value: TaxRuleset["subject"]) => SUBJECT[value] },
         { title: "Hiệu lực", render: (_, row) => `${row.effectiveFrom} → ${row.effectiveTo ?? "nay"}` }, { title: "Chế độ miễn", dataIndex: "exemptionMode", render: (value: TaxRuleset["exemptionMode"]) => MODE[value] },
         { title: "Thông số", render: (_, row) => <Space wrap>{row.settings.selfDeduction && <Tag>Bản thân {money(String(row.settings.selfDeduction))}</Tag>}{row.settings.dependentDeduction && <Tag>NPT {money(String(row.settings.dependentDeduction))}</Tag>}{row.settings.rate && <Tag>{Number(row.settings.rate) * 100}%</Tag>}{row.settings.threshold && <Tag>Ngưỡng {money(String(row.settings.threshold))}</Tag>}</Space> },
         { title: "Căn cứ", dataIndex: "legalBasis", ellipsis: true },
-      ]} />
+      ]} /></section>
     <Preview />
   </div>;
 }

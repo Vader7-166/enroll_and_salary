@@ -1,8 +1,8 @@
 # 22. UI design guide — HRTP
 
-Mã **HRTP-UI-01**, dùng nền dữ liệu sáng, nhận diện **Navy + Indigo + Teal** và màu nhấn
-theo nhóm nghiệp vụ; **Bento grid chỉ ở dashboard**. Token bên dưới được quản lý
-tập trung để triển khai nhất quán. Đã có đăng nhập, nhân sự, hợp đồng/
+Mã **HRTP-UI-01**, dùng phong cách **Teal Enterprise** và bộ **Ant Design Outlined**
+đã chốt: sidebar xanh đen, hành động teal, nền pastel theo phân hệ và bảng dữ liệu trắng.
+Token được quản lý tập trung; React + Ant Design giữ nguyên kết nối và nghiệp vụ. Đã có đăng nhập, nhân sự, hợp đồng/
 phụ lục và lịch sử điều chuyển; tham số/chính sách hiệu lực, tạo/mở kỳ công; danh mục ca,
 phân ca theo tổ/người/ngày, TT gửi và QĐ duyệt/trả lại, lịch chính thức và snapshot; tổ chức,
 tài khoản/thu hồi phiên và health nối API thật; nhập tệp/ghép quẹt, bảng công/ngoại lệ và truy vết nguồn; đăng ký/gửi/duyệt/trả lại/từ chối OT, hạn mức và snapshot; đối chiếu OT thực tế/đủ điều kiện và bằng chứng quẹt. Chưa tính tiền OT hoặc nghiệm thu toàn bộ UI/R1.
@@ -36,9 +36,28 @@ thích trình duyệt trên máy tính bảng tại xưởng. Các từ desktop/
 breakpoint chỉ kích thước viewport, không phải các ứng dụng riêng. Không thiết kế
 native app, hybrid app, màn hình cài PWA hoặc chế độ offline trong phạm vi này.
 
-- Nền xám xanh nhẹ, nội dung trắng, sidebar navy và indigo cho hành động chính.
-  Teal/tím/cyan/slate phân biệt nhóm nghiệp vụ bằng icon và điểm nhấn nhỏ, không tô
-  cả bảng dữ liệu. Không dùng blur, kính trong suốt hoặc hiệu ứng nổi/chìm trên dữ liệu.
+- Giữ teal cho hành động chính; dùng mint, sky, vàng cát, hồng phấn và lavender
+  cho tiêu đề, bộ lọc, tab và ngữ cảnh từng nhóm. Canvas cùng họ màu nhưng nhạt hơn.
+  Bảng và ô nhập vẫn trắng; màu nền nhóm không biểu thị trạng thái nghiệp vụ.
+- Sidebar và tiêu đề dùng sóng, mây và mặt trời vector tĩnh từ `HorizonArt`,
+  màu từ token, `aria-hidden` và `pointer-events: none`; không đi vào bảng/form,
+  không tạo tab stop.
+- Riêng tiêu đề chính Chấm công và Bảng lương dùng `BusinessIllustration` thay
+  `HorizonArt`, không chồng hai lớp hình: lịch/đồng hồ/thẻ nhân viên (sky–mint) và
+  phiếu lương/máy tính/ký hiệu ₫ (vàng cát–mint). SVG tĩnh dùng token hiện có,
+  `aria-hidden`, không focus/nhận pointer và không tải tài nguyên ngoài.
+  Hình nằm trong khoảng trống bên phải, không tăng chiều cao tiêu đề. Dưới 1200px
+  ẩn hình tiêu đề và hình nhỏ ở nhãn chỉ số; số liệu giữ nguyên diện tích.
+  Chỉ tái sử dụng hình ở empty đã có kết quả API hoặc nhãn “Công ghi nhận”/
+  “Thực lĩnh”, không làm watermark sau số tiền, bảng hay ô nhập.
+- Riêng trang đăng nhập dùng `frontend/public/login-background.webp`, minh họa
+  tĩnh theo ảnh mẫu người dùng: lịch/đồng hồ bên trái, bảng lương/biểu đồ bên phải,
+  trời xanh nhạt và sóng mint. Ảnh nền đã loại bỏ form và thông tin đăng nhập trong
+  mẫu; form thật cùng luồng xác thực không đổi. `.login-page-illustrated` căn giữa,
+  phủ viewport bằng `cover`; màn hẹp cắt bớt hai bên để ưu tiên form, không cuộn ngang.
+  Màn bắt buộc đổi mật khẩu không dùng minh họa này.
+  Trên màn hình hẹp chỉ giữ nét sóng/mây nhẹ ở tiêu đề, tránh mảng màu cắt ngang chữ.
+  Không gradient, blur/glassmorphism, phát sáng, parallax hoặc animation liên tục.
 - Trang nghiệp vụ dành phần lớn diện tích cho bảng và thao tác. Bento phục vụ tổng
   quan; không chuyển từng dòng nhân viên/lương thành card riêng ở desktop.
 - Một tiêu đề trang và một hành động chính tại mỗi vùng làm việc. Không lặp cùng bộ
@@ -51,48 +70,83 @@ native app, hybrid app, màn hình cài PWA hoặc chế độ offline trong ph�
 | Nhóm | Quy định |
 |---|---|
 | Font | Be Vietnam Pro, fallback Segoe UI/sans-serif; khi triển khai tự lưu font có giấy phép phù hợp, không phụ thuộc tải mạng ngoài |
-| Cỡ chữ | Tiêu đề trang 24px; nhóm 18px; nội dung/bảng 14px; chú thích 12px, không dùng cỡ nhỏ cho thông tin quan trọng |
+| Cỡ chữ | Tiêu đề trang 28px; nhóm 18px; nội dung/bảng 14px; chú thích 12px. Không thu nhỏ chữ theo ảnh tham chiếu để nhét thêm dữ liệu |
 | Độ đậm | Nội dung 400; nhãn 500; tiêu đề/tổng số 600; line-height nội dung khoảng 1,5 |
 | Tiền và số | Căn phải, chữ số có độ rộng đồng nhất bằng `font-variant-numeric: tabular-nums`; ID vẫn là chuỗi, không định dạng thành số tiền |
 | Khoảng cách | Theo thang 4/8/12/16/24/32/48px trong JSON |
-| Bo góc | Điều khiển và bề mặt chuẩn 8px; badge dạng pill; không dùng bo góc lớn cho tất cả các khối |
+| Bo góc | Điều khiển 8px; bề mặt 12px; avatar 10px. Không dùng bo góc lớn cho mọi khối |
 | Bề mặt | Viền phân chia nhẹ; bóng chỉ cần cho phần nổi như menu/modal/drawer |
 | Màu | Token JSON quản lý màu primary/text/nền/trạng thái và `modules`; không thêm mã màu riêng vào component |
 
-Nền bề mặt trắng `#FFFFFF`, canvas `#F4F7FC`, chữ `#0F172A`, chữ phụ `#475569`.
-Nhận diện navy `#172554`; primary `#4F46E5`, hover `#4338CA`, active `#3730A3`.
-Link dùng `#4338CA`; màu thông tin vẫn xanh dương `#1D4ED8`, không đồng nhất với primary.
-Viền phân cách dùng `#E2E8F0`; viền điều khiển dùng `#8191A7` (đậm hơn `#94A3B8`
-để đạt tương phản tối thiểu 3:1 trên nền trắng), focus dùng indigo. Không dùng divider
-nhạt làm chỉ dấu duy nhất của ô nhập.
+Nền bề mặt trắng `#FFFFFF`, canvas `#F3F8F8`, chữ `#172B35`, chữ phụ `#596B73`.
+Sidebar xanh đen `#081D2B`; primary teal `#007F78`, hover `#00665F`, active `#00544E`.
+Link dùng `#00665F`; thông tin vẫn xanh dương `#315A9C`, không đồng nhất với primary.
+Mint `#E0F2EE` và mint đậm `#B8DED6` tạo điểm nhấn; bề mặt trung tính `#EDF2F4`.
+Viền phân cách `#DCE7E7`; viền điều khiển `#7C9298`, focus teal. Không dùng divider
+nhạt làm chỉ dấu duy nhất của ô nhập. Palette, cỡ icon và các cặp tương phản nằm trong JSON.
 
 | Thành phần / nhóm | Màu chữ hoặc nhấn | Nền |
 |---|---|---|
-| Sidebar | `#E2E8F0` | `#172554` |
-| Menu được chọn | `#FFFFFF` | `#3730A3`, có chỉ dấu cạnh trái và chữ đậm |
-| Nút phụ có nhấn (`action-secondary`) | `#3730A3` | `#EEF2FF`; hủy/quay lại vẫn trung tính |
-| Header bảng | `#334155` | `#EEF2F8` |
-| Dòng hover / được chọn | Giữ màu chữ | `#F8FAFC` / `#EEF2FF` |
-| Nhân sự / tổ chức (`personnel`) | `#4338CA` | `#EEF2FF` |
-| Kỳ công / ca / chấm công / OT (`attendance`) | `#0F766E` | `#F0FDFA` |
-| Các trang lương (`payroll`) | `#6D28D9` | `#F5F3FF` |
-| Nghỉ & quỹ phép (`leave`) | `#0E7490` | `#ECFEFF` |
-| Tài khoản / thiết lập / hệ thống (`admin`) | `#475569` | `#F1F5F9` |
+| Sidebar | `#CADBE0` | `#081D2B` |
+| Menu được chọn | `#FFFFFF` | `#10545B`, chỉ dấu cạnh trái `#80D5C9`, chữ đậm |
+| Nút phụ có nhấn (`action-secondary`) | `#00665F` | `#E0F2EE`; hủy/quay lại vẫn trung tính |
+| Header bảng | `#40565F` | `#EDF3F4` |
+| Dòng hover / được chọn | Giữ màu chữ | `#F0F9F6` / `#E0F2EE` |
+| Nhân sự, tổ chức, hợp đồng | `#00665F` | Mint `#E0F2EE` |
+| Kỳ công, ca, chấm công, OT | `#315A7A` | Sky `#E3EFFB` |
+| Tiền lương, phúc lợi, báo cáo | `#765719` | Vàng cát `#F8EDCD` |
+| Nghỉ & quỹ phép | `#8C4359` | Hồng phấn `#F8E6EA` |
+| Quản trị và hệ thống | `#5E4A85` | Lavender `#ECE8F8` |
 
 `App` gắn `data-module` cho shell và vùng nội dung; `theme.ts` xuất CSS variables
-từ `modules` trong JSON. Màu nhóm chỉ dùng cho icon/điểm nhấn/khối tổng hợp, không
-đổi màu nút chính hoặc lấn át màu trạng thái. Không tô mọi số tiền xanh lá.
-Tag/Alert dùng semantic success/warning/error/info; chờ duyệt luôn warning, nháp
-và nguồn bị thay thế dùng neutral. `status-locked` dùng chữ `#334155` trên nền
-`#E2E8F0`, kèm nhãn và icon khác nhau cho CLOSED/LOCKED.
+từ token JSON. Mỗi module có `text`, `background`, `canvas` và `ornament`; không
+copy mã màu vào trang. Teal vẫn là nhận diện hành động chung; không tô mọi số tiền xanh lá.
+Tag/Alert giữ semantic success/warning/error/info; chờ duyệt là warning, nháp và
+nguồn bị thay thế là neutral. `status-locked` dùng chữ `#354B55` trên nền `#E3EBEE`.
+CLOSED dùng nhãn “Đã chốt” + CheckCircleOutlined; LOCKED dùng “Đã khóa” + LockOutlined.
+Không đổi icon hay trạng thái để gộp hai khái niệm này.
+
+### 2.1. Bộ icon điều hướng đã chốt
+
+`routeIcons` tại `frontend/src/App.tsx` là một bảng ánh xạ dùng cho sidebar, breadcrumb
+và biểu tượng cạnh tiêu đề. Dùng package `@ant-design/icons` sẵn có, chỉ một họ Outlined.
+Icon sidebar 20px, tiêu đề 24px trong vùng màu nhóm 44px, hành động 16px. Giữ cùng glyph khi
+được chọn; không đổi sang Filled, không trộn thư viện. Nhãn chữ vẫn là thông tin chính.
+
+| Mục | Icon |
+|---|---|
+| Nhân sự | TeamOutlined |
+| Hợp đồng & chấm dứt | FileProtectOutlined |
+| Tổ chức | ApartmentOutlined |
+| Kỳ công | CalendarOutlined |
+| Ca & phân ca | ScheduleOutlined |
+| Chấm công | CheckSquareOutlined |
+| Tăng ca (OT) | FieldTimeOutlined |
+| Nghỉ & quỹ phép | CarryOutOutlined |
+| Bảng lương | ReconciliationOutlined |
+| Cấu phần lương | DollarCircleOutlined |
+| Đơn giá & công thức | CalculatorOutlined |
+| Kế hoạch trả lương | WalletOutlined |
+| Đầu vào lương | FileAddOutlined |
+| Phúc lợi | GiftOutlined |
+| Báo cáo | BarChartOutlined |
+| Tài khoản | UserOutlined |
+| Thiết lập | SettingOutlined |
+| Nhật ký kiểm toán | AuditOutlined |
+| Hệ thống | CloudServerOutlined |
+
+Thao tác xem dùng EyeOutlined; sửa dùng EditOutlined chỉ khi có chức năng/quyền,
+thao tác khác MoreOutlined, lọc FilterOutlined, chọn cột TableOutlined nếu có chức năng,
+tải lại ReloadOutlined. Hành động chính vẫn có icon + chữ; nút chỉ có icon cần tên
+truy cập và tooltip. Icon trang trí có `aria-hidden`; sidebar thu gọn có nhãn tooltip.
 
 ## 3. Khung ứng dụng và responsive
 
-Desktop: sidebar 240px, thu gọn 72px; header 64px; padding nội dung 24px. Sidebar nền
-navy, chữ sáng; mục đang chọn nền indigo và có chỉ dấu riêng. Menu dài cuộn trong
-sidebar; drawer điều hướng trên màn hình hẹp dùng cùng bảng màu. Header trắng có
-icon màu nhóm nghiệp vụ, vị trí trang, thông báo trong ứng dụng và tài khoản;
-không làm header thành vùng KPI.
+Desktop: sidebar 240px, thu gọn 72px ở tablet; header tối thiểu 64px, padding nội dung
+24px. Sidebar xanh đen, mục chọn teal đậm với chữ/icon sáng và chỉ dấu cạnh trái.
+Menu chỉ hiện mục có quyền và cuộn riêng. Header trắng có breadcrumb, phạm vi thật,
+thông báo và tài khoản; dưới 768px phạm vi chuyển xuống dải ngữ cảnh bên dưới header.
+Không dựng ô tìm kiếm toàn cục, badge số hoặc cơ sở giả chỉ để giống ảnh tham chiếu.
 
 Vùng ngữ cảnh nghiệp vụ bên dưới tiêu đề hiển thị **cơ sở/đơn vị, kỳ đang xem và trạng
 thái kỳ**. Kỳ công/kỳ lương/ngày chi trả có nhãn riêng. Chuyển ngữ cảnh phải cảnh báo
@@ -107,6 +161,16 @@ nếu có thay đổi chưa lưu. Bộ chọn chỉ liệt kê phạm vi tài kh
 Kiểm tra tối thiểu 1440×900, 1280×800, 1024×768 và 768×1024; thêm 390×844 để kiểm tra
 reflow cơ bản. Responsive không tạo ứng dụng di động/ESS mới. Bảng công ma trận có
 cuộn ngang riêng, giữ mã/tên nhân viên; không thu nhỏ chữ để nhét cả tháng vào tablet.
+
+Trang Nhân sự: icon + tiêu đề + hành động tạo theo quyền → một khối teal nhấn tổng
+kết quả theo bộ lọc và hai chỉ số phụ nền sky/vàng cát (đơn vị/phân công thực từ ngữ cảnh tài khoản)
+→ bộ lọc trạng thái nhanh → tìm kiếm/đơn vị → tag bộ lọc có nút bỏ bằng bàn phím
+→ bảng và phân trang. Không lặp heading/KPI thừa, không đếm cơ cấu từ một trang API.
+Chỉ có ACTIVE và TERMINATED theo contract; không thêm “Tạm nghỉ”, biểu đồ cơ cấu,
+biến động theo tháng hay phần trăm tăng trưởng khi chưa có nguồn tổng hợp phù hợp.
+Tên/mã cùng ô; có ngày vào làm, nút Eye + “Xem” mở drawer với các tab theo quyền.
+Form tạo giữ mọi trường/validation; không thêm sửa/xóa/chọn hàng loạt từ ảnh tham chiếu.
+
 
 ## 4. Dashboard và điều hướng theo vai trò
 
@@ -145,11 +209,26 @@ theo nghiệp vụ trong R1, chỉ hiện mục có quyền truy cập; URL/API 
 Drawer dùng cho xem/giải thích mà cần giữ ngữ cảnh bảng; trang riêng cho biểu mẫu dài.
 Modal chỉ dùng xác nhận ngắn hoặc tác vụ tập trung; tránh modal chứa modal.
 
+Modal/drawer render qua portal nhận lớp `hrtp-overlay overlay-{module}` từ
+`ConfigProvider` trong shell. `AntApp component={false}` cùng phạm vi giữ màu cho cả
+`App.useApp().modal.confirm` mà không thêm wrapper DOM. Lớp này dùng token nhóm của
+trang, không sao chép mã màu vào từng màn hình. Header, nhãn Descriptions và tiêu đề nhóm dùng
+nền tint; body dùng canvas nhóm nhạt; nội dung bảng và ô nhập giữ trắng. Điều hướng
+mobile vẫn nền xanh đen. Không thay đổi màu trạng thái, quyền hoặc hành động khi đổi màu.
+
+Chi tiết ngày công: danh tính/ngày/ca/trạng thái → ba chỉ số công/làm việc/ban đêm
+→ lịch và đối chiếu → nghỉ/lượt quẹt/phân đoạn/giải trình. Số liệu chỉ từ API ngày
+công. Mỗi vùng có heading rõ; bảng nguồn cuộn riêng, focus được bằng bàn phím;
+nguồn rỗng dùng một dòng giải thích thay vì bảng rỗng cao hàng trăm pixel.
+
 ## 6. Bảng, filter và thao tác hàng loạt
 
-- Header rõ, sticky khi cần; cột mã/tên nhân viên cố định bên trái trên màn hình đủ rộng,
-  bỏ cố định ở 390px để không che các cột giữa. Bảng mặc định dòng 48px, chế độ gọn
-  40px ở desktop; tablet giữ vùng chạm 44px cho hành động. Vùng cuộn có focus bàn phím.
+- Header rõ, sticky khi cần; cột mã/tên nhân viên cố định bên trái trên màn hình đủ rộng.
+  Dưới 768px, bảng công chỉ giữ cột nhân viên cố định; các bảng khác bỏ cố định để
+  không che các cột giữa. Hàng Nhân sự khoảng 52–64px, tự tăng theo nội dung;
+  chế độ gọn giảm padding, không ép nhỏ chữ dưới cỡ body 14px. Tablet giữ hành động chính 44px.
+  Vùng bảng nhận focus xử lý ←/→, Home/End tại shell chung để cuộn phần tử scroll
+  của Ant Design; không chặn phím khi focus đang ở input hoặc nút bên trong.
 - Tên/ngày/trạng thái căn trái; số tiền/số giờ/số công căn phải. Cột có đơn vị trong
   tiêu đề. Tiền VND hiển thị theo quy tắc làm tròn nghiệp vụ, không tự làm tròn lại ở UI.
 - Dùng định dạng tiếng Việt: `1.250.000 ₫`, `7,5 giờ`, `25/10/2026`; thời điểm có múi
@@ -164,6 +243,24 @@ Modal chỉ dùng xác nhận ngắn hoặc tác vụ tập trung; tránh modal 
 - Batch có dòng không đủ quyền/trạng thái phải báo rõ danh sách và kết quả từng dòng.
   Không tự bỏ qua lỗi rồi báo toàn bộ thành công. Quyết định atomic hay từng dòng theo API.
 - Không cho sửa inline dữ liệu snapshot; cột bị che theo quyền không được gửi xuống UI.
+
+### 6.1. Mật độ bảng công và xem thông tin theo lớp
+
+Áp dụng hướng Data-Dense Dashboard/progressive disclosure từ `ui-ux-pro-max`;
+không thay font Be Vietnam Pro, palette teal/pastel hay bộ Outlined đã duyệt bằng
+font/palette khác do công cụ gợi ý.
+
+- **Tóm tắt** mặc định: ngày công, nhân viên, đơn vị, ca, vào/ra, kết quả, ngoại lệ
+  và nút Xem. Kết quả gộp công/giờ làm và ký hiệu nghỉ nếu có. Tên/mã cùng ô;
+  thời điểm gọn vẫn có ngày/tháng để phân biệt ca đêm, đầy đủ giây ở chế độ Đầy đủ/drawer.
+- **Đầy đủ** giữ công, nghỉ đã duyệt, giờ làm, giải trình và các thời điểm nguồn.
+  Hai chế độ dùng cùng dữ liệu, bộ lọc, trang và API; không tính lại hay làm tròn công.
+- Bảng có header/cột nhận diện cố định, vùng cuộn dọc giới hạn chiều cao và cuộn
+  ngang riêng. Thanh công cụ giải thích chế độ, có nút trái/phải khi cần; ←/→,
+  Home/End hoạt động khi vùng bảng được focus. Nút Xem mở drawer bằng bàn phím.
+- Không ép toàn bộ cột vào điện thoại bằng `zoom`, scale hoặc font rất nhỏ.
+  Kiểm tra cả 1568×755 theo ảnh review, 1440, 1280, 1024, 768 và 375/390px.
+
 
 ## 7. Biểu mẫu, nhập tệp và tác vụ nền
 
@@ -264,9 +361,23 @@ liên kết tới trường/bản ghi. Dùng thông báo hỗ trợ trình đọ
 không đọc lại toàn bảng sau mỗi cập nhật. Thử zoom 200% và kiểm tra focus không bị
 header/footer cố định che khuất.
 
-Chuyển động 120–180ms; tôn trọng `prefers-reduced-motion`. Không dùng parallax,
-animation liên tục, nền 3D hoặc hiệu ứng kéo rê trang trí trên màn hình làm việc.
-Light theme là chuẩn bản đầu; dark theme chưa phải đầu việc bắt buộc của sprint.
+Token motion dùng chung: hover/focus 150ms (`fast`), xác nhận 180ms (`normal`),
+drawer 220ms (`slow`). Hover chỉ đổi màu nền/viền/chữ/shadow, không scale/translate
+làm xê dịch bố cục. Giữ animation mở/đóng drawer native của Ant Design; icon xác
+nhận thành công chỉ fade opacity một lần sau phản hồi máy chủ, không chạy số tiền,
+confetti hay chuyển động trang trí lặp. Spinner chỉ biểu thị request/job thực sự
+đang chờ. Tiến độ tính lương chỉ hiện khi `progressTotal > 0`; chưa biết tổng dùng
+nhãn đang xử lý, không giả 0%. RUNNING/FAILED/CANCELLED và COMPLETED có lỗi không
+được dùng hiệu ứng xác nhận thành công. Empty minh họa không thay loading/error
+và không xuất hiện trong lúc đang khởi chạy/tính lương.
+
+Tôn trọng `prefers-reduced-motion`. Provider gốc theo dõi thay đổi lựa chọn này và
+đặt token Ant Design `motion: false` khi cần giảm chuyển động.
+CSS khi đó dùng `transition: none`, không ép thời lượng transition rất ngắn lên mọi
+thuộc tính: `top`/`left` cần được đo đồng bộ để dropdown/popover không lệch khỏi màn hình.
+Popover thông báo dùng vị trí có tự dịch ngang và chừa khoảng trống cho padding trên
+màn hình hẹp. Không dùng parallax, animation liên tục, nền 3D hoặc hiệu ứng kéo rê
+trang trí trên màn hình làm việc. Light theme là chuẩn; dark theme chưa thuộc sprint.
 
 ## 11. Hướng dẫn triển khai Ant Design và phối hợp agent
 
@@ -275,10 +386,11 @@ tiếng Việt tương ứng phiên bản Ant Design đã chọn. Bọc ứng d�
 của thư viện để modal/message dùng chung theme. Token semantic và layout chuyển thành
 CSS variables hoặc hằng số theme dùng chung; không copy màu vào từng trang.
 
-Antigravity sở hữu frontend, theme và các component dùng lại. Các tên sau là quy ước
-đề xuất khi triển khai, chưa phải file/module đang tồn tại:
-`AppShell`, `PageHeader`, `PeriodContextBar`, `FilterBar`, `DataTable`, `StatusTag`,
-`ApprovalActions`, `JobProgress`, `PayrollTraceDrawer`, `SensitiveActionConfirm`.
+Một đầu mối sở hữu JSON token, `frontend/src/theme.ts` và `frontend/src/styles.css`.
+Ant Design và CSS variables dùng cùng nguồn; không mở thêm bảng màu ở từng phân hệ.
+Mẫu dùng chung: `page-heading`, `panel`, `context-strip`, `workspace-filters`,
+`table-panel`, `tab-stack`, `form-grid`, `action-secondary`. Trang chỉ thay đổi bố cục
+trong TSX; khi chia song song chỉ chia nhóm trang sau khi phần chung ổn định.
 
 Codex/Claude cung cấp contract cho quyền, state, lỗi, progress, Decimal, nguồn/hash;
 không đưa logic tính lương vào component. Cache dữ liệu gồm phạm vi/quyền/kỳ; logout,
@@ -306,6 +418,65 @@ responsive, quyền và UAT trên build đã ghép.
 Kiểm tra màu token không thay thế kiểm tra toàn bộ UI: hover, selected, disabled,
 focus và màu do Ant Design sinh thêm phải kiểm tra trên frontend thực tế. Checklist
 guide chưa được đánh đạt khi chưa có giao diện chạy.
+
+### 12.1. Bằng chứng chuyển đổi Teal Enterprise
+
+Kiểm tra trên frontend production qua Vite preview, nối backend và PostgreSQL thật
+của bộ dữ liệu demo cục bộ; không thay API bằng dữ liệu trong ảnh tham chiếu.
+
+- `npm run typecheck` và `npm run build`: đạt cho cả backend/frontend.
+- Chromium: 19 route tại 1440×900, 1024×768 và 390×844; không tràn chiều ngang
+  trang, icon sidebar/tiêu đề đúng bảng 19 mục. 32 tab phụ được mở bằng bàn phím
+  tại 390px; không ghi nhận lỗi JavaScript trong smoke test.
+- Nhân sự: 2.201 bản ghi thật; lọc trạng thái qua API, bỏ lọc bằng bàn phím,
+  tìm kiếm rỗng, phân trang, validation bắt buộc và drawer hồ sơ năm tab.
+- Bảng công: chọn địa điểm/kỳ qua dropdown, tải bảng 27.360 ngày công và mở chi
+  tiết; bảng cuộn riêng trên màn hình hẹp, drawer không vượt chiều rộng viewport.
+- Điều hướng mobile, focus rõ, cuộn bảng bằng ArrowLeft/Right/Home/End; popover
+  thông báo nằm trong viewport tại cả ba kích thước với cả hai lựa chọn chuyển động.
+- Loading không dựng hàng dữ liệu giả; lỗi mạng được chủ động mô phỏng, trạng thái
+  rỗng được kiểm tra, phản hồi forbidden 403 được nhận từ API thật. Đăng nhập
+  TT/QĐ không hiện menu bảng lương; KT và AD được dùng cho các route đúng quyền.
+- 39 cặp màu chữ trong token, gồm màu nhóm và nền họa tiết, đạt tối thiểu 4,63:1;
+  viền control trên trắng đạt 3,27:1. Đây không phải chứng nhận accessibility đầy đủ.
+
+Ảnh và báo cáo smoke cục bộ nằm trong `.local/ui-redesign/`. Giới hạn: chưa kiểm
+chứng bảng lương có dữ liệu vì danh sách kỳ lương hiện rỗng; không tạo kỳ hay chạy
+tính lương để lấy ảnh. Build còn cảnh báo chunk lớn hơn 500 kB. Các bước trên không
+thay thế UAT ghi dữ liệu, duyệt/chốt/khóa kỳ và nghiệm thu nghiệp vụ trong checklist.
+
+### 12.2. Kiểm chứng pastel và họa tiết chân trời
+
+Đợt bổ sung màu nhóm giữ bộ icon, API và dữ liệu hiện hành. Trên bản production,
+19 route × 3 viewport tiếp tục không tràn ngang; nền tiêu đề/canvas đúng module,
+bảng giữ trắng và họa tiết không nhận focus/click. Đã mở 32 tab phụ ở 390px,
+thao tác nút tạo qua vùng tiêu đề trang trí, kiểm tra validation và drawer hồ sơ,
+cuộn bảng bằng bàn phím, bảng công có dữ liệu thật và popover ở cả hai chế độ
+chuyển động. Không ghi nhận lỗi JavaScript. Ảnh `color-*.png` và báo cáo
+`color-report.json` trong `.local/ui-redesign/` ghi nhận lần kiểm tra này.
+
+### 12.3. Kiểm chứng bảng dày và vùng chi tiết
+
+Đã chạy `ui-ux-pro-max --design-system`, tìm thêm quy tắc bảng/accessibility và
+hướng dẫn React context/portal. Chọn mật độ dữ liệu và xem thông tin theo lớp;
+giữ font, palette và icon hiện hành, không áp dụng bố cục funnel/landing được gợi ý.
+
+- Typecheck/build toàn workspace đạt; sau chỉnh chiều rộng cột thao tác và phạm vi
+  holder, typecheck/build frontend cuối cùng cũng đạt. Cảnh báo chunk >500 kB còn tồn tại.
+- Production với API/PostgreSQL thật: bảng công và drawer được thử ở 1568×755,
+  1440×900, 1280×800, 1024×768, 768×1024, 390×844 và 375×812.
+  Tóm tắt có đủ 8 cột ở desktop 1280px trở lên; Đầy đủ giữ 11 cột gồm nút Xem.
+  Hai chế độ giữ nguyên danh sách bản ghi/trang; cuộn trái/phải, Home/End và cột
+  nhân viên cố định được kiểm tra. Không tràn ngang toàn trang hoặc body drawer.
+- Đã mở chi tiết bằng bàn phím, kiểm tra phân trang, điều hướng QĐ đúng quyền và
+  19 route tại 1440/1024/390px. Header/body/nhãn bảng chi tiết nhận đủ năm màu nhóm.
+  Validation tạo nhân sự còn hoạt động; hủy hộp xác nhận bỏ thay đổi vẫn giữ bản nháp.
+- Hai lựa chọn chuyển động được thử trên drawer; không ghi nhận lỗi JavaScript.
+  Bản ghi đi muộn thật hiển thị warning kèm chữ và giữ nguyên `0.994514` công.
+- Bằng chứng: `.local/ui-redesign/density-*.png` và `density-detail-report.json`.
+  Chạy kiểm tra ở cổng riêng 3002/5181, không dừng ứng dụng đang dùng ở 3001/5174.
+  Không tạo bản ghi nghiệp vụ, chốt/khóa kỳ hay tính lương để kiểm tra giao diện.
+
 
 ## 13. Tài liệu tham khảo
 

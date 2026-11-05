@@ -192,7 +192,7 @@ export function AccountsWorkspace({ user }: { user: AuthUser }) {
     <div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / BẢO MẬT</p><Title level={1}>Tài khoản</Title><Paragraph type="secondary">Cấp quyền theo đơn vị và thời hạn, quản lý trạng thái, mật khẩu tạm thời và phiên đăng nhập.</Paragraph></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Tạo tài khoản</Button></div>
     {context.isError && <Alert type="error" showIcon message="Không tải được ngữ cảnh quản trị" description={errorMessage(context.error)} />}
     {revoke.isError && <Alert type="error" showIcon message="Không thể thu hồi phiên" description={errorMessage(revoke.error)} />}
-    <section className="panel table-panel" tabIndex={0} aria-label="Bảng tài khoản">
+    <section className="panel table-panel" role="region" tabIndex={0} aria-label="Bảng tài khoản, có thể cuộn ngang">
       {accounts.isError ? <Alert type="error" showIcon message="Không tải được tài khoản" description={errorMessage(accounts.error)} /> : <Table<Account> rowKey="id" loading={accounts.isLoading} dataSource={accounts.data?.items ?? []} pagination={false} scroll={{ x: 1180 }} locale={{ emptyText: <Empty description="Không có tài khoản trong phạm vi quản trị" /> }} columns={[
         { title: "Tài khoản", key: "account", width: 210, render: (_, account) => <span><Text strong>{account.displayName}</Text><small className="table-subtext">{account.username}</small></span> },
         { title: "Vai trò / phạm vi", key: "grants", render: (_, account) => <Space size={[4, 4]} wrap>{account.assignments.map((grant) => <Tag key={grant.id}>{labelForRole(context.data, grant.roleCode)} · {grant.scopeCode}</Tag>)}</Space> },

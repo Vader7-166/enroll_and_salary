@@ -61,7 +61,7 @@ function RawPunchTable({ punches }: { punches: RawRow[] }) {
   ];
   const technical = punches.map(punch => ({ id: punch.id, batchId: punch.batchId, scheduleId: punch.scheduleId, periodId: punch.periodId, source: punch.source }));
   return <>
-    <Table<RawRow> rowKey="id" components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={punches} pagination={false} scroll={{ x: 750 }} locale={{ emptyText: "Không có lượt quẹt nguồn." }} />
+    <div className="table-panel" role="region" tabIndex={0} aria-label="Lượt quẹt nguồn tăng ca"><Table<RawRow> rowKey="id" components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={punches} pagination={false} scroll={{ x: 750 }} locale={{ emptyText: "Không có lượt quẹt nguồn." }} /></div>
     <TechnicalDetails title="Định danh lượt quẹt"><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: 0 }}>{JSON.stringify(technical, null, 2)}</pre></TechnicalDetails>
   </>;
 }
@@ -77,7 +77,7 @@ function SegmentTable({ detail }: { detail: OvertimeActualDetail }) {
     { title: "Đủ điều kiện", dataIndex: "eligible", width: 130, render: value => <Tag className="attendance-state" color={value ? "success" : "default"}>{value ? "Có" : "Không"}</Tag> },
     { title: "Đăng ký liên quan", dataIndex: "requestIds", width: 250, render: (ids: string[]) => ids.length ? ids.map(id => requestTitles.get(id) ?? "Không tìm thấy tên đăng ký").join(", ") : "—" },
   ];
-  return <Table<OvertimeActualDetail["segments"][number]> rowKey={segment => `${segment.startAt}-${segment.endAt}-${segment.calendarDate}`} components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={detail.segments} pagination={false} scroll={{ x: 1000 }} locale={{ emptyText: "Không có phân đoạn thực tế." }} />;
+  return <div className="table-panel" role="region" tabIndex={0} aria-label="Phân đoạn đối soát tăng ca"><Table<OvertimeActualDetail["segments"][number]> rowKey={segment => `${segment.startAt}-${segment.endAt}-${segment.calendarDate}`} components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={detail.segments} pagination={false} scroll={{ x: 1000 }} locale={{ emptyText: "Không có phân đoạn thực tế." }} /></div>;
 }
 
 function PairEvidence({ detail }: { detail: OvertimeActualDetail }) {
@@ -87,7 +87,7 @@ function PairEvidence({ detail }: { detail: OvertimeActualDetail }) {
     { title: "Cờ", dataIndex: "flags", width: 300, render: flagTags },
   ];
   return <>
-    <Table<OvertimeActualDetail["pairs"][number]> rowKey="contextId" components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={detail.pairs} pagination={false} scroll={{ x: 680 }} locale={{ emptyText: "Không có bằng chứng ghép lượt quẹt." }} />
+    <div className="table-panel" role="region" tabIndex={0} aria-label="Bằng chứng ghép lượt quẹt"><Table<OvertimeActualDetail["pairs"][number]> rowKey="contextId" components={{ body: { wrapper: TableBody } }} size="small" columns={columns} dataSource={detail.pairs} pagination={false} scroll={{ x: 680 }} locale={{ emptyText: "Không có bằng chứng ghép lượt quẹt." }} /></div>
     <TechnicalDetails title="Định danh ngữ cảnh và lượt quẹt"><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: 0 }}>{JSON.stringify(detail.pairs.map(pair => ({ contextId: pair.contextId, scheduleIds: pair.scheduleIds, checkInId: pair.checkInId, checkOutId: pair.checkOutId })), null, 2)}</pre></TechnicalDetails>
   </>;
 }
@@ -139,7 +139,7 @@ export function OvertimeActualPanel({ periodId, orgUnitId, search, canImport, on
       <span><strong>{minutes(summary.requestedMinutes)}</strong> đề nghị</span><span><strong>{minutes(summary.approvedMinutes)}</strong> đã duyệt</span><span><strong>{minutes(summary.actualMinutes)}</strong> thực tế</span><span><strong>{minutes(summary.eligibleMinutes)}</strong> đủ điều kiện</span><span><strong>{minutes(summary.dayMinutes)}</strong> ngày</span><span><strong>{minutes(summary.nightMinutes)}</strong> đêm</span><span><strong>{minutes(summary.unapprovedMinutes)}</strong> ngoài duyệt</span><span><strong>{summary.exceptionDays.toLocaleString("vi-VN")}</strong> ngày ngoại lệ</span>
     </div>}
     {actuals.isLoading ? <div className="attendance-workspace"><Spin /></div> : !actuals.isError && rows.length === 0 ? <Empty description="Không có dữ liệu đối soát tăng ca theo bộ lọc hiện tại." /> : <>
-      <div className="table-panel attendance-table"><Table<ActualRow> rowKey="id" components={{ body: { wrapper: TableBody } }} size="middle" columns={columns} dataSource={rows} loading={actuals.isFetching} pagination={false} scroll={{ x: 1600 }} locale={{ emptyText: "Không có dữ liệu đối soát tăng ca." }} /></div>
+      <div className="table-panel attendance-table" role="region" tabIndex={0} aria-label="Danh sách đối soát tăng ca thực tế"><Table<ActualRow> rowKey="id" components={{ body: { wrapper: TableBody } }} size="middle" columns={columns} dataSource={rows} loading={actuals.isFetching} pagination={false} scroll={{ x: 1600 }} locale={{ emptyText: "Không có dữ liệu đối soát tăng ca." }} /></div>
       {actuals.data && <Pagination current={actuals.data.page} pageSize={actuals.data.pageSize} total={actuals.data.total} showSizeChanger={false} onChange={setPage} style={{ marginTop: 16 }} />}
     </>}
     <Drawer title="Chi tiết đối soát tăng ca thực tế" open={Boolean(selectedId)} onClose={() => setSelectedId(undefined)} width={980} destroyOnHidden>

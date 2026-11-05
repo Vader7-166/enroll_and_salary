@@ -3,10 +3,29 @@ import {
   AuditOutlined,
   CalendarOutlined,
   BankOutlined,
+  BarChartOutlined,
+  CalculatorOutlined,
+  CarryOutOutlined,
+  CheckCircleOutlined,
+  CheckSquareOutlined,
+  CloseOutlined,
+  CloudServerOutlined,
+  DollarCircleOutlined,
+  EyeOutlined,
+  FileAddOutlined,
+  FileProtectOutlined,
+  FilterOutlined,
+  GiftOutlined,
+  FieldTimeOutlined,
+  ScheduleOutlined,
+  SettingOutlined,
+  WalletOutlined,
   LogoutOutlined,
   MenuOutlined,
   PlusOutlined,
   SearchOutlined,
+  RightOutlined,
+  ReconciliationOutlined,
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
@@ -14,6 +33,7 @@ import {
   Alert,
   App as AntApp,
   Button,
+  ConfigProvider,
   Drawer,
   Dropdown,
   Empty,
@@ -23,15 +43,17 @@ import {
   Menu,
   Modal,
   Pagination,
+  Radio,
   Select,
   Space,
   Spin,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { errorMessage, setUnauthorizedHandler } from "./api/client";
 import { authApi, employeeApi, organizationApi } from "./api/hrtp";
 import type { AuthUser, Employee, OrganizationContext } from "./api/hrtp";
@@ -54,6 +76,7 @@ import { WelfareWorkspace } from "./components/WelfareWorkspace";
 import { ReportsWorkspace } from "./components/ReportsWorkspace";
 import { NotificationBell } from "./components/NotificationBell";
 import { AssistantButton } from "./components/AssistantDrawer";
+import uiTokens from "../../docs/config/hrtp-ui-tokens.json";
 const { Header, Sider, Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
 type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "employee-pay-plans" | "payroll-inputs" | "payroll" | "audit" | "contracts" | "welfare" | "reports" | "health";
@@ -103,12 +126,27 @@ const routeModules: Record<Route, WorkspaceModule> = {
   audit: "admin",
 };
 
-const workspaceModuleIcons: Record<WorkspaceModule, React.ReactNode> = {
-  personnel: <TeamOutlined />,
-  attendance: <CalendarOutlined />,
-  leave: <CalendarOutlined />,
-  payroll: <BankOutlined />,
-  admin: <ApartmentOutlined />,
+// One icon per destination, reused by navigation, breadcrumbs and page headings.
+const routeIcons: Record<Route, React.ReactNode> = {
+  employees: <TeamOutlined aria-hidden="true" />,
+  contracts: <FileProtectOutlined aria-hidden="true" />,
+  organization: <ApartmentOutlined aria-hidden="true" />,
+  periods: <CalendarOutlined aria-hidden="true" />,
+  shifts: <ScheduleOutlined aria-hidden="true" />,
+  attendance: <CheckSquareOutlined aria-hidden="true" />,
+  overtime: <FieldTimeOutlined aria-hidden="true" />,
+  leave: <CarryOutOutlined aria-hidden="true" />,
+  payroll: <ReconciliationOutlined aria-hidden="true" />,
+  "salary-components": <DollarCircleOutlined aria-hidden="true" />,
+  "payroll-configuration": <CalculatorOutlined aria-hidden="true" />,
+  "employee-pay-plans": <WalletOutlined aria-hidden="true" />,
+  "payroll-inputs": <FileAddOutlined aria-hidden="true" />,
+  welfare: <GiftOutlined aria-hidden="true" />,
+  reports: <BarChartOutlined aria-hidden="true" />,
+  accounts: <UserOutlined aria-hidden="true" />,
+  settings: <SettingOutlined aria-hidden="true" />,
+  audit: <AuditOutlined aria-hidden="true" />,
+  health: <CloudServerOutlined aria-hidden="true" />,
 };
 
 function canSeePayroll(user: AuthUser): boolean {
@@ -156,6 +194,18 @@ function go(route: Route) {
   window.location.hash = "#/" + route;
 }
 
+function HorizonArt({ className }: { className: string }) {
+  return (
+    <svg className={`horizon-art ${className}`} viewBox="0 0 600 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+      <circle className="horizon-sun" cx="470" cy="49" r="26" />
+      <path className="horizon-cloud" d="M75 72c0-9 8-16 17-15 4-17 29-20 36-3 14-5 27 5 27 18Zm232 26c0-9 8-15 17-14 5-19 33-21 40-3 15-4 28 5 28 17Z" />
+      <path className="horizon-back" d="M0 141C102 83 178 178 294 133S483 90 600 124V200H0Z" />
+      <path className="horizon-front" d="M0 170C127 117 198 191 328 156S500 136 600 157V200H0Z" />
+      <path className="horizon-line" d="M0 155C111 102 190 187 311 144S497 114 600 139" />
+    </svg>
+  );
+}
+
 function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   const [form] = Form.useForm<{ username: string; password: string }>();
   const mutation = useMutation({
@@ -174,7 +224,7 @@ function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
       form.setFields([{ name: "password", errors: [errorMessage(error)] }]),
   });
   return (
-    <main className="login-page" aria-labelledby="login-title">
+    <main className="login-page login-page-illustrated" aria-labelledby="login-title">
       <section className="login-panel">
         <div className="login-brand">
           <img src="/favicon.svg" alt="" width="40" height="40" />
@@ -236,6 +286,9 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [route, setRoute] = useState(() => currentRoute(user));
   const [open, setOpen] = useState(false);
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const overlayConfig = useMemo(() => ({
+    classNames: { content: `hrtp-overlay overlay-${routeModules[route]}` },
+  }), [route]);
   useEffect(() => {
     const update = () => setRoute(currentRoute(user));
     window.addEventListener("hashchange", update);
@@ -251,42 +304,57 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const leaveRead = user.permissions.includes("leave.read") || user.permissions.includes("leave.balance.read");
   const items = [
     employeeRead
-      ? { key: "employees", icon: <TeamOutlined />, label: "Nhân sự" }
+      ? { key: "employees", label: "Nhân sự" }
       : null,
     accountManage
-      ? { key: "accounts", icon: <UserOutlined />, label: "Tài khoản" }
+      ? { key: "accounts", label: "Tài khoản" }
       : null,
     periodRead
-      ? { key: "periods", icon: <AuditOutlined />, label: "Kỳ công" }
+      ? { key: "periods", label: "Kỳ công" }
       : null,
     settingsManage
-      ? { key: "settings", icon: <BankOutlined />, label: "Thiết lập" }
+      ? { key: "settings", label: "Thiết lập" }
       : null,
-    user.permissions.includes("shift.read") ? { key: "shifts", icon: <CalendarOutlined />, label: "Ca & phân ca" } : null,
-    attendanceRead ? { key: "attendance", icon: <CalendarOutlined />, label: "Chấm công" } : null,
-    overtimeRead ? { key: "overtime", icon: <CalendarOutlined />, label: "Tăng ca (OT)" } : null,
-    leaveRead ? { key: "leave", icon: <CalendarOutlined />, label: "Nghỉ & quỹ phép" } : null,
-    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "salary-components", icon: <BankOutlined />, label: "Cấu phần lương" } : null,
-    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "payroll-configuration", icon: <BankOutlined />, label: "Đơn giá & công thức" } : null,
-    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "employee-pay-plans", icon: <BankOutlined />, label: "Kế hoạch trả lương" } : null,
-    user.roles.includes("KT") && user.permissions.includes("payroll.inputs.read") ? { key: "payroll-inputs", icon: <BankOutlined />, label: "Đầu vào lương" } : null,
-    canSeePayroll(user) ? { key: "payroll", icon: <BankOutlined />, label: "Bảng lương" } : null,
-    canSeeReports(user) ? { key: "reports", icon: <AuditOutlined />, label: "Báo cáo" } : null,
-    user.roles.includes("KT") && user.permissions.includes("welfare.read") ? { key: "welfare", icon: <BankOutlined />, label: "Phúc lợi" } : null,
-    user.roles.includes("KT") && user.permissions.includes("contract.read") ? { key: "contracts", icon: <TeamOutlined />, label: "Hợp đồng & chấm dứt" } : null,
-    user.permissions.includes("audit.read") ? { key: "audit", icon: <AuditOutlined />, label: "Nhật ký kiểm toán" } : null,
-    { key: "organization", icon: <ApartmentOutlined />, label: "Tổ chức" },
-    { key: "health", icon: <AuditOutlined />, label: "Hệ thống" },
-  ].filter(Boolean) as { key: Route; icon: React.ReactNode; label: string }[];
+    user.permissions.includes("shift.read") ? { key: "shifts", label: "Ca & phân ca" } : null,
+    attendanceRead ? { key: "attendance", label: "Chấm công" } : null,
+    overtimeRead ? { key: "overtime", label: "Tăng ca (OT)" } : null,
+    leaveRead ? { key: "leave", label: "Nghỉ & quỹ phép" } : null,
+    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "salary-components", label: "Cấu phần lương" } : null,
+    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "payroll-configuration", label: "Đơn giá & công thức" } : null,
+    user.roles.includes("KT") && user.permissions.includes("payroll.components.read") ? { key: "employee-pay-plans", label: "Kế hoạch trả lương" } : null,
+    user.roles.includes("KT") && user.permissions.includes("payroll.inputs.read") ? { key: "payroll-inputs", label: "Đầu vào lương" } : null,
+    canSeePayroll(user) ? { key: "payroll", label: "Bảng lương" } : null,
+    canSeeReports(user) ? { key: "reports", label: "Báo cáo" } : null,
+    user.roles.includes("KT") && user.permissions.includes("welfare.read") ? { key: "welfare", label: "Phúc lợi" } : null,
+    user.roles.includes("KT") && user.permissions.includes("contract.read") ? { key: "contracts", label: "Hợp đồng & chấm dứt" } : null,
+    user.permissions.includes("audit.read") ? { key: "audit", label: "Nhật ký kiểm toán" } : null,
+    { key: "organization", label: "Tổ chức" },
+    { key: "health", label: "Hệ thống" },
+  ].filter(Boolean) as { key: Route; label: string }[];
+  const navigationGroups = [
+    { key: "people", label: "NHÂN SỰ", routes: ["employees", "contracts", "organization"] },
+    { key: "time", label: "THỜI GIAN LÀM VIỆC", routes: ["periods", "shifts", "attendance", "overtime", "leave"] },
+    { key: "pay", label: "TIỀN LƯƠNG", routes: ["payroll", "salary-components", "payroll-configuration", "employee-pay-plans", "payroll-inputs", "welfare", "reports"] },
+    { key: "system", label: "QUẢN TRỊ", routes: ["accounts", "settings", "audit", "health"] },
+  ].map(group => ({
+    key: group.key,
+    type: "group" as const,
+    label: group.label,
+    children: group.routes.flatMap(key => {
+      const item = items.find(entry => entry.key === key);
+      return item ? [{ ...item, icon: routeIcons[item.key], title: item.label }] : [];
+    }),
+  })).filter(group => group.children.length);
   const navigate = (next: Route) => {
     setOpen(false);
     go(next);
   };
   const menu = (
     <Menu
+      mode="inline"
       theme="dark"
       selectedKeys={[route]}
-      items={items}
+      items={navigationGroups}
       onClick={({ key }) => navigate(key as Route)}
     />
   );
@@ -341,22 +409,29 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       <SystemHealth />
     );
   return (
+    <ConfigProvider drawer={overlayConfig} modal={overlayConfig}>
+    <AntApp component={false}>
     <Layout className="app-shell" data-module={routeModules[route]}>
       <a className="skip-link" href="#main">
         Đến nội dung chính
       </a>
       <Sider
         className="desktop-sider"
-        width={240}
-        breakpoint="lg"
-        collapsedWidth={72}
+        width={uiTokens.layout.sidebarWidthPx}
+        breakpoint="xl"
+        collapsedWidth={uiTokens.layout.sidebarCollapsedWidthPx}
         theme="dark"
       >
+        <HorizonArt className="horizon-sidebar" />
         <div className="side-brand">
           <img src="/favicon.svg" alt="" width="32" height="32" />
-          <span>HRTP</span>
+          <span className="brand-copy"><strong>HRTP<span>.</span></strong><small>Chấm công & tiền lương</small></span>
         </div>
-        {menu}
+        <nav className="shell-navigation" aria-label="Các phân hệ HRTP">{menu}</nav>
+        <div className="sidebar-scope">
+          <ApartmentOutlined aria-hidden="true" />
+          <span><strong>Phạm vi làm việc</strong><small>{scope}</small></span>
+        </div>
       </Sider>
       <Drawer
         className="mobile-nav"
@@ -366,7 +441,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
         onClose={() => setOpen(false)}
         styles={{ body: { padding: 0 } }}
       >
-        {menu}
+        <nav aria-label="Các phân hệ HRTP">{menu}</nav>
       </Drawer>
       <Layout>
         <Header className="shell-header">
@@ -379,12 +454,13 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           />
           <div className="header-location">
             <span className="workspace-mark" aria-hidden="true">
-              {workspaceModuleIcons[routeModules[route]]}
+              {routeIcons[route]}
             </span>
-            <Text type="secondary">{routeTitles[route]}</Text>
-            <span aria-hidden="true">/</span>
-            <strong>{scope}</strong>
+            <Text type="secondary" className="parent-crumb">Không gian làm việc</Text>
+            <RightOutlined className="parent-crumb" aria-hidden="true" />
+            <strong>{routeTitles[route]}</strong>
           </div>
+          <div className="header-scope" title={scope} aria-label={`Phạm vi: ${scope}`}><ApartmentOutlined aria-hidden="true" /><span>{scope}</span></div>
           <div className="header-actions">
           <AssistantButton pageKey={route} onNavigate={(next) => navigate(next as Route)} />
           <NotificationBell onOpen={(linkKey) => navigate(linkKey as Route)} />
@@ -422,13 +498,16 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           id="main"
           className="app-content"
           data-module={routeModules[route]}
+          tabIndex={-1}
         >
-          <span className="workspace-accent" aria-hidden="true" />
-          {body}
+          <div className="workspace-context"><ApartmentOutlined aria-hidden="true" /><span>Phạm vi: <strong>{scope}</strong></span></div>
+          <div className="workspace-body">{route !== "attendance" && route !== "payroll" && <HorizonArt className="horizon-heading" />}<span className="page-symbol" aria-hidden="true">{routeIcons[route]}</span>{body}</div>
         </Content>
       </Layout>
     <PasswordChangeDialog open={passwordChangeOpen} onClose={() => setPasswordChangeOpen(false)} onSuccess={onLogout} />
     </Layout>
+    </AntApp>
+    </ConfigProvider>
   );
 }
 
@@ -461,37 +540,59 @@ function EmployeesPage({ user }: { user: AuthUser }) {
     if ("unit" in next) setOrgUnitId(next.unit);
     if ("status" in next) setStatus(next.status);
   };
+  const clearFilters = () => {
+    setDraftSearch("");
+    resetPage({ search: "", unit: undefined, status: undefined });
+  };
   return (
-    <div className="content-stack">
+    <div className="content-stack personnel-workspace">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">HỒ SƠ / NHÂN SỰ</p>
-          <Title level={1}>Danh sách nhân sự</Title>
+          <p className="eyebrow">QUẢN LÝ ĐỘI NGŨ</p>
+          <Title level={1}>Nhân sự</Title>
           <Paragraph type="secondary">
-            Chỉ hiển thị nhân sự thuộc phạm vi tài khoản được cấp.
+            Thông tin đúng người, trong đúng phạm vi.
           </Paragraph>
         </div>
         {canCreate && (
           <Button
             type="primary"
             size="large"
-            icon={<PlusOutlined />}
+            icon={<PlusOutlined aria-hidden="true" />}
             onClick={() => setCreateOpen(true)}
           >
             Thêm nhân sự
           </Button>
         )}
       </div>
-      <section className="panel filter-panel" aria-label="Bộ lọc nhân sự">
+      <section className="stats-strip" aria-label="Tổng quan phạm vi nhân sự">
+        <div className="stat-block stat-primary"><span className="stat-symbol" aria-hidden="true"><TeamOutlined /></span><span className="stat-copy"><strong>Nhân sự phù hợp</strong><small>Theo bộ lọc đang áp dụng</small><b>{list.data?.total ?? (list.isError ? "—" : "…")}</b></span></div>
+        <div className="stat-block"><span className="stat-symbol" aria-hidden="true"><ApartmentOutlined /></span><span className="stat-copy"><strong>Đơn vị trong phạm vi</strong><small>Theo quyền tài khoản</small><b>{context.data?.units.length ?? (context.isError ? "—" : "…")}</b></span></div>
+        <div className="stat-block"><span className="stat-symbol" aria-hidden="true"><UserOutlined /></span><span className="stat-copy"><strong>Phạm vi được cấp</strong><small>Phân công tài khoản hiện tại</small><b>{user.assignments.length}</b></span></div>
+      </section>
+      <section className="panel personnel-roster" aria-labelledby="personnel-roster-title">
+      <h2 className="sr-only" id="personnel-roster-title">Danh sách nhân sự</h2>
+      <div className="personnel-status-filter">
+        <span className="filter-caption"><FilterOutlined aria-hidden="true" /> Trạng thái</span>
+        <Radio.Group aria-label="Lọc theo trạng thái" value={status ?? "ALL"} onChange={(event) => resetPage({ status: event.target.value === "ALL" ? undefined : event.target.value })}>
+          <Radio.Button value="ALL">Tất cả</Radio.Button>
+          <Radio.Button value="ACTIVE"><CheckCircleOutlined aria-hidden="true" /> Đang làm việc</Radio.Button>
+          <Radio.Button value="TERMINATED">Đã nghỉ việc</Radio.Button>
+        </Radio.Group>
+      </div>
+      <section className="personnel-filters" aria-label="Bộ lọc nhân sự">
+        <label><span>Tìm kiếm nhân sự</span>
         <Input.Search
           aria-label="Tìm kiếm nhân sự"
           placeholder="Tìm theo mã hoặc họ tên"
           value={draftSearch}
           onChange={(event) => setDraftSearch(event.target.value)}
           onSearch={(value) => resetPage({ search: value.trim() })}
-          enterButton={<SearchOutlined />}
+          enterButton={<SearchOutlined aria-label="Tìm kiếm nhân sự" />}
           allowClear
         />
+        </label>
+        <label><span>Đơn vị</span>
         <Select
           aria-label="Lọc theo đơn vị"
           placeholder="Tất cả đơn vị"
@@ -504,22 +605,17 @@ function EmployeesPage({ user }: { user: AuthUser }) {
           }))}
           onChange={(value) => resetPage({ unit: value })}
         />
-        <Select
-          aria-label="Lọc theo trạng thái"
-          placeholder="Tất cả trạng thái"
-          value={status}
-          allowClear
-          options={[
-            { value: "ACTIVE", label: "Đang làm việc" },
-            { value: "TERMINATED", label: "Đã nghỉ việc" },
-          ]}
-          onChange={(value) => resetPage({ status: value })}
-        />
+        </label>
+        <Button type="text" onClick={clearFilters}>Xóa bộ lọc</Button>
       </section>
-      <section
-        className="panel table-panel"
-        aria-label="Bảng danh sách nhân sự"
-      >
+      {(search || orgUnitId || status) && <div className="personnel-applied-filters" aria-label="Bộ lọc đang áp dụng">
+        {search && <Tag>Tìm: {search}<Button type="text" className="filter-tag-clear" icon={<CloseOutlined aria-hidden="true" />} aria-label="Bỏ lọc tìm kiếm" onClick={() => { setDraftSearch(""); resetPage({ search: "" }); }} /></Tag>}
+        {orgUnitId && <Tag>Đơn vị: {context.data?.units.find(unit => unit.id === orgUnitId)?.name ?? "Đã chọn"}<Button type="text" className="filter-tag-clear" icon={<CloseOutlined aria-hidden="true" />} aria-label="Bỏ lọc đơn vị" onClick={() => resetPage({ unit: undefined })} /></Tag>}
+        {status && <Tag>{status === "ACTIVE" ? "Đang làm việc" : "Đã nghỉ việc"}<Button type="text" className="filter-tag-clear" icon={<CloseOutlined aria-hidden="true" />} aria-label="Bỏ lọc trạng thái" onClick={() => resetPage({ status: undefined })} /></Tag>}
+      </div>}
+      {context.isError && <Alert type="error" showIcon message="Không tải được đơn vị" description={errorMessage(context.error)} />}
+      <div className="personnel-result-note" role="status" aria-live="polite">{list.isError ? "Danh sách chưa tải được" : list.isFetching ? "Đang cập nhật danh sách…" : `${list.data?.total ?? 0} nhân sự phù hợp trong phạm vi`}</div>
+      <div className="table-panel" role="region" tabIndex={0} aria-label="Bảng danh sách nhân sự, có thể cuộn ngang">
         {list.isError ? (
           <Alert
             type="error"
@@ -535,22 +631,21 @@ function EmployeesPage({ user }: { user: AuthUser }) {
               loading={list.isLoading}
               dataSource={list.data?.items ?? []}
               locale={{
-                emptyText: <Empty description="Không có nhân sự phù hợp" />,
+                emptyText: <Empty description={search || orgUnitId || status ? "Không có nhân sự phù hợp bộ lọc" : "Chưa có nhân sự trong phạm vi"}>{(search || orgUnitId || status) && <Button onClick={clearFilters}>Xóa bộ lọc</Button>}</Empty>,
               }}
               onRow={(record) => ({
                 onClick: () => setSelected(record),
                 className: "clickable-row",
               })}
               pagination={false}
-              scroll={{ x: 880 }}
+              scroll={{ x: 1000 }}
               columns={[
                 {
-                  title: "Mã",
-                  dataIndex: "code",
-                  width: 130,
-                  render: (value) => <Button type="link">{value}</Button>,
+                  title: "Họ và tên",
+                  dataIndex: "fullName",
+                  width: 250,
+                  render: (value, record, index) => <div className="person-cell"><span className={`person-mark person-tone-${index % 4}`} aria-hidden="true">{value.trim().split(/\s+/).slice(-2).map((part: string) => part[0]).join("")}</span><span><Button type="link" className="person-name" onClick={(event) => { event.stopPropagation(); setSelected(record); }}>{value}</Button><small className="table-subtext">{record.code}</small></span></div>,
                 },
-                { title: "Họ và tên", dataIndex: "fullName", width: 210 },
                 {
                   title: "Đơn vị",
                   key: "unit",
@@ -566,27 +661,30 @@ function EmployeesPage({ user }: { user: AuthUser }) {
                 {
                   title: "Chức danh",
                   key: "title",
-                  render: (_, record) => record.jobTitle?.name ?? "—",
+                  render: (_, record) => record.jobTitle?.name ?? "Chưa cung cấp",
                 },
                 {
                   title: "Trạng thái",
                   dataIndex: "status",
-                  width: 140,
+                  width: 165,
                   render: (value) => (
                     <Tag color={value === "ACTIVE" ? "success" : "default"}>
                       {value === "ACTIVE" ? "Đang làm việc" : "Đã nghỉ việc"}
                     </Tag>
                   ),
                 },
+                { title: "Ngày vào làm", dataIndex: "hireDate", width: 140, render: (value: string) => value.slice(0, 10).split("-").reverse().join("/") },
+                { title: "Hồ sơ", key: "profile", width: 100, render: (_, record) => <Tooltip title="Xem hồ sơ"><Button type="text" className="row-action" icon={<EyeOutlined aria-hidden="true" />} onClick={(event) => { event.stopPropagation(); setSelected(record); }} aria-label={`Xem hồ sơ ${record.fullName}`}>Xem</Button></Tooltip> },
               ]}
             />
             <div className="table-footer">
               <Text type="secondary">
-                {list.data ? "Tổng " + list.data.total + " nhân sự" : ""}
+                {list.data?.total ? `Hiển thị ${(page - 1) * list.data.pageSize + 1}–${Math.min(page * list.data.pageSize, list.data.total)} trong ${list.data.total} nhân sự` : "0 nhân sự"}
               </Text>
               <Pagination
                 current={list.data?.page ?? page}
                 pageSize={list.data?.pageSize ?? 20}
+                size="small"
                 total={list.data?.total ?? 0}
                 showSizeChanger={false}
                 onChange={(next) => setPage(next)}
@@ -594,6 +692,7 @@ function EmployeesPage({ user }: { user: AuthUser }) {
             </div>
           </>
         )}
+      </div>
       </section>
       <EmployeeDrawer employee={selected} user={user} onClose={() => setSelected(null)} />
       <CreateEmployee
@@ -648,6 +747,8 @@ function CreateEmployee({
   return (
     <Modal
       title="Thêm nhân sự"
+      className="employee-create-modal"
+      width={640}
       open={open}
       onCancel={onClose}
       footer={null}
@@ -816,7 +917,7 @@ function OrganizationPage() {
           description={errorMessage(context.error)}
         />
       ) : (
-        <section className="panel table-panel">
+        <section className="panel table-panel" role="region" tabIndex={0} aria-label="Bảng cơ cấu tổ chức, có thể cuộn ngang">
           <div className="context-strip">
             <BankOutlined aria-hidden="true" />
             <span>
@@ -843,6 +944,21 @@ function OrganizationPage() {
       )}
     </div>
   );
+}
+
+// Delegate only from the focused table region, never from controls within its rows.
+function handleTableKeys(event: KeyboardEvent<HTMLDivElement>) {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || target.tabIndex !== 0 || target.getAttribute("role") !== "region") return;
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const scroller = Array.from(target.querySelectorAll<HTMLElement>(".ant-table-content, .ant-table-body"))
+    .find(element => element.scrollWidth > element.clientWidth);
+  if (!scroller) return;
+  event.preventDefault();
+  const next = event.key === "Home" ? 0 : event.key === "End" ? scroller.scrollWidth
+    : scroller.scrollLeft + (event.key === "ArrowRight" ? 96 : -96);
+  scroller.scrollLeft = next;
 }
 
 export function App() {
@@ -885,7 +1001,9 @@ export function App() {
     );
   return user ? (
     <AntApp>
-      {user.requiresPasswordChange ? <ForcedPasswordChange onSuccess={end} /> : <Shell key={user.id} user={user} onLogout={end} />}
+      <div onKeyDown={handleTableKeys}>
+        {user.requiresPasswordChange ? <ForcedPasswordChange onSuccess={end} /> : <Shell key={user.id} user={user} onLogout={end} />}
+      </div>
     </AntApp>
   ) : (
     <Login onLogin={establish} />

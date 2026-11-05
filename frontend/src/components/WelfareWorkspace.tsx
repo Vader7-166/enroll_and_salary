@@ -37,7 +37,7 @@ function CatalogTab({ canManage }: { canManage: boolean }) {
   return <div className="tab-stack">
     {canManage && <div><Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Thêm phúc lợi</Button></div>}
     {catalog.isError ? <Alert type="error" showIcon message="Không tải được danh mục" description={errorMessage(catalog.error)} /> :
-      <Table<BenefitCatalogItem> rowKey="id" size="small" loading={catalog.isLoading} dataSource={catalog.data?.items ?? []} pagination={false} scroll={{ x: 1000 }}
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh mục phúc lợi; dùng phím mũi tên để cuộn"><Table<BenefitCatalogItem>     rowKey="id" size="small" loading={catalog.isLoading} dataSource={catalog.data?.items ?? []} pagination={false} scroll={{ x: 1000 }}
         columns={[
           { title: "Phúc lợi", width: 240, render: (_, row) => <>{row.current?.name ?? row.code}<small className="table-subtext">{row.code} · {row.orgUnitCode}</small></> },
           { title: "Loại", dataIndex: "categoryLabel", width: 170 },
@@ -46,7 +46,7 @@ function CatalogTab({ canManage }: { canManage: boolean }) {
           { title: "Vào lương", width: 100, render: (_, row) => row.current?.payrollIncluded ? <Tag color="blue">Có</Tag> : "Không" },
           { title: "Điều kiện hưởng", render: (_, row) => row.current ? eligibilityText(row.current.eligibility) : "—" },
           { title: "Hiệu lực", width: 200, render: (_, row) => row.current ? row.current.effectiveFrom + " → " + (row.current.effectiveTo ?? "…") : <Text type="secondary">Không có bản hiệu lực</Text> },
-        ]} />}
+        ]} /></section>}
     <Modal title="Thêm phúc lợi" open={open} onCancel={() => setOpen(false)} footer={null} destroyOnHidden width={640}>
       <Form form={form} layout="vertical" requiredMark="optional" initialValues={{ version: { taxTreatment: "TAXABLE", payrollIncluded: false, status: "SIMULATION", effectiveFrom: today() } }}
         onFinish={values => create.mutate({ ...values, version: { ...values.version, eligibility: values.version.minServiceMonths ? { minServiceMonths: Number(values.version.minServiceMonths) } : {}, minServiceMonths: undefined } })}>
@@ -93,15 +93,15 @@ function BatchDrawer({ id, onClose, canManage }: { id: string | null; onClose: (
       {data.batch.result && data.batch.result.duplicates.length > 0 && <Alert type="warning" showIcon message={data.batch.result.duplicates.length + " người đã được cấp phúc lợi này trong cùng kỳ — không ghi nhận lần hai, cần kiểm tra lại"}
         description={data.batch.result.duplicates.map(row => row.code + " " + row.fullName + " (lô " + row.existingBatch + ")").join("; ")} />}
       {error && <Alert type="error" showIcon message="Không thực hiện được" description={errorMessage(error)} />}
-      {draft && <Space><Button icon={<PlusOutlined />} onClick={() => setAdding({ reason: "" })}>Thêm người</Button><Button type="primary" loading={confirm.isPending} disabled={!data.candidates.length} onClick={() => confirm.mutate()}>Xác nhận cấp phát</Button></Space>}
-      <Table rowKey={row => row.employee.id} size="small" pagination={false} scroll={{ x: 700 }}
+      {draft && <Space wrap><Button icon={<PlusOutlined />} onClick={() => setAdding({ reason: "" })}>Thêm người</Button><Button type="primary" loading={confirm.isPending} disabled={!data.candidates.length} onClick={() => confirm.mutate()}>Xác nhận cấp phát</Button></Space>}
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách cấp phát phúc lợi; dùng phím mũi tên để cuộn"><Table     rowKey={row => row.employee.id} size="small" pagination={false} scroll={{ x: 700 }}
         dataSource={data.batch.status === "DRAFT" ? data.candidates : data.allocations.map(row => ({ employee: row.employee, eligible: true, failedRules: [], manual: false, manualReason: null, amount: row.amount }))}
         locale={{ emptyText: <Empty description="Không có ai trong danh sách" /> }}
         columns={[
           { title: "Nhân sự", render: (_, row) => <>{row.employee.fullName}<small className="table-subtext">{row.employee.code}</small></> },
           { title: "Điều kiện", render: (_, row) => row.eligible ? <Tag color="success">Đủ điều kiện</Tag> : <><Tag color="orange">Giữ thủ công</Tag><small className="table-subtext">{row.failedRules.map(item => RULES[item.rule] ?? item.rule).join("; ")} — {row.manualReason}</small></> },
           ...(draft ? [{ title: "", width: 90, render: (_: unknown, row: BenefitBatchDetail["candidates"][number]) => <Button size="small" danger loading={remove.isPending} onClick={() => remove.mutate(row.employee.id)}>Bớt</Button> }] : []),
-        ]} />
+        ]} /></section>
     </div>}
     <Modal title="Thêm người vào danh sách dự kiến" open={adding !== null} onCancel={() => setAdding(null)} okText="Thêm" okButtonProps={{ disabled: !adding?.employeeId, loading: add.isPending }} onOk={() => add.mutate()}>
       <Space direction="vertical" className="full-width">
@@ -129,13 +129,13 @@ function BatchesTab({ canManage }: { canManage: boolean }) {
   return <div className="tab-stack">
     {canManage && <div><Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Lập danh sách cấp phát</Button></div>}
     {batches.isError ? <Alert type="error" showIcon message="Không tải được lô cấp phát" description={errorMessage(batches.error)} /> :
-      <Table<BenefitBatchSummary> rowKey="id" size="small" loading={batches.isLoading} dataSource={batches.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách lô cấp phát phúc lợi; dùng phím mũi tên để cuộn"><Table<BenefitBatchSummary>     rowKey="id" size="small" loading={batches.isLoading} dataSource={batches.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
         onRow={row => ({ onClick: () => setSelected(row.id), className: "clickable-row" })} locale={{ emptyText: <Empty description="Chưa có lô cấp phát" /> }}
         columns={[
           { title: "Lô", dataIndex: "code", width: 260 }, { title: "Phúc lợi", dataIndex: "name" }, { title: "Kỳ", dataIndex: "periodCode", width: 110 }, { title: "Đối tượng", dataIndex: "scopeCode", width: 140 },
           { title: "Số người", width: 110, align: "right", render: (_, row) => row.status === "CONFIRMED" ? row.allocations : row.candidates },
           { title: "Trạng thái", width: 140, render: (_, row) => <Tag color={BATCH[row.status][1]}>{BATCH[row.status][0]}</Tag> },
-        ]} />}
+        ]} /></section>}
     <Modal title="Lập danh sách cấp phát dự kiến" open={open} onCancel={() => setOpen(false)} footer={null} destroyOnHidden>
       <Form form={form} layout="vertical" requiredMark="optional" initialValues={{ referenceDate: today() }} onFinish={values => create.mutate({ ...values, periodCode: values.periodCode.trim().toUpperCase() })}>
         <Form.Item name="catalogId" label="Phúc lợi" rules={[{ required: true }]}><Select loading={catalog.isLoading} options={catalog.data?.items.filter(item => item.current?.active).map(item => ({ value: item.id, label: item.current!.name + " (" + item.code + ")" }))} /></Form.Item>
@@ -163,13 +163,13 @@ function CostsTab() {
       <label>Đến tháng <Input type="month" value={range.to} onChange={event => event.target.value && setRange(current => ({ ...current, to: event.target.value }))} /></label>
       <Button icon={<DownloadOutlined />} loading={exporter.isPending} onClick={() => exporter.mutate()}>Xuất Excel</Button></Space>
     {(costs.error ?? exporter.error) && <Alert type="error" showIcon message="Không tải được chi phí" description={errorMessage(costs.error ?? exporter.error)} />}
-    <Table<WelfareCostRow> rowKey={row => row.month + row.costCenterCode + row.category} size="small" loading={costs.isLoading} dataSource={costs.data?.items ?? []} pagination={false}
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Chi phí phúc lợi; dùng phím mũi tên để cuộn"><Table<WelfareCostRow>     rowKey={row => row.month + row.costCenterCode + row.category} size="small" loading={costs.isLoading} dataSource={costs.data?.items ?? []} pagination={false} scroll={{ x: 720 }}
       locale={{ emptyText: <Empty description="Chưa có chi phí phúc lợi đã xác nhận" /> }}
       summary={() => costs.data?.items.length ? <Table.Summary.Row><Table.Summary.Cell index={0} colSpan={4}><b>Tổng</b></Table.Summary.Cell><Table.Summary.Cell index={4} align="right"><b>{vnd(costs.data.total)}</b></Table.Summary.Cell></Table.Summary.Row> : null}
       columns={[
         { title: "Tháng", dataIndex: "month", width: 110 }, { title: "Cost center", dataIndex: "costCenterCode", width: 150, render: value => value ?? "—" },
         { title: "Loại", dataIndex: "categoryLabel" }, { title: "Số lượt", dataIndex: "count", width: 100, align: "right" }, { title: "Số tiền", dataIndex: "amount", width: 160, align: "right", render: vnd },
-      ]} />
+      ]} /></section>
   </div>;
 }
 

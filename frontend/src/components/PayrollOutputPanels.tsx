@@ -68,13 +68,13 @@ export function PayslipsPanel() {
     {start.isError && <Alert type="error" showIcon message="Không xuất được" description={errorMessage(start.error)} />}
     {(exportId ?? running?.id) && <ExportProgress key={exportId ?? running!.id} id={(exportId ?? running?.id)!} onDone={refresh} />}
     {!sheetId ? <Empty description="Chọn kỳ lương đã khóa" /> : list.isError ? <Alert type="error" showIcon message={errorMessage(list.error)} /> :
-      <Table<PayslipList["items"][number]> className="workspace-table" rowKey="employeeId" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={{ pageSize: 20, showSizeChanger: false }} scroll={{ x: 760 }} columns={[
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách phiếu lương; dùng phím mũi tên để cuộn"><Table<PayslipList["items"][number]>     rowKey="employeeId" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={{ pageSize: 20, showSizeChanger: false }} scroll={{ x: 760 }} columns={[
         { title: "Nhân sự", render: (_, row) => <>{row.code}<br /><Text type="secondary">{row.fullName}</Text></>, width: 220 },
         { title: "Thực lĩnh", dataIndex: "net", align: "right", render: money },
         { title: "Đã phát hành", width: 170, render: (_, row) => row.issuedCount ? <>{row.issuedCount} lần<br /><Text type="secondary">{row.lastIssuedAt && new Date(row.lastIssuedAt).toLocaleString("vi-VN")}</Text></> : <Text type="secondary">Chưa</Text> },
         { title: "Lỗi", dataIndex: "failedCount", width: 70, render: (value: number) => value ? <Tag color="error">{value}</Tag> : "—" },
-        { title: "", width: 210, render: (_, row) => <Space><Button size="small" icon={<PrinterOutlined />} loading={print.isPending && print.variables === row.employeeId} onClick={() => print.mutate(row.employeeId)}>Bản in</Button><Button size="small" icon={<DownloadOutlined />} loading={pdf.isPending && pdf.variables === row.employeeId} onClick={() => pdf.mutate(row.employeeId)}>PDF</Button></Space> },
-      ]} />}
+        { title: "", width: 210, render: (_, row) => <Space wrap><Button size="small" icon={<PrinterOutlined />} loading={print.isPending && print.variables === row.employeeId} onClick={() => print.mutate(row.employeeId)}>Bản in</Button><Button size="small" icon={<DownloadOutlined />} loading={pdf.isPending && pdf.variables === row.employeeId} onClick={() => pdf.mutate(row.employeeId)}>PDF</Button></Space> },
+      ]} /></section>}
   </div>;
 }
 
@@ -124,12 +124,12 @@ function BatchDrawer({ id, onClose, reauth }: { id: string; onClose: () => void;
       {batch.status === "EXPORTED" && <Alert type="warning" showIcon message="Xuất file chưa phải đã thanh toán" description="Sau khi ngân hàng chuyển tiền, ghi ngày chi thực tế để cập nhật sổ thuế và tính đền bù nếu chậm quá 15 ngày." />}
       {result && <Alert type={result.compensations.length ? "warning" : result.lateWarning ? "info" : "success"} showIcon closable onClose={() => setResult(null)} message={result.compensations.length ? `Chậm ${result.lateDays} ngày: phát sinh ${result.compensations.length} khoản đền bù vào kỳ lương mở kế tiếp` : result.lateWarning ?? "Đã ghi nhận ngày chi thực tế"}
         description={<>{result.compensations.length > 0 && <ul className="plain-list">{result.compensations.map(row => <li key={row.employee.code}>{row.employee.code} {row.employee.fullName}: {money(row.amount)}</li>)}</ul>}{result.taxContextChanged.length > 0 && <p>Năm thuế của ngày chi thực tế khác ngày dự kiến ({result.taxContextChanged.length} bản ghi thuế đánh dấu TAX_CONTEXT_CHANGED); xử lý bằng điều chỉnh, bảng lương đã khóa giữ nguyên.</p>}</>} />}
-      <Table<PaymentItem> size="small" rowKey="id" pagination={false} dataSource={detail.data!.items} scroll={{ x: 760 }} columns={[
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Chi tiết lô chi lương; dùng phím mũi tên để cuộn"><Table<PaymentItem>     size="small" rowKey="id" pagination={false} dataSource={detail.data!.items} scroll={{ x: 760 }} columns={[
         { title: "Nhân sự", render: (_, row) => <>{row.employee.code}<br /><Text type="secondary">{row.employee.fullName}</Text></> },
         { title: "Kỳ", dataIndex: "periodCode" }, { title: "Tài khoản", render: (_, row) => `${row.bank} ${row.accountMasked}` },
         { title: "Số tiền", dataIndex: "amount", align: "right", render: money },
         { title: "Đền bù chậm trả", render: (_, row) => row.compensation ? <>{money(row.compensation.amount)}<br /><Text type="secondary">{row.compensation.appliedPeriodId ? "Đã vào kỳ lương" : "Chờ kỳ lương mở"}</Text></> : "—" },
-      ]} />
+      ]} /></section>
     </div>}
     <Modal open={dialog === "paid"} title="Ghi ngày chi thực tế" okText="Ghi nhận" okButtonProps={{ disabled: !paidDate, loading: action.isPending }} onOk={() => action.mutate()} onCancel={close}>
       <div className="tab-stack"><label>Ngày ngân hàng chuyển tiền<Input type="date" value={paidDate} max={today()} onChange={event => setPaidDate(event.target.value)} /></label><Input.TextArea rows={2} value={text} maxLength={2000} onChange={event => setText(event.target.value)} placeholder="Ghi chú / số chứng từ ngân hàng (không bắt buộc)" /></div>
@@ -170,12 +170,12 @@ export function PaymentBatchesPanel() {
     <div className="workspace-filters"><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>Xuất file chi lương</Button></div>
     <Paragraph type="secondary">File chi ghi đúng thực lĩnh từng người; phí chuyển khoản do doanh nghiệp chịu. Mỗi nhân viên của một kỳ chỉ thuộc một lô chi hiệu lực.</Paragraph>
     {batches.isError && <Alert type="error" showIcon message={errorMessage(batches.error)} />}
-    <Table<PaymentBatch> className="workspace-table" rowKey="id" loading={batches.isLoading} dataSource={batches.data?.items ?? []} scroll={{ x: 900 }} onRow={row => ({ onClick: () => setOpen(row.id) })} columns={[
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách lô chi lương; dùng phím mũi tên để cuộn"><Table<PaymentBatch>     rowKey="id" loading={batches.isLoading} dataSource={batches.data?.items ?? []} scroll={{ x: 900 }} onRow={row => ({ onClick: () => setOpen(row.id) })} columns={[
       { title: "Mã lô", dataIndex: "code", width: 180 }, { title: "Kỳ lương", dataIndex: "periods", render: (value: string[]) => value.join(", ") },
       { title: "Mẫu", render: (_, row) => `${row.template.bankName} v${row.template.version}` }, { title: "Số người", dataIndex: "itemCount", align: "right", width: 90 },
       { title: "Tổng chi", dataIndex: "total", align: "right", render: money }, { title: "Hạn chi", dataIndex: "dueDate", width: 110 },
       { title: "Trạng thái", dataIndex: "status", width: 190, render: (value: PaymentBatch["status"], row) => <><Tag color={BATCH_STATUS[value][1]}>{BATCH_STATUS[value][0]}</Tag>{row.paidDate && <Text type={row.lateDays && row.lateDays > 0 ? "warning" : "secondary"}>{row.paidDate}{row.lateDays && row.lateDays > 0 ? ` · chậm ${row.lateDays} ngày` : ""}</Text>}</> },
-    ]} />
+    ]} /></section>
     {open && <BatchDrawer id={open} reauth={reauth} onClose={() => setOpen(null)} />}
     <Modal open={creating} width={620} title="Xuất file chi lương" okText="Xác nhận và tải file" okButtonProps={{ disabled: !form.sheetIds.length || !form.templateId || (!reauth.valid() && !form.password), loading: create.isPending }} onOk={() => create.mutate()} onCancel={() => setCreating(false)} destroyOnClose>
       <div className="tab-stack">
@@ -199,14 +199,14 @@ export function BankTemplatesPanel() {
   return <div className="tab-stack">
     <div className="workspace-filters"><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>Thêm mẫu ngân hàng</Button></div>
     <Paragraph type="secondary">Mẫu file chi là cấu hình: thêm ngân hàng hoặc đổi bố cục bằng phiên bản mới, không cần sửa phần mềm. Lô chi đã xuất giữ nguyên mẫu đã dùng.</Paragraph>
-    <Table<BankTemplate> className="workspace-table" rowKey="id" loading={templates.isLoading} dataSource={templates.data?.items ?? []} scroll={{ x: 900 }} columns={[
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách mẫu file ngân hàng; dùng phím mũi tên để cuộn"><Table<BankTemplate>     rowKey="id" loading={templates.isLoading} dataSource={templates.data?.items ?? []} scroll={{ x: 900 }} columns={[
       { title: "Ngân hàng", render: (_, row) => <>{row.bankName} v{row.version}{row.current && <Tag color="blue" style={{ marginLeft: 6 }}>Hiện hành</Tag>}</>, width: 200 },
       { title: "Tên mẫu", dataIndex: "name" }, { title: "Loại", dataIndex: "fileType", width: 70 },
       { title: "Cột", render: (_, row) => row.columns.map(column => column.header).join(" · ") },
       { title: "Tách cơ sở", dataIndex: "splitBySite", width: 100, render: value => value ? "Có" : "Không" },
-      { title: "Trạng thái", width: 150, render: (_, row) => <>{row.active ? <Tag color="success">Hoạt động</Tag> : <Tag>Ngừng</Tag>}{row.status === "SIMULATION" && <Tag color="orange">Mô phỏng</Tag>}</> },
+      { title: "Trạng thái", width: 150, render: (_, row) => <><Tag color={row.active ? "success" : "default"}>{row.active ? "Hoạt động" : "Ngừng"}</Tag>{row.status === "SIMULATION" && <Tag color="orange">Mô phỏng</Tag>}</> },
       { title: "", width: 120, render: (_, row) => row.current && <Button size="small" onClick={() => openEditor(row)}>Phiên bản mới</Button> },
-    ]} />
+    ]} /></section>
     <Modal open={Boolean(editing)} width={760} title={editing?.bankCode ? `Phiên bản mới — ${editing.bankName}` : "Thêm mẫu ngân hàng"} okText="Lưu phiên bản" confirmLoading={save.isPending} onOk={() => form.submit()} onCancel={() => setEditing(null)} destroyOnClose>
       <Form form={form} layout="vertical" onFinish={values => save.mutate({ ...values, columns: values.columns.map(column => ({ field: column.field, header: column.header, ...(column.format ? { format: column.format } : {}) })) })}>
         <Space wrap align="start">

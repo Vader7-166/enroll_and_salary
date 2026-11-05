@@ -1,16 +1,18 @@
-import { CheckCircleOutlined, FilePdfOutlined, LockOutlined, PlayCircleOutlined, RollbackOutlined, StopOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined, FilePdfOutlined, LoadingOutlined, LockOutlined, PlayCircleOutlined, RollbackOutlined, StopOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Descriptions, Drawer, Empty, Input, Modal, Progress, Select, Space, Statistic, Table, Tag, Typography } from "antd";
+import { Alert, Button, Descriptions, Drawer, Empty, Input, Modal, Progress, Select, Space, Spin, Statistic, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { errorMessage } from "../api/client";
 import { payrollApi } from "../api/payroll";
-import type { ComplianceItem, PayrollPeriodItem, SheetEmployee, SheetHistoryItem, SheetView } from "../api/payroll";
+import type { ComplianceItem, PayrollPeriodItem, PayrollRunView, SheetEmployee, SheetHistoryItem, SheetView } from "../api/payroll";
 import { TechnicalDetails } from "./TechnicalDetails";
+import { BusinessIllustration } from "./BusinessIllustration";
 
 const { Title, Text } = Typography;
 const money = (value: string | number) => Number(value).toLocaleString("vi-VN") + " đ";
-const SHEET_STATUS: Record<string, [string, string]> = { DRAFT: ["Nháp", "default"], APPROVED: ["Đã duyệt", "processing"], LOCKED: ["Đã khóa", "success"] };
+const SHEET_STATUS: Record<string, [string, string]> = { DRAFT: ["Nháp", "default"], APPROVED: ["Đã duyệt", "success"], LOCKED: ["Đã khóa", "default"] };
 const ACTION_LABEL: Record<string, string> = { APPROVE: "Duyệt", LOCK: "Khóa kỳ lương", RETURN_TO_DRAFT: "Trả về nháp", AUTO_DRAFT: "Tự về nháp do nguồn đổi" };
+const RUN_LABEL: Record<PayrollRunView["status"], string> = { RUNNING: "Đang tính lương", COMPLETED: "Hoàn tất", FAILED: "Không hoàn tất", CANCELLED: "Đã dừng" };
 const dueText = (period: Pick<PayrollPeriodItem, "dueWarning" | "expectedPaymentDate">) => !period.dueWarning ? "" : period.dueWarning.overdue ? `quá hạn chi ${-period.dueWarning.daysLeft} ngày` : `còn ${period.dueWarning.daysLeft} ngày đến hạn chi`;
 function saveBlob(blob: Blob, name: string) { const href = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = href; anchor.download = name; anchor.click(); URL.revokeObjectURL(href); }
 const CP_LABEL: Record<string, string> = { "CP-01": "Dưới lương tối thiểu vùng", "CP-02": "Thử việc dưới 85%", "CP-03": "Vượt trần OT", "CP-04": "Khấu trừ vượt 30%", "CP-05": "Thực lĩnh âm", "CP-06": "Còn ngày công lỗi", "CP-07": "Thiếu lương đóng BH", "CP-08": "Chênh lệch kỳ trước", "CP-09": "Lương sản phẩm dưới tối thiểu", TAX_EXCEPTION: "Ngoại lệ miễn thuế" };
@@ -41,10 +43,12 @@ function EmployeeLines({ sheetId, employee, onClose }: { sheetId: string; employ
   return <Modal open title={`${employee.employee.code} — ${employee.employee.fullName}`} width={820} footer={null} onCancel={onClose}>
     {employee.errors.map(error => <Alert key={error.code} type="error" showIcon message={error.code} description={error.message} />)}
     {employee.violations.map(violation => <Alert key={violation.code + violation.message} type={violation.severity === "BLOCKING" ? "error" : "warning"} showIcon message={`${violation.code}: ${violation.message}`} />)}
-    <Table size="small" rowKey="id" loading={detail.isLoading} pagination={false} dataSource={detail.data?.lines ?? []} columns={[
-      { title: "#", dataIndex: "lineNo", width: 50 }, { title: "Khoản", dataIndex: "label" }, { title: "Loại", dataIndex: "lineType", width: 150 },
-      { title: "Số tiền", dataIndex: "amount", align: "right", render: money }, { title: "", width: 90, render: (_, row) => <Button size="small" type="link" onClick={() => setLineId(row.id)}>Giải trình</Button> },
-    ]} />
+    <div className="table-panel" role="region" tabIndex={0} aria-label="Chi tiết dòng lương; dùng phím mũi tên để cuộn">
+      <Table size="small" rowKey="id" loading={detail.isLoading} pagination={false} dataSource={detail.data?.lines ?? []} scroll={{ x: 640 }} columns={[
+        { title: "#", dataIndex: "lineNo", width: 50 }, { title: "Khoản", dataIndex: "label" }, { title: "Loại", dataIndex: "lineType", width: 150 },
+        { title: "Số tiền", dataIndex: "amount", align: "right", render: money }, { title: "", width: 90, render: (_, row) => <Button size="small" type="link" onClick={() => setLineId(row.id)}>Giải trình</Button> },
+      ]} />
+    </div>
     {lineId && <TraceDrawer lineId={lineId} onClose={() => setLineId(null)} />}
   </Modal>;
 }
@@ -55,16 +59,18 @@ function CompliancePanel({ sheetId, canCalculate, employees }: { sheetId: string
   const compliance = useQuery({ queryKey: ["payroll-compliance", sheetId], queryFn: () => payrollApi.compliance(sheetId) });
   const acknowledge = useMutation({ mutationFn: () => payrollApi.acknowledge(sheetId, ack!.employeeId, ack!.reason), onSuccess: () => { setAck(null); void client.invalidateQueries({ queryKey: ["payroll-compliance", sheetId] }); } });
   const name = (id: string) => { const row = employees.find(item => item.employee.id === id); return row ? `${row.employee.code} ${row.employee.fullName}` : id; };
-  return <>
-    <Table<ComplianceItem> size="small" rowKey="code" pagination={false} loading={compliance.isLoading} dataSource={compliance.data?.items ?? []}
-      expandable={{ rowExpandable: row => row.details.length > 0, expandedRowRender: row => <ul className="plain-list">{row.details.map(item => <li key={item.employeeId + item.message}>{name(item.employeeId)}: {item.message}{row.code === "CP-08" && (row.acknowledgements.some(a => a.employeeId === item.employeeId) ? <Tag color="success">Đã xác nhận</Tag> : canCalculate && <Button size="small" type="link" onClick={() => setAck({ employeeId: item.employeeId, reason: "" })}>Xác nhận</Button>)}</li>)}</ul> }}
-      columns={[{ title: "Mã", dataIndex: "code", width: 120 }, { title: "Kiểm tra", render: (_, row) => CP_LABEL[row.code] ?? row.code }, { title: "Mức", dataIndex: "severity", width: 110, render: value => <Tag color={value === "BLOCKING" ? "red" : "orange"}>{value === "BLOCKING" ? "Chặn" : "Cảnh báo"}</Tag> },
-        { title: "Vi phạm", dataIndex: "violationCount", width: 90, align: "right", render: (value: number) => value ? <Tag color="error">{value}</Tag> : <Tag color="success">0</Tag> }, { title: "Chưa xử lý", dataIndex: "pending", width: 110, align: "right" }]} />
+  return <section className="tab-stack" aria-label="Kiểm tra tuân thủ bảng lương">
+    <div className="table-panel" role="region" tabIndex={0} aria-label="Bảng kiểm tra tuân thủ; dùng phím mũi tên để cuộn">
+      <Table<ComplianceItem> size="small" rowKey="code" pagination={false} loading={compliance.isLoading} dataSource={compliance.data?.items ?? []} scroll={{ x: 620 }}
+        expandable={{ rowExpandable: row => row.details.length > 0, expandedRowRender: row => <ul className="plain-list">{row.details.map(item => <li key={item.employeeId + item.message}>{name(item.employeeId)}: {item.message}{row.code === "CP-08" && (row.acknowledgements.some(a => a.employeeId === item.employeeId) ? <Tag color="success">Đã xác nhận</Tag> : canCalculate && <Button size="small" type="link" onClick={() => setAck({ employeeId: item.employeeId, reason: "" })}>Xác nhận</Button>)}</li>)}</ul> }}
+        columns={[{ title: "Mã", dataIndex: "code", width: 120 }, { title: "Kiểm tra", render: (_, row) => CP_LABEL[row.code] ?? row.code }, { title: "Mức", dataIndex: "severity", width: 110, render: value => <Tag color={value === "BLOCKING" ? "red" : "orange"}>{value === "BLOCKING" ? "Chặn" : "Cảnh báo"}</Tag> },
+          { title: "Vi phạm", dataIndex: "violationCount", width: 90, align: "right", render: (value: number) => value ? <Tag color="error">{value}</Tag> : <Tag color="success">0</Tag> }, { title: "Chưa xử lý", dataIndex: "pending", width: 110, align: "right" }]} />
+    </div>
     <Modal open={Boolean(ack)} title="Xác nhận cảnh báo CP-08" okText="Xác nhận" okButtonProps={{ disabled: !ack?.reason.trim(), loading: acknowledge.isPending }} onOk={() => acknowledge.mutate()} onCancel={() => setAck(null)}>
       <Input.TextArea rows={3} value={ack?.reason} onChange={event => setAck(current => current && { ...current, reason: event.target.value })} placeholder="Lý do chênh lệch đã được kiểm tra" />
       {acknowledge.isError && <Alert type="error" showIcon message={errorMessage(acknowledge.error)} />}
     </Modal>
-  </>;
+  </section>;
 }
 
 /** FR-7.5: DRAFT → APPROVED → LOCKED with re-entered password for the one-way lock, history and compliance evidence. */
@@ -93,7 +99,7 @@ function ApprovalPanel({ sheet, periodCode, canApprove, canLock }: { sheet: Shee
   const [statusLabel, statusColor] = SHEET_STATUS[status] ?? [status, "default"];
   return <section aria-label="Duyệt và khóa bảng lương" className="tab-stack">
     <Space wrap>
-      <Text strong>Trạng thái bảng lương:</Text><Tag color={statusColor}>{statusLabel}</Tag>
+      <Text strong>Trạng thái bảng lương:</Text><Tag color={statusColor} className={status === "LOCKED" ? "status-locked" : undefined} icon={status === "LOCKED" ? <LockOutlined /> : undefined}>{statusLabel}</Tag>
       {status === "DRAFT" && canApprove && <Button type="primary" icon={<CheckCircleOutlined />} disabled={blockers.length > 0} onClick={() => setDialog("approve")}>Duyệt bảng lương</Button>}
       {status === "APPROVED" && canApprove && <Button icon={<RollbackOutlined />} onClick={() => setDialog("return")}>Trả về nháp</Button>}
       {status === "APPROVED" && canLock && <Button type="primary" danger icon={<LockOutlined />} onClick={() => setDialog("lock")}>Khóa kỳ lương</Button>}
@@ -106,13 +112,13 @@ function ApprovalPanel({ sheet, periodCode, canApprove, canLock }: { sheet: Shee
       { key: "hash", label: "Mã băm snapshot", children: <Text code copyable>{history.data.snapshot.contentHash}</Text> },
     ]} />}
     {report.isError && <Alert type="error" showIcon message="Không tải được báo cáo" description={errorMessage(report.error)} />}
-    {history.data && history.data.items.length > 0 && <Table<SheetHistoryItem> size="small" rowKey="id" pagination={false} dataSource={history.data.items} columns={[
+    {history.data && history.data.items.length > 0 && <div className="table-panel" role="region" tabIndex={0} aria-label="Lịch sử duyệt bảng lương; dùng phím mũi tên để cuộn"><Table<SheetHistoryItem> size="small" rowKey="id" pagination={false} scroll={{ x: 760 }} dataSource={history.data.items} columns={[
       { title: "Thời điểm", dataIndex: "createdAt", width: 170, render: value => new Date(value).toLocaleString("vi-VN") },
       { title: "Thao tác", dataIndex: "action", width: 190, render: (value: string, row) => <>{ACTION_LABEL[value] ?? value}<br /><Text type="secondary">{(SHEET_STATUS[row.fromStatus]?.[0] ?? row.fromStatus) + " → " + (SHEET_STATUS[row.toStatus]?.[0] ?? row.toStatus)}</Text></> },
       { title: "Người", render: (_, row) => row.actor?.displayName ?? "Hệ thống", width: 150 },
       { title: "Tổng thực lĩnh", align: "right", width: 150, render: (_, row) => row.totals ? money(row.totals.net) : "—" },
       { title: "Lý do / ghi chú", dataIndex: "reason", render: value => value ?? "—" },
-    ]} />}
+    ]} /></div>}
     <Modal open={dialog === "approve"} title={`Duyệt bảng lương ${periodCode}?`} okText="Duyệt" okButtonProps={{ loading: action.isPending }} onOk={() => action.mutate()} onCancel={close}>
       <p>Bảng lương sẽ chuyển sang Đã duyệt với tổng tiền và mã băm nguồn hiện tại. Thay đổi nguồn sau đó sẽ đưa bảng về Nháp.</p>
       <Input.TextArea rows={2} value={note} maxLength={2000} onChange={event => setNote(event.target.value)} placeholder="Ghi chú rà soát (không bắt buộc)" />
@@ -142,9 +148,11 @@ export function PayrollSheetPanel({ canCalculate, canApprove, canLock }: { canCa
   const latest = runs.data?.items[0];
   const latestDetail = useQuery({ queryKey: ["payroll-run", latest?.id, latest?.status], queryFn: () => payrollApi.run(latest!.id), enabled: Boolean(latest && latest.status !== "RUNNING") });
   const sheet = useQuery({ queryKey: ["payroll-sheet", periodId, latest?.id, latest?.status], queryFn: () => payrollApi.sheet(periodId!), enabled: Boolean(periodId) });
-  const start = useMutation({ mutationFn: () => payrollApi.start(periodId!), onSuccess: () => void client.invalidateQueries({ queryKey: ["payroll-runs", periodId] }) });
-  const cancel = useMutation({ mutationFn: () => payrollApi.cancel(latest!.id), onSuccess: () => void client.invalidateQueries({ queryKey: ["payroll-runs", periodId] }) });
-  const data = sheet.data && sheet.data.sheet ? sheet.data as SheetView : null;
+  const start = useMutation({ mutationFn: (payrollPeriodId: string) => payrollApi.start(payrollPeriodId), onSuccess: (_, payrollPeriodId) => void client.invalidateQueries({ queryKey: ["payroll-runs", payrollPeriodId] }) });
+  const cancel = useMutation({ mutationFn: (input: { runId: string; payrollPeriodId: string }) => payrollApi.cancel(input.runId), onSuccess: (_, input) => void client.invalidateQueries({ queryKey: ["payroll-runs", input.payrollPeriodId] }) });
+  const currentStart = start.variables === periodId;
+  const currentCancel = cancel.variables?.payrollPeriodId === periodId;
+  const data = !sheet.isError && sheet.data && sheet.data.sheet ? sheet.data as SheetView : null;
   const period = periods.data?.items.find(item => item.id === periodId);
   const dueSoon = periods.data?.items.filter(item => item.dueWarning) ?? [];
   const locked = period?.status === "LOCKED" || data?.sheet.status === "LOCKED";
@@ -152,24 +160,45 @@ export function PayrollSheetPanel({ canCalculate, canApprove, canLock }: { canCa
     {dueSoon.length > 0 && <Alert type="warning" showIcon message="Kỳ lương sắp đến hạn chi nhưng chưa khóa" description={<ul className="plain-list">{dueSoon.map(item => <li key={item.id}><Button type="link" size="small" onClick={() => setPeriodId(item.id)}>{item.code} — {item.siteName}</Button> ngày chi {item.expectedPaymentDate}: {dueText(item)}</li>)}</ul>} />}
     <div className="workspace-filters">
       <label>Kỳ lương<Select style={{ minWidth: 320 }} value={periodId} placeholder="Chọn kỳ lương" loading={periods.isLoading} onChange={setPeriodId} options={periods.data?.items.map(item => ({ value: item.id, label: `${item.code} — ${item.siteName} (${item.dateFrom} → ${item.dateTo})${item.status === "LOCKED" ? " · đã khóa" : item.dueWarning ? " · ⚠ " + dueText(item) : ""}` }))} /></label>
-      {canCalculate && periodId && !locked && <Space><Button type="primary" icon={<PlayCircleOutlined />} loading={start.isPending} disabled={latest?.status === "RUNNING"} onClick={() => start.mutate()}>Chạy tính lương</Button>{latest?.status === "RUNNING" && <Button danger icon={<StopOutlined />} onClick={() => cancel.mutate()}>Dừng an toàn</Button>}</Space>}
+      {canCalculate && periodId && !locked && <Space><Button type="primary" icon={<PlayCircleOutlined />} loading={start.isPending} disabled={latest?.status === "RUNNING"} onClick={() => start.mutate(periodId)}>Chạy tính lương</Button>{latest?.status === "RUNNING" && <Button danger icon={<StopOutlined />} loading={cancel.isPending} onClick={() => cancel.mutate({ runId: latest.id, payrollPeriodId: periodId })}>Dừng an toàn</Button>}</Space>}
     </div>
-    {start.isError && <Alert type="error" showIcon message="Không chạy được" description={errorMessage(start.error)} />}
-    {latest && <Alert type={latest.status === "FAILED" ? "error" : latest.status === "RUNNING" ? "info" : "success"} showIcon message={<Space wrap>{`Lần tính ${new Date(latest.startedAt).toLocaleString("vi-VN")} — ${latest.status}`}<Progress percent={latest.progressTotal ? Math.round(latest.progressDone * 100 / latest.progressTotal) : 0} size="small" style={{ width: 160 }} />{latest.errorCount > 0 && <Tag color="error">{latest.errorCount} lỗi</Tag>}</Space>} description={latest.failure ?? (latest.sourceHash ? <Text type="secondary">Hash nguồn {latest.sourceHash.slice(0, 16)}…</Text> : undefined)} />}
+    {periods.isError && <Alert type="error" showIcon message="Không tải được kỳ lương" description={errorMessage(periods.error)} />}
+    {periodId && runs.isError && <Alert type="error" showIcon message="Không tải được trạng thái tính lương" description={errorMessage(runs.error)} />}
+    {periodId && sheet.isError && <Alert type="error" showIcon message="Không tải được bảng lương" description={errorMessage(sheet.error)} />}
+    {latestDetail.isError && <Alert type="error" showIcon message="Không tải được kết quả lần tính" description={errorMessage(latestDetail.error)} />}
+    {currentCancel && cancel.isError && <Alert type="error" showIcon message="Chưa dừng được lần tính" description={errorMessage(cancel.error)} />}
+    {currentStart && start.isPending && <div className="task-status" role="status">Đang gửi yêu cầu tính lương…</div>}
+    {currentCancel && cancel.isPending && <div className="task-status" role="status">Đang yêu cầu dừng an toàn…</div>}
+    {currentStart && start.isError && <Alert type="error" showIcon message="Không chạy được" description={errorMessage(start.error)} />}
+    {latest && <Alert key={`${latest.id}-${latest.status}`} className={`task-feedback${latest.status === "COMPLETED" && latest.errorCount === 0 ? " task-feedback-success" : ""}`} type={latest.status === "FAILED" ? "error" : latest.status === "RUNNING" ? "info" : latest.status === "CANCELLED" || latest.errorCount > 0 ? "warning" : "success"} showIcon icon={latest.status === "RUNNING" ? <LoadingOutlined spin aria-hidden="true" /> : undefined} role={latest.status === "FAILED" ? "alert" : "status"} message={<Space wrap>{`Lần tính ${new Date(latest.startedAt).toLocaleString("vi-VN")} — ${RUN_LABEL[latest.status]}`}{latest.progressTotal > 0 ? <Progress percent={Math.round(latest.progressDone * 100 / latest.progressTotal)} status={latest.status === "FAILED" ? "exception" : latest.status === "COMPLETED" && latest.errorCount === 0 ? "success" : "normal"} size="small" style={{ width: 160 }} /> : latest.status === "RUNNING" ? <Text type="secondary">Đang xác định phạm vi xử lý…</Text> : null}{latest.errorCount > 0 && <Tag color="error">{latest.errorCount} lỗi</Tag>}</Space>} description={latest.failure ?? (latest.sourceHash ? <Text type="secondary">Hash nguồn {latest.sourceHash.slice(0, 16)}…</Text> : undefined)} />}
     {latestDetail.data?.errors.length ? <Alert type="warning" showIcon message="Nhân viên lỗi (đã cô lập)" description={<ul className="plain-list">{latestDetail.data.errors.map(error => <li key={(error.employee?.code ?? "") + error.code}>{error.employee?.code} {error.employee?.fullName}: {error.code} — {error.message}</li>)}</ul>} /> : null}
-    {!periodId ? <Empty description="Chọn kỳ lương" /> : !data ? <Empty description="Chưa có bảng lương nháp cho kỳ này" /> : <>
-      <Space wrap size="large"><Statistic title="Nhân viên" value={data.totals.employees} /><Statistic title="Tổng thu nhập" value={money(data.totals.gross)} /><Statistic title="BH NLĐ" value={money(data.totals.insuranceEmployee)} /><Statistic title="Thuế TNCN" value={money(data.totals.tax)} /><Statistic title="Thực lĩnh" value={money(data.totals.net)} /><Statistic title="Số lần tính" value={data.sheet.calcCount} /></Space>
+    {periods.isLoading ? (
+      <div className="task-status" role="status"><Spin size="small" />Đang tải danh sách kỳ lương…</div>
+    ) : periods.isError ? null : !periodId ? (
+      <Empty className="business-empty" image={<BusinessIllustration kind="payroll" />} description={periods.data?.items.length ? "Chọn kỳ lương để xem bảng lương." : "Chưa có kỳ lương trong phạm vi của bạn."} />
+    ) : sheet.isLoading || runs.isLoading || (!data && (sheet.isFetching || runs.isFetching)) ? (
+      <div className="task-status" role="status"><Spin size="small" />Đang tải bảng lương và trạng thái tính…</div>
+    ) : sheet.isError || runs.isError ? null : !data ? (
+      (currentStart && start.isPending) || latest?.status === "RUNNING" ? (
+        <div className="task-status" role="status">Bảng lương sẽ hiển thị khi máy chủ có kết quả.</div>
+      ) : (currentStart && start.isError) || latest?.status === "FAILED" || latest?.status === "CANCELLED" || (latest?.errorCount ?? 0) > 0 ? null : (
+        <Empty className="business-empty" image={<BusinessIllustration kind="payroll" />} description="Chưa có bảng lương nháp cho kỳ này." />
+      )
+    ) : <>
+      <div className="context-strip" aria-label="Tổng quan bảng lương"><Statistic title="Nhân viên" value={data.totals.employees} /><Statistic title="Tổng thu nhập" value={money(data.totals.gross)} /><Statistic title="BH NLĐ" value={money(data.totals.insuranceEmployee)} /><Statistic title="Thuế TNCN" value={money(data.totals.tax)} /><Statistic title={<span className="metric-label"><span>Thực lĩnh</span><BusinessIllustration kind="payroll" /></span>} value={money(data.totals.net)} /><Statistic title="Số lần tính" value={data.sheet.calcCount} /></div>
       <ApprovalPanel sheet={data.sheet} periodCode={data.sheet.payrollPeriod.code} canApprove={canApprove} canLock={canLock} />
       <Title level={4}>Cổng tuân thủ CP-01…CP-09</Title>
       <CompliancePanel sheetId={data.sheet.id} canCalculate={canCalculate && data.sheet.status === "DRAFT"} employees={data.items} />
       <Title level={4}>{data.sheet.status === "LOCKED" ? "Bảng lương đã khóa" : data.sheet.status === "APPROVED" ? "Bảng lương đã duyệt" : "Bảng lương nháp"}</Title>
-      <Table<SheetEmployee> className="workspace-table" rowKey="id" dataSource={data.items} scroll={{ x: 980 }} pagination={{ pageSize: 20, showSizeChanger: false }} onRow={row => ({ onClick: () => setSelected(row) })} columns={[
-        { title: "Nhân sự", render: (_, row) => <>{row.employee.code}<br /><Text type="secondary">{row.employee.fullName}</Text></>, width: 200 },
-        { title: "Trạng thái", dataIndex: "status", width: 110, render: (value, row) => value === "OK" ? (row.violations.some(v => v.severity === "BLOCKING") ? <Tag color="red">Vi phạm</Tag> : <Tag color="success">OK</Tag>) : <Tag color="error">{row.errors[0]?.code ?? "Lỗi"}</Tag> },
-        { title: "Tổng thu nhập", render: (_, row) => money(row.totals.gross), align: "right" }, { title: "BH NLĐ", render: (_, row) => money(Number(row.totals.insuranceEmployee) + Number(row.totals.unionFee)), align: "right" },
-        { title: "Thuế", render: (_, row) => money(row.totals.tax), align: "right" }, { title: "Thực lĩnh", render: (_, row) => <strong>{money(row.totals.net)}</strong>, align: "right" },
-        { title: "Cổng", render: (_, row) => row.violations.map(v => <Tag key={v.code + v.message} color={v.severity === "BLOCKING" ? "red" : "orange"}>{v.code}</Tag>) },
-      ]} />
+      <div className="table-panel" role="region" tabIndex={0} aria-label="Bảng lương theo nhân viên; dùng phím mũi tên để cuộn">
+        <Table<SheetEmployee> rowKey="id" dataSource={data.items} scroll={{ x: 980 }} pagination={{ pageSize: 20, showSizeChanger: false }} onRow={row => ({ onClick: () => setSelected(row) })} columns={[
+          { title: "Nhân sự", render: (_, row) => <>{row.employee.code}<br /><Text type="secondary">{row.employee.fullName}</Text></>, width: 200 },
+          { title: "Trạng thái", dataIndex: "status", width: 110, render: (value, row) => value === "OK" ? (row.violations.some(v => v.severity === "BLOCKING") ? <Tag color="red">Vi phạm</Tag> : <Tag color="success">OK</Tag>) : <Tag color="error">{row.errors[0]?.code ?? "Lỗi"}</Tag> },
+          { title: "Tổng thu nhập", render: (_, row) => money(row.totals.gross), align: "right" }, { title: "BH NLĐ", render: (_, row) => money(Number(row.totals.insuranceEmployee) + Number(row.totals.unionFee)), align: "right" },
+          { title: "Thuế", render: (_, row) => money(row.totals.tax), align: "right" }, { title: "Thực lĩnh", render: (_, row) => <strong>{money(row.totals.net)}</strong>, align: "right" },
+          { title: "Cổng", render: (_, row) => row.violations.map(v => <Tag key={v.code + v.message} color={v.severity === "BLOCKING" ? "red" : "orange"}>{v.code}</Tag>) },
+        ]} />
+      </div>
       {selected && <EmployeeLines sheetId={data.sheet.id} employee={selected} onClose={() => setSelected(null)} />}
     </>}
   </div>;

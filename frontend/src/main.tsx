@@ -19,12 +19,27 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ConfigProvider theme={theme} locale={viVN}>
+const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+const reducedMotionTheme = { ...theme, token: { ...theme.token, motion: false } };
+const getReducedMotion = () => motionPreference.matches;
+const subscribeMotionPreference = (onChange: () => void) => {
+  motionPreference.addEventListener('change', onChange);
+  return () => motionPreference.removeEventListener('change', onChange);
+};
+
+function Root() {
+  const reducedMotion = React.useSyncExternalStore(subscribeMotionPreference, getReducedMotion);
+  return (
+    <ConfigProvider theme={reducedMotion ? reducedMotionTheme : theme} locale={viVN}>
       <QueryClientProvider client={queryClient}>
         <App />
       </QueryClientProvider>
     </ConfigProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <Root />
   </React.StrictMode>,
 );

@@ -50,13 +50,13 @@ export function InsuranceChangesPanel({ canManage }: { canManage: boolean }) {
       {list?.generatedAt && <Text type="secondary">Lập lúc {new Date(list.generatedAt).toLocaleString("vi-VN")} bởi {list.generatedBy}</Text>}
     </Space>}
     {error && <Alert type="error" showIcon message="Không thực hiện được" description={errorMessage(error)} />}
-    {site && <Table<InsuranceChangeItem> rowKey="id" size="small" loading={current.isLoading} dataSource={current.data?.items ?? []} scroll={{ x: 1100 }} pagination={false}
+    {site && <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách biến động bảo hiểm; dùng phím mũi tên để cuộn"><Table<InsuranceChangeItem>     rowKey="id" size="small" loading={current.isLoading} dataSource={current.data?.items ?? []} scroll={{ x: 1100 }} pagination={false}
       locale={{ emptyText: <Empty description={list ? "Không có biến động trong tháng" : "Chưa lập danh sách tháng này"} /> }}
-      expandable={{ rowExpandable: row => row.arrears.length > 0, expandedRowRender: row => <Table size="small" rowKey="originMonth" pagination={false} dataSource={row.arrears} columns={[
+      expandable={{ rowExpandable: row => row.arrears.length > 0, expandedRowRender: row => <section className="workspace-table" role="region" tabIndex={0} aria-label="Chi tiết truy thu hoặc thoái thu"><Table     size="small" rowKey="originMonth" pagination={false} dataSource={row.arrears} scroll={{ x: 640 }} columns={[
         { title: "Tháng gốc", dataIndex: "originMonth" }, { title: "Loại", dataIndex: "direction", render: value => value === "ARREARS" ? "Truy thu" : "Thoái thu" },
         ...(["BHXH", "BHYT", "BHTN"] as const).map(kind => ({ title: kind + " NLĐ / DN", key: kind, render: (_: unknown, item: InsuranceChangeItem["arrears"][number]) => vnd(item.perKind[kind].employee) + " / " + vnd(item.perKind[kind].employer) })),
         { title: "Tổng", dataIndex: "total", align: "right" as const, render: vnd },
-      ]} /> }}
+      ]} /></section> }}
       columns={[
         { title: "Nhân sự", width: 220, render: (_, row) => <>{row.employee.fullName}<small className="table-subtext">{row.employee.code}</small></> },
         { title: "Loại", width: 120, render: (_, row) => <Tag color={TYPE[row.changeType][1]}>{TYPE[row.changeType][0]}</Tag> },
@@ -66,7 +66,7 @@ export function InsuranceChangesPanel({ canManage }: { canManage: boolean }) {
         { title: "Mức mới", width: 120, align: "right", render: (_, row) => vnd(row.new.base?.BHXH) },
         { title: "Báo muộn", width: 150, render: (_, row) => row.late ? <Tag color="volcano">Muộn — tháng {row.originMonth}</Tag> : "" },
         { title: "Truy thu / thoái thu", width: 160, align: "right", render: (_, row) => row.arrearsMonths ? vnd(row.arrearsTotal) + " (" + row.arrearsMonths + " tháng)" : "—" },
-      ]} />}
+      ]} /></section>}
   </section>;
 }
 
@@ -97,12 +97,12 @@ export function C12ReconciliationPanel({ canManage }: { canManage: boolean }) {
     {(upload.error ?? imports.error ?? detail.error) && <Alert type="error" showIcon message="Không xử lý được C12" description={errorMessage(upload.error ?? imports.error ?? detail.error)} />}
     {site && (imports.data?.items.length ?? 0) > 1 && <label>Lần nhập<Select value={active} onChange={setSelected} style={{ minWidth: 320 }} options={imports.data!.items.map(item => ({ value: item.id, label: new Date(item.importedAt).toLocaleString("vi-VN") + " — " + item.fileName }))} /></label>}
     {detail.data && <Alert type={detail.data.differences.length ? "warning" : "success"} showIcon message={`${detail.data.import.summary.rows} dòng C12, ${detail.data.import.summary.matched} ghép được, ${detail.data.differences.length} chênh lệch`} />}
-    {site && <Table<C12Difference> rowKey="id" size="small" loading={detail.isLoading} dataSource={detail.data?.differences ?? []} pagination={false} scroll={{ x: 800 }}
+    {site && <section className="workspace-table" role="region" tabIndex={0} aria-label="Bảng đối chiếu C12; dùng phím mũi tên để cuộn"><Table<C12Difference>     rowKey="id" size="small" loading={detail.isLoading} dataSource={detail.data?.differences ?? []} pagination={false} scroll={{ x: 800 }}
       locale={{ emptyText: <Empty description={active ? "Không có chênh lệch" : "Chưa nhập C12 cho tháng này"} /> }}
       columns={[
         { title: "Phân loại", width: 190, render: (_, row) => <Tag color={CATEGORY[row.category][1]}>{CATEGORY[row.category][0]}</Tag> },
         { title: "Dòng C12", dataIndex: "rowNumber", width: 90, render: value => value ?? "—" },
         { title: "Chi tiết", render: (_, row) => describe(row) },
-      ]} />}
+      ]} /></section>}
   </section>;
 }

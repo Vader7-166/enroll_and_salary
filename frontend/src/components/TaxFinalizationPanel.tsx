@@ -29,7 +29,7 @@ export function TaxFinalizationPanel({ canManage }: { canManage: boolean }) {
     {error && <Alert type="error" showIcon message="Không thực hiện được" description={errorMessage(error)} />}
     {lastRun && <Alert type="info" showIcon message={`Tạo ${lastRun.created} phiên bản mới, ${lastRun.unchanged} không đổi.`}
       description={lastRun.ineligible.length ? <>Không lập cho {lastRun.ineligible.length} người: {lastRun.ineligible.map(row => row.employee.code + " (" + row.label + ")").join("; ")}</> : undefined} />}
-    <Table<TaxFinalization> rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 1150 }}
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Bảng quyết toán thuế TNCN; dùng phím mũi tên để cuộn"><Table<TaxFinalization>     rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 1150 }}
       locale={{ emptyText: <Empty description="Chưa có dự thảo cho năm này" /> }}
       expandable={{ expandedRowRender: row => <Descriptions size="small" bordered column={{ xs: 1, sm: 3 }} items={[
         { key: "p", label: "Số lần chi", children: row.summary.payments }, { key: "i", label: "Tổng thu nhập", children: vnd(row.summary.totalIncome) }, { key: "e", label: "Thu nhập miễn", children: vnd(row.summary.exempt) },
@@ -48,6 +48,6 @@ export function TaxFinalizationPanel({ canManage }: { canManage: boolean }) {
         { title: "Trạng thái", width: 180, render: (_, row) => row.status === "DONE" ? <Tag color="success">Hoàn tất</Tag> : canManage
           ? <Popconfirm title="Hoàn tất dự thảo?" description="Dự thảo hoàn tất không sửa được; tính lại sẽ tạo phiên bản mới." onConfirm={() => complete.mutate(row)}><Button size="small" disabled={row.issues.some(issue => issue.blocking)} loading={complete.isPending}>Hoàn tất</Button></Popconfirm>
           : <Tag color="gold">Dự thảo</Tag> },
-      ]} />
+      ]} /></section>
   </section>;
 }
