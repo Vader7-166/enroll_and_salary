@@ -4,6 +4,7 @@ import {
   CalendarOutlined,
   BankOutlined,
   BarChartOutlined,
+  ReadOutlined,
   CalculatorOutlined,
   CarryOutOutlined,
   CheckCircleOutlined,
@@ -76,10 +77,11 @@ import { WelfareWorkspace } from "./components/WelfareWorkspace";
 import { ReportsWorkspace } from "./components/ReportsWorkspace";
 import { NotificationBell } from "./components/NotificationBell";
 import { AssistantButton } from "./components/AssistantDrawer";
+import { HandbookWorkspace } from "./components/HandbookWorkspace";
 import uiTokens from "../../docs/config/hrtp-ui-tokens.json";
 const { Header, Sider, Content } = Layout;
-const { Title, Paragraph, Text } = Typography;
-type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "employee-pay-plans" | "payroll-inputs" | "payroll" | "audit" | "contracts" | "welfare" | "reports" | "health";
+const { Title, Text } = Typography;
+type Route = "employees" | "accounts" | "organization" | "periods" | "settings" | "shifts" | "attendance" | "overtime" | "leave" | "salary-components" | "payroll-configuration" | "employee-pay-plans" | "payroll-inputs" | "payroll" | "audit" | "contracts" | "welfare" | "reports" | "health" | "handbook";
 const routeTitles: Record<Route, string> = {
   employees: "Nhân sự",
   accounts: "Tài khoản",
@@ -100,6 +102,7 @@ const routeTitles: Record<Route, string> = {
   contracts: "Hợp đồng & chấm dứt",
   welfare: "Phúc lợi",
   reports: "Báo cáo",
+  handbook: "Cẩm nang & chính sách",
 };
 
 type WorkspaceModule = "personnel" | "attendance" | "leave" | "payroll" | "admin";
@@ -124,6 +127,7 @@ const routeModules: Record<Route, WorkspaceModule> = {
   settings: "admin",
   health: "admin",
   audit: "admin",
+  handbook: "admin",
 };
 
 // One icon per destination, reused by navigation, breadcrumbs and page headings.
@@ -147,6 +151,7 @@ const routeIcons: Record<Route, React.ReactNode> = {
   settings: <SettingOutlined aria-hidden="true" />,
   audit: <AuditOutlined aria-hidden="true" />,
   health: <CloudServerOutlined aria-hidden="true" />,
+  handbook: <ReadOutlined aria-hidden="true" />,
 };
 
 function canSeePayroll(user: AuthUser): boolean {
@@ -176,7 +181,7 @@ function currentRoute(user: AuthUser): Route {
           : route === "accounts" ? user.permissions.includes("accounts.manage")
             : route === "settings" ? user.permissions.includes("settings.manage")
               : route === "periods" ? user.permissions.includes("period.read")
-                : route === "organization" || route === "health";
+                : route === "organization" || route === "health" || route === "handbook";
   return allowed ? route
     : user.permissions.includes("employee.read") ? "employees"
       : user.permissions.includes("attendance.read") ? "attendance"
@@ -238,9 +243,6 @@ function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
           <Title id="login-title" level={1}>
             Chào mừng trở lại
           </Title>
-          <Paragraph type="secondary">
-            Sử dụng tài khoản được cấp để truy cập đúng phạm vi công việc.
-          </Paragraph>
         </div>
         <Form
           form={form}
@@ -274,9 +276,6 @@ function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) {
             Đăng nhập
           </Button>
         </Form>
-        <Text type="secondary" className="login-note">
-          Phiên làm việc được bảo vệ và tự hết hạn theo chính sách hệ thống.
-        </Text>
       </section>
     </main>
   );
@@ -330,12 +329,14 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     user.permissions.includes("audit.read") ? { key: "audit", label: "Nhật ký kiểm toán" } : null,
     { key: "organization", label: "Tổ chức" },
     { key: "health", label: "Hệ thống" },
+    { key: "handbook", label: "Cẩm nang & chính sách" },
   ].filter(Boolean) as { key: Route; label: string }[];
   const navigationGroups = [
     { key: "people", label: "NHÂN SỰ", routes: ["employees", "contracts", "organization"] },
     { key: "time", label: "THỜI GIAN LÀM VIỆC", routes: ["periods", "shifts", "attendance", "overtime", "leave"] },
     { key: "pay", label: "TIỀN LƯƠNG", routes: ["payroll", "salary-components", "payroll-configuration", "employee-pay-plans", "payroll-inputs", "welfare", "reports"] },
     { key: "system", label: "QUẢN TRỊ", routes: ["accounts", "settings", "audit", "health"] },
+    { key: "support", label: "HỖ TRỢ", routes: ["handbook"] },
   ].map(group => ({
     key: group.key,
     type: "group" as const,
@@ -403,6 +404,9 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       <ContractsWorkspace user={user} />
     ) : route === "audit" ? (
       <AuditWorkspace />
+    ) : route === "handbook" ? (
+      <HandbookWorkspace user={user} allowedRoutes={items.map(item => item.key)}
+        onNavigate={next => { if (items.some(item => item.key === next)) navigate(next as Route); }} />
     ) : route === "organization" ? (
       <OrganizationPage />
     ) : (
@@ -550,9 +554,6 @@ function EmployeesPage({ user }: { user: AuthUser }) {
         <div>
           <p className="eyebrow">QUẢN LÝ ĐỘI NGŨ</p>
           <Title level={1}>Nhân sự</Title>
-          <Paragraph type="secondary">
-            Thông tin đúng người, trong đúng phạm vi.
-          </Paragraph>
         </div>
         {canCreate && (
           <Button
@@ -566,9 +567,9 @@ function EmployeesPage({ user }: { user: AuthUser }) {
         )}
       </div>
       <section className="stats-strip" aria-label="Tổng quan phạm vi nhân sự">
-        <div className="stat-block stat-primary"><span className="stat-symbol" aria-hidden="true"><TeamOutlined /></span><span className="stat-copy"><strong>Nhân sự phù hợp</strong><small>Theo bộ lọc đang áp dụng</small><b>{list.data?.total ?? (list.isError ? "—" : "…")}</b></span></div>
-        <div className="stat-block"><span className="stat-symbol" aria-hidden="true"><ApartmentOutlined /></span><span className="stat-copy"><strong>Đơn vị trong phạm vi</strong><small>Theo quyền tài khoản</small><b>{context.data?.units.length ?? (context.isError ? "—" : "…")}</b></span></div>
-        <div className="stat-block"><span className="stat-symbol" aria-hidden="true"><UserOutlined /></span><span className="stat-copy"><strong>Phạm vi được cấp</strong><small>Phân công tài khoản hiện tại</small><b>{user.assignments.length}</b></span></div>
+        <div className="stat-block stat-primary"><span className="stat-symbol" aria-hidden="true"><TeamOutlined /></span><span className="stat-copy"><strong>Nhân sự phù hợp</strong><b>{list.data?.total ?? (list.isError ? "—" : "…")}</b></span></div>
+        <div className="stat-block"><span className="stat-symbol" aria-hidden="true"><ApartmentOutlined /></span><span className="stat-copy"><strong>Đơn vị trong phạm vi</strong><b>{context.data?.units.length ?? (context.isError ? "—" : "…")}</b></span></div>
+        <div className="stat-block"><span className="stat-symbol" aria-hidden="true"><UserOutlined /></span><span className="stat-copy"><strong>Phạm vi được cấp</strong><b>{user.assignments.length}</b></span></div>
       </section>
       <section className="panel personnel-roster" aria-labelledby="personnel-roster-title">
       <h2 className="sr-only" id="personnel-roster-title">Danh sách nhân sự</h2>
@@ -904,9 +905,6 @@ function OrganizationPage() {
         <div>
           <p className="eyebrow">CƠ CẤU / PHẠM VI</p>
           <Title level={1}>Tổ chức</Title>
-          <Paragraph type="secondary">
-            Đơn vị được hiển thị theo phạm vi quyền của tài khoản hiện tại.
-          </Paragraph>
         </div>
       </div>
       {context.isError ? (

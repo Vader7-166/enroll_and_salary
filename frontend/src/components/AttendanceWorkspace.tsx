@@ -115,7 +115,7 @@ function ProfileModal({ siteId, open, onClose }: { siteId: string; open: boolean
         <Form.Item name="dateFormat" label="Định dạng ngày"><Select options={[{ value: "YYYY-MM-DD" }, { value: "DD/MM/YYYY" }]} /></Form.Item>
         <Form.Item name="timeFormat" label="Định dạng giờ"><Select options={[{ value: "HH:mm:ss" }, { value: "HH:mm" }]} /></Form.Item>
       </div>
-      <Text type="secondary">Chỉ số cột trên màn hình bắt đầu từ 1; hệ thống lưu chỉ số bắt đầu từ 0. Mỗi lần lưu tạo cấu hình mới.</Text>
+      <Text type="secondary">Chỉ số cột bắt đầu từ 1.</Text>
     </Form>
   </Modal>;
 }
@@ -243,7 +243,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
   if (context.isError) return <div className="attendance-workspace"><Alert type="error" showIcon message="Không tải được bối cảnh chấm công" description={errorMessage(context.error)} /></div>;
   if (!context.data || context.data.sites.length === 0) return <div className="attendance-workspace"><Empty className="business-empty" image={<BusinessIllustration kind="attendance" />} description="Chưa có địa điểm chấm công trong phạm vi của bạn." /></div>;
   return <section className="attendance-workspace" aria-labelledby="attendance-title">
-    <div className="page-heading page-heading-illustrated"><div><p className="eyebrow">THEO DÕI THỜI GIAN</p><Title id="attendance-title" level={1}>Chấm công</Title><Text type="secondary">Đối chiếu lịch đã duyệt với lượt quẹt thực tế theo từng ngày công.</Text></div><BusinessIllustration kind="attendance" className="business-art-header" /></div>
+    <div className="page-heading page-heading-illustrated"><div><p className="eyebrow">THEO DÕI THỜI GIAN</p><Title id="attendance-title" level={1}>Chấm công</Title></div><BusinessIllustration kind="attendance" className="business-art-header" /></div>
     <section className="filter-panel attendance-filters" aria-label="Phạm vi và bộ lọc chấm công">
       <div><Text strong>Địa điểm</Text><Select aria-label="Địa điểm" value={siteId} onChange={chooseSite} placeholder="Chọn địa điểm" options={context.data.sites.map(site => ({ value: site.id, label: `${site.code} · ${site.name}` }))} /></div>
       <div><Text strong>Kỳ tham chiếu</Text><Select aria-label="Kỳ tham chiếu" value={periodId} onChange={choosePeriod} disabled={!siteId} placeholder="Chọn kỳ công" options={sitePeriods.map(period => ({ value: period.id, label: period.code }))} /></div>
@@ -258,7 +258,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
         ...(canImport ? [{ key: "import", label: "Nhập tệp" }, { key: "history", label: "Lịch sử nhập" }, { key: "punches", label: "Lượt quẹt gốc" }] : []),
       ]} />
       {currentProcess && process.isPending && <div className="task-status" role="status">Đang xử lý lượt quẹt theo địa điểm và kỳ tham chiếu đã chọn…</div>}
-      {currentProcess && process.isSuccess && <Alert key={process.submittedAt} className="task-feedback task-feedback-success" type="success" showIcon role="status" message="Đã hoàn tất yêu cầu xử lý lượt quẹt" description="Rà soát bảng công và danh sách ngoại lệ để kiểm tra kết quả." />}
+      {currentProcess && process.isSuccess && <Alert key={process.submittedAt} className="task-feedback task-feedback-success" type="success" showIcon role="status" message="Đã hoàn tất yêu cầu xử lý lượt quẹt" />}
       {(tab === "board" || tab === "exceptions") && <>
         {canImport && <div className="attendance-actions"><Button icon={<PlayCircleOutlined />} loading={process.isPending} onClick={() => process.mutate({ siteId, referencePeriodId: periodId })}>Xử lý lượt quẹt chờ</Button></div>}
         {currentProcess && process.isError && <Alert className="attendance-alert" type="error" showIcon message="Không xử lý được lượt quẹt" description={errorMessage(process.error)} />}
@@ -266,13 +266,12 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
         {board.data && <div className="attendance-summary" aria-label="Tổng hợp bảng công"><span><strong>{board.data.summary.days}</strong> ngày công</span><span><strong>{board.data.summary.exceptionDays}</strong> ngoại lệ</span><span><strong>{minutes(board.data.summary.workedMinutes)}</strong> làm việc</span><span><strong>{minutes(board.data.summary.nightMinutes)}</strong> ban đêm</span></div>}
         <div className="attendance-table-tools">
           <Radio.Group aria-label="Chế độ hiển thị bảng công" value={tableView} onChange={event => setTableView(event.target.value)} optionType="button" options={[{ label: "Tóm tắt", value: "summary" }, { label: "Đầy đủ", value: "full" }]} />
-          <span className="attendance-table-hint" id="attendance-table-help">{compact ? "Ưu tiên thông tin chính. Chọn Đầy đủ hoặc Xem để đọc toàn bộ." : "Đủ các trường nguồn. Cuộn ngang trong bảng; cột nhân viên được giữ cố định."}</span>
           {(!compact || !screens.lg) && <Space size={4}>
             <Button icon={<LeftOutlined aria-hidden="true" />} aria-label="Cuộn bảng công sang trái" aria-controls="attendance-board" onClick={() => boardRegion.current?.querySelector(".ant-table-body")?.scrollBy({ left: -240 })} />
             <Button icon={<RightOutlined aria-hidden="true" />} aria-label="Cuộn bảng công sang phải" aria-controls="attendance-board" onClick={() => boardRegion.current?.querySelector(".ant-table-body")?.scrollBy({ left: 240 })} />
           </Space>}
         </div>
-        <div ref={boardRegion} id="attendance-board" className="table-panel attendance-table attendance-board" role="region" tabIndex={0} aria-label="Bảng công theo ngày" aria-describedby="attendance-table-help"><Table<DailyRow> rowKey="id" size="small" tableLayout="fixed" loading={board.isLoading} columns={columns} dataSource={board.data?.items} locale={{ emptyText: board.data && !board.isFetching && !board.isError ? <Empty className="business-empty" image={<BusinessIllustration kind="attendance" />} description="Không có ngày công phù hợp bộ lọc." /> : null }} scroll={{ x: compact ? 980 : 1653, y: "clamp(240px, calc(100dvh - 520px), 520px)" }} pagination={false} components={{ body: { wrapper: TableBody } }} onRow={(row) => ({ className: "clickable-row", onClick: () => setSelectedDay(row) })} /></div>
+        <div ref={boardRegion} id="attendance-board" className="table-panel attendance-table attendance-board" role="region" tabIndex={0} aria-label="Bảng công theo ngày"><Table<DailyRow> rowKey="id" size="small" tableLayout="fixed" loading={board.isLoading} columns={columns} dataSource={board.data?.items} locale={{ emptyText: board.data && !board.isFetching && !board.isError ? <Empty className="business-empty" image={<BusinessIllustration kind="attendance" />} description="Không có ngày công phù hợp bộ lọc." /> : null }} scroll={{ x: compact ? 980 : 1653, y: "clamp(240px, calc(100dvh - 520px), 520px)" }} pagination={false} components={{ body: { wrapper: TableBody } }} onRow={(row) => ({ className: "clickable-row", onClick: () => setSelectedDay(row) })} /></div>
         {board.data && <Pagination className="attendance-pagination" current={board.data.page} pageSize={board.data.pageSize} total={board.data.total} showSizeChanger={false} onChange={setBoardPage} />}
       </>}
       {tab === "overtime-actual" && <>
@@ -291,7 +290,7 @@ export function AttendanceWorkspace({ user }: { user: AuthUser }) {
           <Button icon={<SettingOutlined />} onClick={() => setProfileOpen(true)}>Lưu cấu hình cột</Button><DownloadTemplate />
           <Button type="primary" icon={<FileAddOutlined />} disabled={!file} loading={upload.isPending} onClick={() => upload.mutate()}>Nhập và xử lý</Button>
         </Space>
-        <Alert className="attendance-alert" type="info" showIcon message="Kỳ tham chiếu không ép ngày công" description="Lượt quẹt được ghép theo lịch đã duyệt và ngày bắt đầu ca. Kỳ chưa mở sẽ chờ xử lý; kỳ đã chốt/khóa chỉ nhận dữ liệu gốc, không sửa công." />
+        <Alert className="attendance-alert" type="info" showIcon message="Kỳ chưa mở sẽ chờ xử lý; kỳ đã chốt/khóa chỉ nhận dữ liệu gốc, không sửa công." />
         {upload.isError && <Alert className="attendance-alert" type="error" showIcon message="Không nhập được tệp" description={errorMessage(upload.error)} />}
         {lastBatch && <><Alert key={lastBatch.id} className={`attendance-alert${lastBatch.status === "ACCEPTED" ? " task-feedback-success" : ""}`} type={lastBatch.status === "REJECTED" ? "error" : lastBatch.status === "ACCEPTED_WITH_EXCEPTIONS" ? "warning" : "success"} showIcon message={<>{lastBatch.fileName} · {batchStatus(lastBatch)}</>} description={<Space wrap><span>{lastBatch.summary.inserted} lượt mới · {lastBatch.summary.duplicates} trùng · {lastBatch.summary.processed} đã xử lý · {lastBatch.summary.waiting} chờ · {lastBatch.summary.late} đến sau chốt · {lastBatch.summary.exceptionDays} ngày ngoại lệ</span><Button onClick={() => setSelectedBatch(lastBatch)}>Xem lô nhập</Button></Space>} />
           {lastBatch.errors.length > 0 && <ul>{lastBatch.errors.map((error, index) => <li key={index}>Dòng {error.row}: {error.message}</li>)}</ul>}

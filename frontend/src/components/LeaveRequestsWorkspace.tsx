@@ -77,7 +77,7 @@ export function LeaveRequestsWorkspace({canPlan}:{canPlan:boolean}) {
  const submit=useMutation({mutationFn:(item:LeaveRequestView)=>leaveRequestsApi.submit(item.id,item.revision),onSuccess:refresh});
  const item=detail.data?.item;
  return <>
-   <div className="leave-heading"><div><Title level={2}>Đơn nghỉ</Title><Paragraph type="secondary">Tổ trưởng ghi nhận và duyệt một cấp trong phạm vi được cấp. Duyệt/hủy cập nhật quỹ phép và công; ngày lễ không trừ phép năm.</Paragraph></div><Space wrap><Button onClick={()=>void refresh()}>Tải lại</Button>{canPlan&&<Button type="primary" onClick={()=>setEditing(null)}>Lập đơn nghỉ</Button>}</Space></div>
+   <div className="leave-heading"><div><Title level={2}>Đơn nghỉ</Title></div><Space wrap><Button onClick={()=>void refresh()}>Tải lại</Button>{canPlan&&<Button type="primary" onClick={()=>setEditing(null)}>Lập đơn nghỉ</Button>}</Space></div>
   <section className="leave-filters" aria-label="Bộ lọc đơn nghỉ"><Input.Search aria-label="Tìm đơn nghỉ" placeholder="Mã hoặc tên nhân sự" onSearch={v=>{setSearch(v.trim());setPage(1);}} allowClear /><Select aria-label="Trạng thái đơn nghỉ" virtual={false} getPopupContainer={trigger=>trigger.parentElement!} value={status} onChange={v=>{setStatus(v);setPage(1);}} options={[{value:"",label:"Tất cả trạng thái"},...Object.entries(statusLabels).map(([value,label])=>({value,label}))]} /></section>
   {list.isError&&<Alert type="error" message="Không tải được đơn nghỉ" description={errorMessage(list.error)} showIcon />}
   <div className="table-panel" role="region" tabIndex={0} aria-label="Danh sách đơn nghỉ">

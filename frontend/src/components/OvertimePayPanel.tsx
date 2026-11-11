@@ -8,7 +8,7 @@ import { periodApi } from "../api/hr-next";
 import { overtimePayApi } from "../api/overtime-pay";
 import type { OvertimeDayType, OvertimePayBucket } from "../api/overtime-pay";
 
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 const DAY_TYPE: Record<OvertimeDayType, string> = { THUONG: "Ngày thường", NGHI_TUAN: "Nghỉ hằng tuần", LE_TET: "Lễ, Tết" };
 const percent = (value: string) => `${(Number(value) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 4 })}%`;
 const hours = (minutes: string) => `${(Number(minutes) / 60).toLocaleString("vi-VN", { maximumFractionDigits: 2 })} giờ`;
@@ -40,7 +40,6 @@ export function OvertimePayPanel() {
     { title: "Nguồn", dataIndex: "sourceStatus", width: 100, render: (value: OvertimePayBucket["sourceStatus"]) => <Tag className={value === "LOCKED" ? "status-locked" : undefined} icon={value === "LOCKED" ? <LockOutlined /> : undefined}>{value === "LOCKED" ? "Đã khóa" : "Nháp"}</Tag> },
   ];
   return <section aria-label="Giờ OT theo hệ số">
-    <Paragraph type="secondary">Giờ OT đủ điều kiện (giao giữa thực tế và khoảng đã duyệt) được nhóm theo loại ngày, ban đêm và cờ “đã có OT ban ngày”. Hệ số luôn tính từ tham số pháp lý hiệu lực tại ngày công. Kỳ chưa khóa chỉ là số liệu nháp, không dùng cho bảng lương chính thức.</Paragraph>
     <div className="workspace-filters"><label>Kỳ công<Select style={{ minWidth: 280 }} value={periodId} placeholder="Chọn kỳ công" loading={periods.isLoading} onChange={setPeriodId}
       options={periods.data?.items.map(period => ({ value: period.id, label: `${period.code} — ${period.scopeOrgUnitName} (${period.dateFrom} → ${period.dateTo})` }))} /></label></div>
     {periods.isError && <Alert type="error" showIcon message="Không tải được kỳ công" description={errorMessage(periods.error)} />}

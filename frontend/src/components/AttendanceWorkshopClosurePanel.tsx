@@ -113,11 +113,10 @@ export function AttendanceWorkshopClosurePanel({ user, periodId, initialWorkshop
   };
   return <section className="team-confirmation workshop-closure" aria-labelledby="workshop-closure-title">
 
-    <div className="team-confirmation-toolbar"><div><Title level={2} id="workshop-closure-title">Chốt công phân xưởng</Title><Text type="secondary">Rà soát các tổ đã xác nhận trước khi chốt. Chốt xưởng không phải khóa kỳ công của Kế toán.</Text></div><Button disabled={!workshopId || close.isPending || sendBack.isPending} loading={review.isFetching} onClick={refresh}>Tải lại</Button></div>
+    <div className="team-confirmation-toolbar"><div><Title level={2} id="workshop-closure-title">Chốt công phân xưởng</Title></div><Button disabled={!workshopId || close.isPending || sendBack.isPending} loading={review.isFetching} onClick={refresh}>Tải lại</Button></div>
     <div className="team-confirmation-picker"><label htmlFor="workshop-closure-select">Phân xưởng trong phạm vi</label><Select id="workshop-closure-select" aria-label="Phân xưởng trong phạm vi" virtual={false} loading={workshops.isLoading} value={workshopId} placeholder="Chọn phân xưởng để đối soát" onChange={id => { setWorkshopId(id); setTeamId(undefined); setHistory(undefined); close.reset(); sendBack.reset(); }} options={workshops.data?.items.map(workshop => ({ value: workshop.id, label: `${workshop.code} · ${workshop.name}` }))} /></div>
     {workshops.isError && <Alert type="error" showIcon message="Không tải được phân xưởng" description={errorMessage(workshops.error)} action={<Button onClick={() => void workshops.refetch()}>Thử lại</Button>} />}
     {workshops.isSuccess && workshops.data.items.length === 0 && <Empty description="Không có phân xưởng có công trong phạm vi kỳ và quyền của bạn." />}
-    {!workshopId && Boolean(workshops.data?.items.length) && <Alert type="info" showIcon message="Chọn phân xưởng để xem các tổ, điều kiện chốt và lịch sử." />}
     {review.isLoading && workshopId && <Spin tip="Đang kiểm tra nguồn và xác nhận các tổ…"><div className="workshop-loading" /></Spin>}
     {review.isError && <Alert type="error" showIcon message="Không tải được đối soát phân xưởng" description={errorMessage(review.error)} action={<Button onClick={refresh}>Tải lại</Button>} />}
     {current && !review.isError && <div className="team-confirmation-stack">
@@ -132,7 +131,7 @@ export function AttendanceWorkshopClosurePanel({ user, periodId, initialWorkshop
         { key: "warnings", label: "Cảnh báo", children: current.warnings.length },
       ]} />
       {current.state === "STALE" && <Alert showIcon type="warning" message="Nguồn đã thay đổi sau lần chốt trước" description="Đối chiếu lại nguồn, xử lý công và xác nhận lại các tổ bị ảnh hưởng. Bản chốt cũ vẫn được lưu trong lịch sử." />}
-      <section className="team-confirmation-card"><Title level={3}>Việc cần xử lý trước khi chốt</Title>{current.blockers.length ? showIssues(current.blockers) : <Text type="secondary">Không còn điều kiện chặn. Rà soát dữ liệu và các cảnh báo trước khi chốt.</Text>}</section>
+      <section className="team-confirmation-card"><Title level={3}>Việc cần xử lý trước khi chốt</Title>{current.blockers.length ? showIssues(current.blockers) : <Text type="secondary">Không còn điều kiện chặn.</Text>}</section>
       <div className="table-panel" role="region" tabIndex={0} aria-label="Tổng hợp xác nhận các tổ"><Table<WorkshopClosureTeam> rowKey={row => row.team.id} components={{ body: { wrapper: TableBody } }} size="small" columns={teamColumns} dataSource={current.teams} scroll={{ x: 1355 }} pagination={{ pageSize: 20, showSizeChanger: false }} locale={{ emptyText: "Không có tổ có công cần chốt." }} /></div>
       {current.warnings.length > 0 && <section className="team-confirmation-card"><Title level={3}>Cảnh báo cần Quản đốc rà soát</Title><Alert type="warning" showIcon message={`${current.warnings.length} cảnh báo cần đọc và xác nhận`} description="Cảnh báo không tự động chặn chốt. Đối chiếu nhân viên, ngày công và nguồn liên quan trước khi quyết định." />{showIssues(current.warnings)}</section>}
       {isQD ? <section className="team-confirmation-card workshop-closure-actions"><Title level={3}>Quyết định của Quản đốc</Title>

@@ -14,7 +14,7 @@ import { BankTemplatesPanel, PaymentBatchesPanel, PayslipsPanel } from "./Payrol
 import { BonusPlansPanel, RetroAdjustmentsPanel } from "./PayrollAdjustmentPanels";
 import { BusinessIllustration } from "./BusinessIllustration";
 
-const { Title, Paragraph } = Typography;
+const { Title } = Typography;
 const RETRO_STATUS: Record<RetroCandidate["status"], [string, string]> = { PENDING: ["Chờ xử lý", "orange"], RESOLVED: ["Đã truy lĩnh/truy thu", "success"], DISMISSED: ["Bỏ qua có lý do", "default"] };
 
 function RetroCandidatesPanel({ canManage }: { canManage: boolean }) {
@@ -25,7 +25,6 @@ function RetroCandidatesPanel({ canManage }: { canManage: boolean }) {
   const list = useQuery({ queryKey: ["retro-candidates", status], queryFn: () => salaryDecisionApi.retroCandidates(status) });
   const dismiss = useMutation({ mutationFn: () => salaryDecisionApi.dismiss(dismissing!.id, note), onSuccess: () => { setDismissing(null); setNote(""); void client.invalidateQueries({ queryKey: ["retro-candidates"] }); } });
   return <section aria-label="Ứng viên hồi tố" className="tab-stack">
-    <Paragraph type="secondary">Quyết định lương có ngày hiệu lực rơi vào kỳ lương đã khóa. Kỳ đã khóa không bị sửa; chênh lệch được xử lý ở kỳ đang mở.</Paragraph>
     <div className="workspace-filters"><label>Trạng thái<Select allowClear value={status} onChange={setStatus} style={{ minWidth: 200 }} options={Object.entries(RETRO_STATUS).map(([value, [label]]) => ({ value, label }))} /></label></div>
     {list.isError && <Alert type="error" showIcon message="Không tải được ứng viên hồi tố" description={errorMessage(list.error)} />}
     <div className="table-panel" role="region" tabIndex={0} aria-label="Bảng ứng viên hồi tố; dùng phím mũi tên để cuộn">
@@ -58,7 +57,7 @@ export function PayrollWorkspace({ user }: { user: AuthUser }) {
       : user.permissions.includes("contract.read") ? [{ key: "retro", label: "Ứng viên hồi tố", children: <RetroCandidatesPanel canManage={user.permissions.includes("contract.manage")} /> }] : []),
   ];
   return <section className="workspace content-stack" aria-labelledby="payroll-title">
-    <div className="page-heading page-heading-illustrated"><div><Title id="payroll-title" level={1}>Bảng lương</Title><Paragraph type="secondary">Tính, duyệt, khóa bảng lương; phát hành phiếu lương, chi lương và xử lý điều chỉnh theo kỳ.</Paragraph></div><BusinessIllustration kind="payroll" className="business-art-header" /></div>
+    <div className="page-heading page-heading-illustrated"><div><Title id="payroll-title" level={1}>Bảng lương</Title></div><BusinessIllustration kind="payroll" className="business-art-header" /></div>
     <section className="panel settings-panel"><Tabs items={items} /></section>
   </section>;
 }

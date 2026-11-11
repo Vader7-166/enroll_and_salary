@@ -58,6 +58,15 @@ cần thiết, `effectiveFrom`/`effectiveTo` nếu có, nhãn SIMULATION/VERIFIE
 route hướng dẫn đã đăng ký. Không có metadata quyền thì mặc định không đưa vào corpus.
 Thông tin chính sách không được diễn đạt thành quy định doanh nghiệp thật nếu còn mô phỏng.
 
+Trang Cẩm nang & chính sách tái sử dụng corpus đã tải qua `GET /api/handbook`,
+không phụ thuộc feature flag AI hay provider. Danh mục đầy đủ vẫn lọc phiên,
+vai trò, quyền và hiệu lực; không dùng giới hạn ba bài của hướng dẫn tĩnh.
+Metadata `handbook` xác định loại bài, nhóm, phạm vi và phiên bản; chính sách
+tham khảo hiện hành phải là `handbookOnly: true`, nhãn SIMULATION. Các mục này
+bị loại khỏi `permitted()` của AI nên không đổi nguồn Q&A hoặc gửi thêm tài
+liệu lên Gemini. Chưa có quy chế doanh nghiệp đã xác nhận hoặc ngày ban hành
+thì hiển thị đúng tình trạng thiếu nguồn đó, không suy diễn từ dữ liệu mô phỏng.
+
 Backend lấy role/permission/scope/exclusion từ phiên; không tin role hoặc scope do
 client gửi. Lọc corpus theo quyền **trước tìm kiếm/xếp hạng** và **trước gửi Gemini**.
 Nội dung dùng chung phải được đánh dấu cho từng nhóm rõ ràng. Quyền đọc tài liệu và

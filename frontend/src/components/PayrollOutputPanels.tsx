@@ -7,7 +7,7 @@ import { payrollApi } from "../api/payroll";
 import { payrollOutputApi, saveFile } from "../api/payroll-output";
 import type { BankColumn, BankField, BankTemplate, PaidResult, PaymentBatch, PaymentItem, PayslipList, PayslipView } from "../api/payroll-output";
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const money = (value: string | number) => Math.round(Number(value)).toLocaleString("vi-VN") + " đ";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 const BATCH_STATUS: Record<PaymentBatch["status"], [string, string]> = { EXPORTED: ["Đã xuất file, chưa chi", "processing"], PAID: ["Đã chi", "success"], CANCELLED: ["Đã hủy", "default"] };
@@ -168,7 +168,6 @@ export function PaymentBatchesPanel() {
   const current = (templates.data?.items ?? []).filter(item => item.current && item.active);
   return <div className="tab-stack">
     <div className="workspace-filters"><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>Xuất file chi lương</Button></div>
-    <Paragraph type="secondary">File chi ghi đúng thực lĩnh từng người; phí chuyển khoản do doanh nghiệp chịu. Mỗi nhân viên của một kỳ chỉ thuộc một lô chi hiệu lực.</Paragraph>
     {batches.isError && <Alert type="error" showIcon message={errorMessage(batches.error)} />}
     <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách lô chi lương; dùng phím mũi tên để cuộn"><Table<PaymentBatch>     rowKey="id" loading={batches.isLoading} dataSource={batches.data?.items ?? []} scroll={{ x: 900 }} onRow={row => ({ onClick: () => setOpen(row.id) })} columns={[
       { title: "Mã lô", dataIndex: "code", width: 180 }, { title: "Kỳ lương", dataIndex: "periods", render: (value: string[]) => value.join(", ") },
@@ -198,7 +197,6 @@ export function BankTemplatesPanel() {
   const openEditor = (base?: BankTemplate) => { setEditing(base ?? {}); form.setFieldsValue(base ? { bankCode: base.bankCode, name: base.name, fileType: base.fileType, columns: base.columns, splitBySite: base.splitBySite, includeHeader: base.includeHeader, active: base.active, status: "SIMULATION", reason: "" } : { fileType: "XLSX", columns: [{ field: "SEQ", header: "STT" }, { field: "ACCOUNT_NUMBER", header: "So tai khoan" }, { field: "BENEFICIARY_NAME", header: "Ten nguoi huong", format: "UPPER_ASCII" }, { field: "AMOUNT", header: "So tien", format: "INTEGER" }, { field: "DESCRIPTION", header: "Noi dung", format: "UPPER_ASCII" }], splitBySite: false, includeHeader: true, active: true, status: "SIMULATION" }); };
   return <div className="tab-stack">
     <div className="workspace-filters"><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>Thêm mẫu ngân hàng</Button></div>
-    <Paragraph type="secondary">Mẫu file chi là cấu hình: thêm ngân hàng hoặc đổi bố cục bằng phiên bản mới, không cần sửa phần mềm. Lô chi đã xuất giữ nguyên mẫu đã dùng.</Paragraph>
     <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách mẫu file ngân hàng; dùng phím mũi tên để cuộn"><Table<BankTemplate>     rowKey="id" loading={templates.isLoading} dataSource={templates.data?.items ?? []} scroll={{ x: 900 }} columns={[
       { title: "Ngân hàng", render: (_, row) => <>{row.bankName} v{row.version}{row.current && <Tag color="blue" style={{ marginLeft: 6 }}>Hiện hành</Tag>}</>, width: 200 },
       { title: "Tên mẫu", dataIndex: "name" }, { title: "Loại", dataIndex: "fileType", width: 70 },

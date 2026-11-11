@@ -132,7 +132,6 @@ export function OvertimeActualPanel({ periodId, orgUnitId, search, canImport, on
     <Alert type="info" showIcon message="Giờ đủ điều kiện là giờ đối soát theo đăng ký và lượt quẹt, không phải giờ chi trả." style={{ marginBottom: 16 }} />
     <Space wrap style={{ marginBottom: 16, width: "100%", justifyContent: "space-between" }}>
       <Select aria-label="Bộ lọc ngoại lệ đối soát tăng ca" value={exceptionsOnly ? "exceptions" : "all"} onChange={value => setExceptionsOnly(value === "exceptions")} options={[{ value: "all", label: "Tất cả đối soát" }, { value: "exceptions", label: "Chỉ ngoại lệ" }]} style={{ minWidth: 190 }} />
-      {canImport && <Text type="secondary">Sau khi nhập hoặc xử lý lượt quẹt, dữ liệu đối soát sẽ được làm mới.</Text>}
     </Space>
     {actuals.isError && <Alert type="error" showIcon message="Không tải được đối soát tăng ca thực tế" description={errorMessage(actuals.error)} />}
     {summary && <div className="attendance-summary" aria-label="Tổng hợp tăng ca thực tế">

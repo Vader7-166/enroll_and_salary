@@ -152,7 +152,7 @@ export function SwapsTab({ user, shifts, official }: { user: AuthUser; shifts: S
     </div>
     <Modal title="Đề xuất đổi ca" open={creating} onCancel={() => setCreating(false)} footer={null} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={values => create.mutate(values)}>
-        <Form.Item name="scheduleId" label="Lượt phân ca đã duyệt" rules={[{ required: true }]} extra="Danh sách lấy từ tab Chính thức theo khoảng ngày đang chọn.">
+        <Form.Item name="scheduleId" label="Lượt phân ca đã duyệt" rules={[{ required: true }]}>
           <Select showSearch optionFilterProp="label" options={official.map(row => ({ value: row.id, label: row.workDate + " · " + row.employee.code + " " + row.employee.fullName + " · " + row.shift.code }))} /></Form.Item>
         <Form.Item name="newShiftId" label="Ca mới" rules={[{ required: true }]}><Select options={shifts.filter(shift => shift.active).map(shift => ({ value: shift.id, label: shift.code + " — " + shift.name + " (" + shift.startTime + "–" + shift.endTime + ")" }))} /></Form.Item>
         <Form.Item name="reason" label="Lý do" rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={3} /></Form.Item>

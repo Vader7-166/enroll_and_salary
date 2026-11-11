@@ -9,7 +9,7 @@ import { payrollInputsApi } from "../api/payroll-inputs";
 import { reportsApi } from "../api/reports";
 import type { ReportCatalogItem, ReportParams, ReportRun } from "../api/reports";
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const GROUPS: Record<string, string> = { "10.1": "Công & OT", "10.2": "Nhân sự", "10.3": "Lương", "10.4": "BH, thuế & lao động", LABOR: "Sổ quản lý lao động" };
 const format = (value: unknown, type?: string) => value === null || value === undefined ? "" : type === "money" && typeof value === "number" ? value.toLocaleString("vi-VN") : String(value);
 
@@ -51,7 +51,7 @@ export function ReportsWorkspace() {
   const data = preview.data;
   return <div className="content-stack">
     <div className="page-heading"><div><p className="eyebrow">BÁO CÁO 10.x</p><Title level={1}>Báo cáo</Title>
-      <Paragraph type="secondary">Chỉ hiện báo cáo theo vai trò và phạm vi của bạn. Kỳ đã khóa đọc bản lưu (Chính thức); kỳ chưa khóa là Nháp. Mỗi lần kết xuất được lưu lại.</Paragraph></div></div>
+    </div></div>
     <section className="panel settings-panel"><Tabs activeKey={tab} onChange={setTab} items={[
       { key: "view", label: "Xem & kết xuất", children: <div className="tab-stack">
         {catalog.isError && <Alert type="error" showIcon message="Không tải được danh mục báo cáo" description={errorMessage(catalog.error)} />}

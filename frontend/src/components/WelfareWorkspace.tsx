@@ -9,7 +9,7 @@ import { payrollInputsApi } from "../api/payroll-inputs";
 import { welfareApi } from "../api/welfare";
 import type { BenefitBatchDetail, BenefitBatchSummary, BenefitCatalogItem, WelfareCostRow } from "../api/welfare";
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const vnd = (value: string | null | undefined) => value == null ? "—" : Number(value).toLocaleString("vi-VN") + " đ";
 const TAX: Record<string, string> = { TAXABLE: "Chịu thuế", NON_TAXABLE: "Không chịu thuế", EXEMPT_UP_TO_LIMIT: "Miễn đến định mức" };
 const BATCH: Record<BenefitBatchSummary["status"], [string, string]> = { DRAFT: ["Dự kiến", "gold"], CONFIRMED: ["Đã xác nhận", "success"], CANCELLED: ["Đã hủy", "default"] };
@@ -176,8 +176,7 @@ function CostsTab() {
 export function WelfareWorkspace({ user }: { user: AuthUser }) {
   const canManage = user.permissions.includes("welfare.manage");
   return <div className="content-stack">
-    <div className="page-heading"><div><p className="eyebrow">PHÚC LỢI</p><Title level={1}>Phúc lợi</Title>
-      <Paragraph type="secondary">Danh mục theo hiệu lực, cấp phát theo danh sách dự kiến có kiểm tra điều kiện và chống trùng, chi phí phúc lợi gồm trợ cấp thôi việc/mất việc.</Paragraph></div></div>
+    <div className="page-heading"><div><p className="eyebrow">PHÚC LỢI</p><Title level={1}>Phúc lợi</Title></div></div>
     <section className="panel settings-panel"><Tabs items={[
       { key: "catalog", label: "Danh mục", children: <CatalogTab canManage={canManage} /> },
       { key: "batches", label: "Cấp phát", children: <BatchesTab canManage={canManage} /> },

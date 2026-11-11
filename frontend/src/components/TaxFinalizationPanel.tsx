@@ -20,7 +20,7 @@ export function TaxFinalizationPanel({ canManage }: { canManage: boolean }) {
   const exporter = useMutation({ mutationFn: () => finalizationApi.export(year), onSuccess: blob => { const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "quyet-toan-tncn-" + year + ".xlsx"; link.click(); URL.revokeObjectURL(link.href); } });
   const error = list.error ?? run.error ?? complete.error ?? exporter.error;
   return <section aria-label="Quyết toán thuế TNCN" className="tab-stack">
-    <Paragraph type="secondary">Tổng hợp theo năm của <b>ngày chi trả thực tế</b> (lương tháng 12 chi tháng 1 thuộc năm sau), tính thuế bằng biểu năm và so với số đã khấu trừ. Các lần chi 01/01–30/06/2026 giữ nguyên số đã khai; chênh lệch ghi ở quyết toán. Chỉ lập cho người ủy quyền quyết toán; không kê khai điện tử.</Paragraph>
+    <Paragraph type="secondary">Năm quyết toán theo <b>ngày chi trả thực tế</b>. Các lần chi 01/01–30/06/2026 giữ nguyên số đã khai; chênh lệch ghi ở quyết toán. Chỉ lập cho người ủy quyền quyết toán; không kê khai điện tử.</Paragraph>
     <Space wrap>
       <label>Năm <InputNumber min={2020} max={2100} value={year} onChange={value => value && (setYear(value), setLastRun(null))} /></label>
       {canManage && <Button type="primary" icon={<PlayCircleOutlined />} loading={run.isPending} onClick={() => run.mutate()}>Lập / cập nhật dự thảo</Button>}

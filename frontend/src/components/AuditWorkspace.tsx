@@ -6,7 +6,7 @@ import { errorMessage } from "../api/client";
 import { auditApi } from "../api/audit";
 import type { AuditFilter, AuditRecord, IntegrityCheck } from "../api/audit";
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const resultColor: Record<string, string> = { SUCCESS: "success", ALLOWED: "success", VALID: "success", DENIED: "error", EMPTY: "warning", BROKEN: "error" };
 const resultLabel: Record<string, string> = { DENIED: "Bị từ chối", EMPTY: "Ngoài phạm vi", ALLOWED: "Được phép", SUCCESS: "Thành công" };
 const localInput = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -47,7 +47,7 @@ function AuditLogTab() {
     </Form>
     {exporter.isError && <Alert type="error" showIcon message="Không xuất được nhật ký" description={errorMessage(exporter.error)} />}
     {logs.isError ? <Alert type="error" showIcon message="Không tải được nhật ký" description={errorMessage(logs.error)} /> : <>
-      <Alert type="info" showIcon message="Giá trị lương được che (***) với quản trị hệ thống. Mỗi lần xuất tệp đều được ghi nhật ký." />
+      <Alert type="info" showIcon message="Giá trị lương được che (***) với quản trị hệ thống." />
       <section className="table-panel" role="region" tabIndex={0} aria-label="Bảng nhật ký kiểm toán, cuộn ngang để xem đầy đủ">
       <Table<AuditRecord> rowKey="id" size="small" loading={logs.isLoading} dataSource={rows} pagination={false} scroll={{ x: 1300 }}
         locale={{ emptyText: <Empty description="Không có bản ghi phù hợp" /> }}
@@ -73,7 +73,7 @@ function IntegrityTab() {
   const run = useMutation({ mutationFn: auditApi.runCheck, onSuccess: () => void client.invalidateQueries({ queryKey: ["audit-integrity"] }) });
   const latest = checks.data?.items[0];
   return <div className="tab-stack">
-    <div className="history-toolbar"><Text type="secondary">Hệ thống tự kiểm tra lúc 02:00 hằng ngày: tính lại mã băm từng bản ghi theo thứ tự và so với bản ghi trước.</Text>
+    <div className="history-toolbar">
       <Button type="primary" icon={<SafetyCertificateOutlined />} loading={run.isPending} onClick={() => run.mutate()}>Kiểm tra ngay</Button></div>
     {run.isError && <Alert type="error" showIcon message="Không chạy được kiểm tra" description={errorMessage(run.error)} />}
     {latest && <Alert type={latest.status === "VALID" ? "success" : "error"} showIcon
@@ -96,7 +96,7 @@ function IntegrityTab() {
 export function AuditWorkspace() {
   return <div className="content-stack">
     <div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / KIỂM TOÁN</p><Title level={1}>Nhật ký kiểm toán</Title>
-      <Paragraph type="secondary">Tra cứu thao tác trong phạm vi được cấp, gồm cả truy cập bị từ chối. Nhật ký chỉ được ghi thêm, không sửa hay xóa.</Paragraph></div></div>
+    </div></div>
     <section className="panel settings-panel"><Tabs items={[{ key: "logs", label: "Tra cứu nhật ký", children: <AuditLogTab /> }, { key: "integrity", label: "Toàn vẹn chuỗi băm", children: <IntegrityTab /> }]} /></section>
   </div>;
 }
