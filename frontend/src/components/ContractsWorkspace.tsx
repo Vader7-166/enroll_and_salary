@@ -20,7 +20,6 @@ function AlertsTab() {
   const alerts = useQuery({ queryKey: ["contract-alerts", days], queryFn: () => terminationApi.alerts(days) });
   return <div className="tab-stack">
     <Space wrap><Text>Ngưỡng cảnh báo</Text><Radio.Group value={days} onChange={event => setDays(event.target.value)} options={[{ value: 30, label: "30 ngày" }, { value: 60, label: "60 ngày" }]} optionType="button" /></Space>
-    <Alert type="info" showIcon message="Cảnh báo chỉ để theo dõi: hệ thống không tự chấm dứt hay đổi trạng thái hợp đồng khi hết hạn." />
     {alerts.isError ? <Alert type="error" showIcon message="Không tải được cảnh báo" description={errorMessage(alerts.error)} /> :
       <section className="workspace-table" role="region" tabIndex={0} aria-label="Cảnh báo hợp đồng; dùng phím mũi tên để cuộn"><Table<ContractAlert>     rowKey={row => row.kind + row.contract.id} size="small" loading={alerts.isLoading} dataSource={alerts.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
         locale={{ emptyText: <Empty description="Không có hợp đồng cần chú ý" /> }}
@@ -143,7 +142,7 @@ function TerminationsTab({ canManage }: { canManage: boolean }) {
 export function ContractsWorkspace({ user }: { user: AuthUser }) {
   return <div className="content-stack">
     <div className="page-heading"><div><p className="eyebrow">HỒ SƠ / HỢP ĐỒNG</p><Title level={1}>Hợp đồng & chấm dứt</Title>
-      <Paragraph type="secondary">Theo dõi hợp đồng sắp hết hạn và lập quyết định chấm dứt có xem trước trợ cấp, tiền phép chưa nghỉ và báo giảm BH.</Paragraph></div></div>
+    </div></div>
     <section className="panel settings-panel"><Tabs items={[{ key: "alerts", label: "Cảnh báo hợp đồng", children: <AlertsTab /> }, { key: "terminations", label: "Chấm dứt hợp đồng", children: <TerminationsTab canManage={user.permissions.includes("contract.manage")} /> }]} /></section>
   </div>;
 }

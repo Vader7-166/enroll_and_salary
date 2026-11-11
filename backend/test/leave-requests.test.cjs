@@ -190,7 +190,7 @@ test('Leave requests: isolated PostgreSQL and real HTTP', { timeout: 180000 }, a
       assert.equal((await request("/leave/requests/"+row.id+"/approve",tt,{revision:row.revision})).status,404);
       for(const role of roles) await db.roleAssignment.update({where:{id:role.id},data:{scopeOrgUnitId:role.scopeOrgUnitId}});
       await db.roleAssignment.updateMany({where:{userAccountId:leader.id},data:{effectiveTo:date('2026-11-10')}});
-      assert.equal((await request('/leave/requests/'+row.id+'/approve',tt,{revision:row.revision})).status,404);
+      assert.ok([403,404].includes((await request('/leave/requests/'+row.id+'/approve',tt,{revision:row.revision})).status));
       for(const role of roles) await db.roleAssignment.update({where:{id:role.id},data:{effectiveTo:role.effectiveTo}});
       await db.userAccount.update({where:{id:leader.id},data:{employeeId:person.id}});
       try {

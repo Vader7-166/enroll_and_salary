@@ -273,7 +273,7 @@ function CorrectionEditor({
           <Input.Search aria-label="Tìm ngày công cần giải trình" placeholder="Tìm mã hoặc tên nhân viên" value={targetSearch} onChange={event => { setTargetSearch(event.target.value); setTargetPage(1); }} />
           <Text type="secondary">Chọn trong trang hiện tại; mỗi yêu cầu tối đa 100 người.</Text>
         </div>
-        {!workDate ? <Alert type="info" showIcon message="Chọn ngày công trước để tìm dữ liệu có thể giải trình." /> : targetQuery.isError ? <Alert type="error" showIcon message="Không tải được dữ liệu cần giải trình" description={errorMessage(targetQuery.error)} /> : <>
+        {!workDate ? null : targetQuery.isError ? <Alert type="error" showIcon message="Không tải được dữ liệu cần giải trình" description={errorMessage(targetQuery.error)} /> : <>
           <div className="table-panel attendance-table correction-target-table" role="region" tabIndex={0} aria-label="Ngày công có thể giải trình">
             <Table<CorrectionTarget>
               rowKey={targetKey}

@@ -13,7 +13,7 @@ import type { AuthUser } from "../api/hrtp";
 import { LeaveRequestsWorkspace } from "./LeaveRequestsWorkspace";
 import { TechnicalDetails } from "./TechnicalDetails";
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const required = [{ required: true, whitespace: true, message: "Trường này là bắt buộc." }];
 const statusOptions = [
   { value: "SIMULATION", label: "Mô phỏng" },
@@ -378,12 +378,12 @@ function CatalogWorkspace({ canConfigure }: { canConfigure: boolean }) {
     <label>Áp dụng tại ngày<Input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value || vietnamToday())} /></label>
   </section>;
   const typeContent = <>
-    <div className="leave-tab-heading"><div><Title level={2}>Loại nghỉ</Title><Paragraph type="secondary">Theo dõi phiên bản theo ngày hiệu lực. “Mô phỏng” chưa phải xác nhận nghiệp vụ.</Paragraph></div>{canConfigure && <Button type="primary" icon={<PlusOutlined />} onClick={() => setTypeEditor(null)}>Tạo loại nghỉ</Button>}</div>
+    <div className="leave-tab-heading"><div><Title level={2}>Loại nghỉ</Title></div>{canConfigure && <Button type="primary" icon={<PlusOutlined />} onClick={() => setTypeEditor(null)}>Tạo loại nghỉ</Button>}</div>
     {filterBar}
     {types.isError ? <Alert type="error" showIcon message="Không tải được loại nghỉ" description={errorMessage(types.error)} /> : <section className="panel table-panel" role="region" tabIndex={0} aria-label="Danh mục loại nghỉ"><Table rowKey="id" loading={types.isLoading} dataSource={types.data?.items ?? []} columns={typeColumns} pagination={false} scroll={{ x: 980 }} locale={{ emptyText: <Empty description="Không có loại nghỉ trong phạm vi hoặc tại ngày đã chọn" /> }} /></section>}
   </>;
   const policyContent = <>
-    <div className="leave-tab-heading"><div><Title level={2}>Chính sách phép năm</Title><Paragraph type="secondary">Quy định định mức, chuyển phép và ứng trước theo đơn vị, giữ nguyên lịch sử mỗi lần thay đổi.</Paragraph></div>{canConfigure && <Button type="primary" icon={<PlusOutlined />} onClick={() => setPolicyEditor(null)}>Tạo chính sách</Button>}</div>
+    <div className="leave-tab-heading"><div><Title level={2}>Chính sách phép năm</Title></div>{canConfigure && <Button type="primary" icon={<PlusOutlined />} onClick={() => setPolicyEditor(null)}>Tạo chính sách</Button>}</div>
     {filterBar}
     {policies.isError ? <Alert type="error" showIcon message="Không tải được chính sách phép năm" description={errorMessage(policies.error)} /> : <section className="panel table-panel" role="region" tabIndex={0} aria-label="Danh sách chính sách phép năm"><Table rowKey="id" loading={policies.isLoading} dataSource={policies.data?.items ?? []} columns={policyColumns} pagination={false} scroll={{ x: 1060 }} locale={{ emptyText: <Empty description="Không có chính sách trong phạm vi hoặc tại ngày đã chọn" /> }} /></section>}
   </>;
@@ -495,7 +495,7 @@ function FundsWorkspace({ canManage }: { canManage: boolean }) {
     { title: "Thao tác", width: 100, fixed: "right", render: (_, row) => <Button type="link" onClick={() => setSelected({ employeeId: row.employee.id, year: row.year })}>Sổ quỹ</Button> },
   ];
   const resetPage = (fn: () => void) => { setPage(1); fn(); };
-  return <><div className="leave-tab-heading"><div><Title level={2}>Quỹ phép</Title><Paragraph type="secondary">Chỉ hiển thị quỹ đã có bút toán. Không tự tạo quỹ khi xem; các khoản nợ, hết hạn và đối soát được giữ lại để truy vết.</Paragraph></div>{canManage && <Button type="primary" icon={<PlusOutlined />} onClick={() => setPicker(true)}>Lập quỹ cho nhân sự</Button>}</div>
+  return <><div className="leave-tab-heading"><div><Title level={2}>Quỹ phép</Title></div>{canManage && <Button type="primary" icon={<PlusOutlined />} onClick={() => setPicker(true)}>Lập quỹ cho nhân sự</Button>}</div>
     <section className="leave-filters leave-fund-filters" aria-label="Bộ lọc quỹ phép">
       <InputNumber aria-label="Năm quỹ phép" value={year} min={1900} max={2200} precision={0} onChange={(value) => resetPage(() => setYear(value ?? thisYear))} />
       <Input.Search placeholder="Tìm mã hoặc họ tên" allowClear value={search} onChange={(event) => setSearch(event.target.value)} onSearch={(value) => resetPage(() => setSearch(value.trim()))} enterButton={<SearchOutlined />} />
@@ -520,5 +520,5 @@ export function LeaveWorkspace({ user }: { user: AuthUser }) {
     user.roles.includes("KT") && user.permissions.includes("insurance.read") ? { key: "si-benefits", label: "Ốm đau & thai sản", children: <SiBenefitsPanel canManage={user.permissions.includes("insurance.manage")} /> } : null,
     user.permissions.includes("attendance.read") ? { key: "absence", label: "Tỷ lệ vắng", children: <AbsenceRatePanel /> } : null,
   ].filter(Boolean) as { key: string; label: string; children: React.ReactNode }[], [canConfigure, canReadFunds, user.permissions]);
-  return <section className="workspace leave-workspace" aria-labelledby="leave-title"><div className="page-heading"><div><p className="eyebrow">NGHỈ PHÉP / QUỸ PHÉP</p><Title id="leave-title" level={1}>Nghỉ & quỹ phép</Title><Paragraph type="secondary">Quản lý danh mục, chính sách và sổ quỹ phép theo đúng phạm vi quyền được cấp.</Paragraph></div></div><Tabs activeKey={tab} onChange={setTab} items={tabs} /></section>;
+  return <section className="workspace leave-workspace" aria-labelledby="leave-title"><div className="page-heading"><div><p className="eyebrow">NGHỈ PHÉP / QUỸ PHÉP</p><Title id="leave-title" level={1}>Nghỉ & quỹ phép</Title></div></div><Tabs activeKey={tab} onChange={setTab} items={tabs} /></section>;
 }

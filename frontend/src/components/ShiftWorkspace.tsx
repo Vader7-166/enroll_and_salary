@@ -79,7 +79,7 @@ function SlotFields({ index, unitId, shifts, remove }: { index: number; unitId?:
       <Form.Item name={[index, "mode"]} label="Đối tượng" rules={required}><Select options={[{ value: "ALL", label: "Toàn bộ nhân sự được phép xem trong đơn vị" }, { value: "SELECTED", label: "Chọn nhân sự" }]} /></Form.Item>
       {mode === "SELECTED" && <Form.Item name={[index, "employeeIds"]} label="Nhân sự hiệu lực tại ngày này" rules={required}><Select mode="multiple" showSearch optionFilterProp="label" loading={members.isLoading} disabled={!unitId || !workDate || members.isError} options={members.data?.items.map(e => ({ value: e.id, label: e.code + " · " + e.fullName }))} /></Form.Item>}
     </div>
-    {mode === "ALL" && members.data && <Paragraph type="secondary">{members.data.items.length} nhân sự trực thuộc đủ điều kiện tại ngày đã chọn. Danh sách được kiểm tra lại khi lưu/gửi/duyệt.</Paragraph>}
+    {mode === "ALL" && members.data && <Paragraph type="secondary">{members.data.items.length} nhân sự trực thuộc đủ điều kiện tại ngày đã chọn.</Paragraph>}
     {members.isError && <Alert type="error" showIcon message="Không tải được nhân sự theo ngày" description={errorMessage(members.error)} />}
     <Button danger type="text" onClick={remove}>Bỏ ngày này</Button>
   </section>;
@@ -150,7 +150,7 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
     {tab === "plans" && <label>Trạng thái<Select className="full-width" aria-label="Lọc trạng thái lịch ca" allowClear value={filters.status} options={Object.entries(statusLabels).map(([value, label]) => ({ value, label }))} onChange={status => setFilters({ ...filters, status })} /></label>}
   </div>;
   return <div className="content-stack shift-workspace">
-    <div className="page-heading"><div><p className="eyebrow">CA LÀM VIỆC / LỊCH ĐƯỢC DUYỆT</p><Title level={1}>Ca & phân ca</Title><Paragraph type="secondary">Một ca thuộc ngày bắt đầu. Mọi thời điểm hiển thị theo giờ Việt Nam.</Paragraph></div>
+    <div className="page-heading"><div><p className="eyebrow">CA LÀM VIỆC / LỊCH ĐƯỢC DUYỆT</p><Title level={1}>Ca & phân ca</Title></div>
       <Space wrap>{manage && <Button icon={<PlusOutlined />} onClick={() => setEditor({ shift: null })}>Thêm ca</Button>}{user.permissions.includes("shift.plan") && <CopyPreviousButton units={units} onCreated={id => { void client.invalidateQueries({ queryKey: ["shifts"] }); setSelectedId(id); setTab("plans"); }} />}{user.permissions.includes("shift.plan") && <Button type="primary" icon={<CalendarOutlined />} onClick={() => setPlanEditor({ plan: null })}>Lập lịch phân ca</Button>}</Space>
     </div>
     {context.isError && <Alert type="error" showIcon message="Không tải được phạm vi đơn vị" description={errorMessage(context.error)} />}
@@ -187,7 +187,7 @@ export function ShiftWorkspace({ user }: { user: AuthUser }) {
       </div> },
       { key: "patterns", label: "Mẫu xoay ca", children: <RotationPatternsTab canManage={manage} units={units} shifts={definitions.data?.items ?? []} /> },
       { key: "swaps", label: "Đổi ca", children: <div className="tab-stack">{toolbar}<SwapsTab user={user} shifts={definitions.data?.items ?? []} official={official.data?.items ?? []} /></div> },
-      { key: "official", label: "Chính thức", children: <div className="tab-stack">{toolbar}<Alert type="success" showIcon message="Chỉ hiển thị lịch đã được QĐ duyệt; không lấy lịch nháp, chờ duyệt hoặc trả lại." />
+      { key: "official", label: "Chính thức", children: <div className="tab-stack">{toolbar}
         {!validRange && <Alert type="warning" message="Chọn khoảng ngày hợp lệ, tối đa 93 ngày." />}
         {official.isError ? <Alert type="error" message="Không tải được lịch chính thức" description={errorMessage(official.error)} /> : official.isLoading ? <Spin /> : <ScheduleTable entries={official.data?.items ?? []} />}
       </div> },

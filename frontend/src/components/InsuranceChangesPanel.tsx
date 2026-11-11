@@ -40,7 +40,6 @@ export function InsuranceChangesPanel({ canManage }: { canManage: boolean }) {
   const list = current.data?.list ?? null;
   const error = current.error ?? generate.error ?? finalize.error ?? exporter.error;
   return <section aria-label="Biến động bảo hiểm" className="tab-stack">
-    <Paragraph type="secondary">Danh sách sinh tự động bằng cách so diện tham gia và lương đóng BH của tháng với tháng trước. Biến động phát hiện sau khi tháng đã chốt được đưa vào tháng đang lập, gắn cờ báo muộn và tính truy thu/thoái thu theo mức đóng của tháng gốc.</Paragraph>
     <Filters site={site} month={month} onSite={setSite} onMonth={setMonth} />
     {site && <Space wrap>
       {canManage && list?.status !== "FINALIZED" && <Button icon={<ReloadOutlined />} loading={generate.isPending} onClick={() => generate.mutate()}>{list ? "Lập lại danh sách" : "Lập danh sách"}</Button>}
@@ -91,7 +90,7 @@ export function C12ReconciliationPanel({ canManage }: { canManage: boolean }) {
     return <>{employee.fullName} ({employee.code}) — C12: {vnd(value.c12 as string)} · hệ thống: {vnd(value.system as string)} · chênh: {vnd(value.difference as string)}</>;
   };
   return <section aria-label="Đối chiếu C12" className="tab-stack">
-    <Paragraph type="secondary">Nhập thông báo kết quả đóng C12 theo mẫu ánh xạ cột (mẫu mô phỏng). Hệ thống ghép theo mã số BHXH và so với số đóng trong bảng lương đã khóa; dòng không ghép được chỉ được gợi ý, không tự ghép.</Paragraph>
+    <Paragraph type="secondary">Dòng không ghép được chỉ được gợi ý, không tự ghép.</Paragraph>
     <Filters site={site} month={month} onSite={value => { setSite(value); setSelected(undefined); }} onMonth={value => { setMonth(value); setSelected(undefined); }} />
     {site && canManage && <Upload accept=".xlsx,.csv" showUploadList={false} beforeUpload={file => { upload.mutate(file); return false; }}><Button icon={<UploadOutlined />} loading={upload.isPending}>Nhập tệp C12</Button></Upload>}
     {(upload.error ?? imports.error ?? detail.error) && <Alert type="error" showIcon message="Không xử lý được C12" description={errorMessage(upload.error ?? imports.error ?? detail.error)} />}

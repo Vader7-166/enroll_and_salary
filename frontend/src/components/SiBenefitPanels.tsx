@@ -34,7 +34,7 @@ export function SiBenefitsPanel({ canManage }: { canManage: boolean }) {
   }, onSuccess: () => { setOpen(false); form.resetFields(); setFiles([]); refresh(); } });
   const pay = useMutation({ mutationFn: (values: { amount: string; paidDate: string; reference: string }) => siBenefitApi.pay(paying!, values), onSuccess: () => { setPaying(null); payForm.resetFields(); refresh(); } });
   return <div className="tab-stack">
-    <Paragraph type="secondary">Chế độ do quỹ BHXH chi trả: ngày nghỉ không tính lương công ty. Mức hưởng là <b>dự tính</b> theo tham số và lương đóng BHXH đã khóa; hệ thống không lập hồ sơ gửi cơ quan BHXH.</Paragraph>
+    <Paragraph type="secondary">Mức hưởng là <b>dự tính</b> do quỹ BHXH chi trả; ngày nghỉ không tính lương công ty. Hệ thống không lập hồ sơ gửi cơ quan BHXH.</Paragraph>
     <div className="context-strip" aria-label="Bộ lọc hồ sơ bảo hiểm"><Space wrap><label>Năm <InputNumber min={2020} max={2100} value={year} onChange={value => value && setYear(value)} /></label>{canManage && <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Nhập hồ sơ</Button>}</Space></div>
     {list.isError && <Alert type="error" showIcon message="Không tải được hồ sơ" description={errorMessage(list.error)} />}
     <div className="table-panel" role="region" tabIndex={0} aria-label="Danh sách hồ sơ bảo hiểm xã hội">
@@ -88,7 +88,7 @@ export function AbsenceRatePanel() {
   const days = data?.byDay.map(row => row.workDate) ?? [];
   const cell = (orgUnitId: string, workDate: string) => data?.cells.find(row => row.orgUnitId === orgUnitId && row.workDate === workDate);
   return <div className="tab-stack">
-    <Paragraph type="secondary">Tỷ lệ vắng = ngày vắng (đơn nghỉ đã duyệt, không gồm ngày lễ, cộng vắng không có đơn) ÷ ca kế hoạch theo lịch đã duyệt. Chỉ xem; quyết định đơn nghỉ thuộc tổ trưởng.</Paragraph>
+    <Paragraph type="secondary">Tỷ lệ vắng = ngày vắng (đơn nghỉ đã duyệt, không gồm ngày lễ, cộng vắng không có đơn) ÷ ca kế hoạch theo lịch đã duyệt.</Paragraph>
     <div className="context-strip" aria-label="Bộ lọc tỷ lệ vắng"><Space wrap>
       <Select style={{ minWidth: 260 }} placeholder="Chọn phân xưởng/tổ" value={query.workshopOrgUnitId} onChange={value => setQuery({ ...query, workshopOrgUnitId: value })} showSearch optionFilterProp="label" options={(context.data?.units ?? []).filter(unit => unit.type === "DEPARTMENT" || unit.type === "TEAM").map(unit => ({ value: unit.id, label: unit.pathLabel }))} />
       <Input type="date" value={query.dateFrom} onChange={event => setQuery({ ...query, dateFrom: event.target.value })} /><Input type="date" value={query.dateTo} onChange={event => setQuery({ ...query, dateTo: event.target.value })} />

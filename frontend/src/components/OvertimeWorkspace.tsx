@@ -117,7 +117,6 @@ function RequestEditor({ request, onClose }: { request: OvertimeSnapshot | null;
       }}
       onFinish={(values) => mutation.mutate(values)}
     >
-      <Alert type="info" showIcon message="Thời gian bắt đầu và kết thúc được ghi nhận theo giờ Việt Nam (UTC+07:00)." />
       <div className="form-grid overtime-form-grid">
         <Form.Item name="teamOrgUnitId" label="Đơn vị / tổ" rules={required}><Select loading={context.isLoading} options={context.data?.units.map((unit) => ({ value: unit.id, label: `${unit.code} — ${unit.name}` }))} /></Form.Item>
         <Form.Item name="workDate" label="Ngày tăng ca" rules={required}><Input type="date" /></Form.Item>
@@ -253,7 +252,6 @@ export function OvertimeWorkspace({ user }: { user: AuthUser }) {
   ];
   const requestList = <>
     {context.isError && <Alert type="error" showIcon message="Không tải được phạm vi tăng ca" description={errorMessage(context.error)} />}
-    {!context.isLoading && context.data && !context.data.canPlan && !context.data.canApprove && <Alert type="info" showIcon message="Bạn có quyền xem đề nghị tăng ca trong phạm vi được cấp." />}
     <div className="workspace-filters" aria-label="Bộ lọc đề nghị tăng ca">
       <label>Từ ngày<Input type="date" value={filters.dateFrom} onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
       <label>Đến ngày<Input type="date" value={filters.dateTo} onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))} /></label>
@@ -264,7 +262,7 @@ export function OvertimeWorkspace({ user }: { user: AuthUser }) {
   </>;
   const canSeePay = user.roles.some((role) => role === "KT" || role === "QD");
   return <section className="workspace overtime-workspace" aria-labelledby="overtime-title">
-    <div className="page-heading"><div><Title id="overtime-title" level={1}>Tăng ca (OT)</Title><Paragraph type="secondary">Lập, phê duyệt và truy vết đề nghị làm thêm theo đơn vị được phân quyền.</Paragraph></div>
+    <div className="page-heading"><div><Title id="overtime-title" level={1}>Tăng ca (OT)</Title></div>
       {context.data?.canPlan && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Lập đề nghị OT</Button>}
     </div>
     {canSeePay ? <Tabs items={[{ key: "requests", label: "Đề nghị OT", children: requestList }, { key: "pay", label: "Giờ OT theo hệ số", children: <OvertimePayPanel /> }]} /> : requestList}

@@ -106,7 +106,7 @@ function GrantFields({ context, form }: { context: AccountContext | undefined; f
 function ExclusionFields({ context, form }: { context: AccountContext | undefined; form: FormInstance<AccountFormValues> }) {
   const asOf = context?.asOf ?? TODAY;
   return <Form.List name="exclusions">{(fields, { add, remove }) => <section aria-labelledby="account-exclusions-heading">
-    <div className="section-heading"><div><Text id="account-exclusions-heading" strong>Loại trừ nhân sự</Text><small className="table-subtext">Loại trừ giới hạn quyền xem/xử lý nhân sự cụ thể.</small></div><Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ effectiveFrom: asOf, effectiveTo: null })}>Thêm loại trừ</Button></div>
+    <div className="section-heading"><div><Text id="account-exclusions-heading" strong>Loại trừ nhân sự</Text></div><Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ effectiveFrom: asOf, effectiveTo: null })}>Thêm loại trừ</Button></div>
     {fields.map((field) => {
       const value = form.getFieldValue(["exclusions", field.name]) as ExclusionValue | undefined;
       const readOnly = isHistorical(value ?? {}, asOf);
@@ -189,7 +189,7 @@ export function AccountsWorkspace({ user }: { user: AuthUser }) {
   const [action, setAction] = useState<{ account: Account; kind: "status" | "password" } | null>(null);
   const revoke = useMutation({ mutationFn: authApi.revoke, onSuccess: () => void client.invalidateQueries({ queryKey: ["accounts"] }) });
   return <div className="content-stack">
-    <div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / BẢO MẬT</p><Title level={1}>Tài khoản</Title><Paragraph type="secondary">Cấp quyền theo đơn vị và thời hạn, quản lý trạng thái, mật khẩu tạm thời và phiên đăng nhập.</Paragraph></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Tạo tài khoản</Button></div>
+    <div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / BẢO MẬT</p><Title level={1}>Tài khoản</Title></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Tạo tài khoản</Button></div>
     {context.isError && <Alert type="error" showIcon message="Không tải được ngữ cảnh quản trị" description={errorMessage(context.error)} />}
     {revoke.isError && <Alert type="error" showIcon message="Không thể thu hồi phiên" description={errorMessage(revoke.error)} />}
     <section className="panel table-panel" role="region" tabIndex={0} aria-label="Bảng tài khoản, có thể cuộn ngang">

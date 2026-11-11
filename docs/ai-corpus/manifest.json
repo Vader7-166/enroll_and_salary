@@ -6,7 +6,7 @@
       "sourceId": "TT-01",
       "file": "chunks/TT-01.md",
       "title": "Giải trình thiếu lượt chấm công",
-      "section": "docs/05 §4.3; docs/17 §5",
+      "section": "docs/05 §5; docs/17 §5",
       "roles": [
         "TT"
       ],
@@ -35,7 +35,7 @@
       "sourceId": "TT-02",
       "file": "chunks/TT-02.md",
       "title": "Lập và gửi đề xuất OT",
-      "section": "docs/05 §5.1; docs/07 FR-5.1",
+      "section": "docs/05 §6; docs/07 FR-5.1",
       "roles": [
         "TT"
       ],
@@ -64,7 +64,7 @@
       "sourceId": "TT-03",
       "file": "chunks/TT-03.md",
       "title": "Lập đơn nghỉ",
-      "section": "docs/05 §6.2; docs/07 FR-6.3",
+      "section": "docs/05 §7; docs/07 FR-6.3",
       "roles": [
         "TT"
       ],
@@ -93,7 +93,7 @@
       "sourceId": "TT-04",
       "file": "chunks/TT-04.md",
       "title": "Lập lịch ca, xoay ca và đổi ca",
-      "section": "docs/05 §3; docs/07 FR-3.2, 3.3",
+      "section": "docs/05 §4; docs/07 FR-3.2, 3.3",
       "roles": [
         "TT"
       ],
@@ -122,7 +122,7 @@
       "sourceId": "TT-05",
       "file": "chunks/TT-05.md",
       "title": "Xác nhận công tổ",
-      "section": "docs/17 §6; docs/07 FR-4.6",
+      "section": "docs/17 §4; docs/07 FR-4.6",
       "roles": [
         "TT"
       ],
@@ -148,7 +148,7 @@
       "sourceId": "QD-01",
       "file": "chunks/QD-01.md",
       "title": "Duyệt đề xuất OT",
-      "section": "docs/05 §5.2; docs/07 FR-5.2",
+      "section": "docs/05 §6; docs/07 FR-5.2",
       "roles": [
         "QD"
       ],
@@ -178,7 +178,7 @@
       "sourceId": "QD-02",
       "file": "chunks/QD-02.md",
       "title": "Chốt công phân xưởng",
-      "section": "docs/17 §7; docs/07 FR-4.7",
+      "section": "docs/17 §4; docs/07 FR-4.7",
       "roles": [
         "QD"
       ],
@@ -206,7 +206,7 @@
       "sourceId": "QD-03",
       "file": "chunks/QD-03.md",
       "title": "Duyệt lịch ca và đổi ca",
-      "section": "docs/05 §3.4; docs/07 FR-3.4",
+      "section": "docs/05 §4; docs/07 FR-3.4",
       "roles": [
         "QD"
       ],
@@ -260,7 +260,7 @@
       "sourceId": "KT-01",
       "file": "chunks/KT-01.md",
       "title": "Điều kiện tính bảng lương",
-      "section": "docs/18 §3; docs/06 §7",
+      "section": "docs/18 §4; docs/05 §8.1",
       "roles": [
         "KT"
       ],
@@ -288,7 +288,7 @@
       "sourceId": "KT-02",
       "file": "chunks/KT-02.md",
       "title": "Khóa kỳ công",
-      "section": "docs/17 §8; docs/07 FR-4.8",
+      "section": "docs/17 §4; docs/07 FR-4.8",
       "roles": [
         "KT"
       ],
@@ -424,7 +424,7 @@
       "sourceId": "KT-07",
       "file": "chunks/KT-07.md",
       "title": "Thuế TNCN năm 2026",
-      "section": "docs/04 BR-53; docs/12 §4",
+      "section": "docs/04 BR-53; docs/12 §2.6–2.7",
       "roles": [
         "KT"
       ],
@@ -479,7 +479,7 @@
       "sourceId": "AD-01",
       "file": "chunks/AD-01.md",
       "title": "Nhập dữ liệu chấm công",
-      "section": "docs/05 §4.1; docs/07 FR-4.2",
+      "section": "docs/05 §5; docs/07 FR-4.2",
       "roles": [
         "AD"
       ],
@@ -506,7 +506,7 @@
       "sourceId": "AD-02",
       "file": "chunks/AD-02.md",
       "title": "Tạo và mở kỳ công",
-      "section": "docs/17 §3",
+      "section": "docs/17 §1; docs/05 §2",
       "roles": [
         "AD"
       ],
@@ -533,7 +533,7 @@
       "sourceId": "AD-03",
       "file": "chunks/AD-03.md",
       "title": "Quản lý tài khoản",
-      "section": "docs/10 §3",
+      "section": "docs/10 §1, §5",
       "roles": [
         "AD"
       ],
@@ -588,7 +588,7 @@
       "sourceId": "AD-05",
       "file": "chunks/AD-05.md",
       "title": "Nhật ký kiểm toán",
-      "section": "docs/10 §6; docs/07 FR-1.6",
+      "section": "docs/10 §4; docs/07 FR-1.6",
       "roles": [
         "AD"
       ],
@@ -611,6 +611,242 @@
         "toàn vẹn",
         "bị từ chối"
       ]
+    },
+    {
+      "sourceId": "POL-CONTRACTS",
+      "file": "chunks/POL-CONTRACTS.md",
+      "title": "Tham chiếu hợp đồng, phụ lục và chấm dứt",
+      "section": "docs/04 §K (BR-57–BR-59); docs/05 §3 (AD-02); docs/07 §2 (FR-2.2, FR-2.4–FR-2.5); docs/10 §1.4; docs/18 §1 (DEC-03)",
+      "roles": [
+        "TT",
+        "QD",
+        "KT"
+      ],
+      "requiredPermissions": [
+        "employee.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": null,
+      "effectiveTo": null,
+      "actions": [
+        "KT_TERMINATION"
+      ],
+      "pageKeys": [
+        "contracts"
+      ],
+      "keywords": [
+        "hợp đồng",
+        "phụ lục",
+        "hiệu lực",
+        "hết hạn",
+        "chấm dứt"
+      ],
+      "handbookOnly": true,
+      "handbook": {
+        "kind": "policy",
+        "category": "contracts",
+        "scope": "Thiết kế mô phỏng HRTP; chưa xác nhận áp dụng tại doanh nghiệp",
+        "version": "HRTP-SIM-2026-V1"
+      }
+    },
+    {
+      "sourceId": "POL-ATTENDANCE",
+      "file": "chunks/POL-ATTENDANCE.md",
+      "title": "Tham chiếu ca, chấm công và trạng thái kỳ",
+      "section": "docs/04 §A (BR-01); docs/05 §5 (AD-04); docs/07 §1.5, §4; docs/17 §1; docs/18 §2 (PS-19, DEC-03)",
+      "roles": [
+        "TT",
+        "QD",
+        "KT",
+        "AD"
+      ],
+      "requiredPermissions": [
+        "attendance.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": null,
+      "effectiveTo": null,
+      "actions": [
+        "TT_ATTENDANCE_CORRECTIONS",
+        "TT_TEAM_CONFIRMATION",
+        "TT_SHIFT_PLANS",
+        "QD_WORKSHOP_CLOSURE",
+        "QD_SHIFT_APPROVE",
+        "KT_PERIOD_LOCK",
+        "AD_ATTENDANCE_IMPORT",
+        "AD_PERIODS"
+      ],
+      "pageKeys": [
+        "attendance",
+        "shifts",
+        "periods"
+      ],
+      "keywords": [
+        "chấm công",
+        "ca làm",
+        "ngày chốt",
+        "CLOSED",
+        "LOCKED",
+        "dữ liệu muộn"
+      ],
+      "handbookOnly": true,
+      "handbook": {
+        "kind": "policy",
+        "category": "attendance",
+        "scope": "Thiết kế mô phỏng HRTP; chưa xác nhận áp dụng tại doanh nghiệp",
+        "version": "HRTP-SIM-2026-V1"
+      }
+    },
+    {
+      "sourceId": "POL-OVERTIME",
+      "file": "chunks/POL-OVERTIME.md",
+      "title": "Tham chiếu đề xuất, duyệt và đối soát OT",
+      "section": "docs/04 §E (BR-26–BR-30); docs/05 §6 (AD-05); docs/07 §5; docs/12 §2.2; docs/18 §1 (DEC-01), §2 (PS-22), §3",
+      "roles": [
+        "TT",
+        "QD",
+        "KT"
+      ],
+      "requiredPermissions": [
+        "overtime.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": null,
+      "effectiveTo": null,
+      "actions": [
+        "TT_OVERTIME_PLAN",
+        "QD_OVERTIME_APPROVE"
+      ],
+      "pageKeys": [
+        "overtime"
+      ],
+      "keywords": [
+        "OT",
+        "làm thêm",
+        "tăng ca",
+        "trần OT",
+        "nghỉ bù",
+        "COMP_TIME_DISABLED"
+      ],
+      "handbookOnly": true,
+      "handbook": {
+        "kind": "policy",
+        "category": "attendance",
+        "scope": "Thiết kế mô phỏng HRTP; chưa xác nhận áp dụng tại doanh nghiệp",
+        "version": "HRTP-SIM-2026-V1"
+      }
+    },
+    {
+      "sourceId": "POL-LEAVE",
+      "file": "chunks/POL-LEAVE.md",
+      "title": "Tham chiếu đơn nghỉ, quỹ phép và chế độ",
+      "section": "docs/04 §F (BR-31–BR-35); docs/05 §7 (AD-06); docs/07 §6; docs/18 §2 (PS-08, PS-09, DEC-03)",
+      "roles": [
+        "TT",
+        "QD",
+        "KT",
+        "AD"
+      ],
+      "requiredPermissions": [
+        "leave.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": null,
+      "effectiveTo": null,
+      "actions": [
+        "TT_LEAVE_REQUESTS",
+        "QD_ABSENCE_RATE"
+      ],
+      "pageKeys": [
+        "leave"
+      ],
+      "keywords": [
+        "nghỉ phép",
+        "đơn nghỉ",
+        "quỹ phép",
+        "nghỉ đột xuất",
+        "ốm đau",
+        "thai sản"
+      ],
+      "handbookOnly": true,
+      "handbook": {
+        "kind": "policy",
+        "category": "leave",
+        "scope": "Thiết kế mô phỏng HRTP; chưa xác nhận áp dụng tại doanh nghiệp",
+        "version": "HRTP-SIM-2026-V1"
+      }
+    },
+    {
+      "sourceId": "POL-PAYROLL",
+      "file": "chunks/POL-PAYROLL.md",
+      "title": "Tham chiếu đầu vào, khóa và xuất lương",
+      "section": "docs/04 §A (BR-01); docs/05 §8 (AD-07); docs/07 §7; docs/18 §2 (PS-12, DEC-03), §4; docs/config/hrtp-simulation-policy.json §payroll",
+      "roles": [
+        "KT"
+      ],
+      "requiredPermissions": [
+        "payroll.read"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": null,
+      "effectiveTo": null,
+      "actions": [
+        "KT_PAYROLL"
+      ],
+      "pageKeys": [
+        "payroll"
+      ],
+      "keywords": [
+        "đầu vào lương",
+        "CONFIRMED",
+        "khóa lương",
+        "phiếu lương",
+        "file chi lương",
+        "thanh toán"
+      ],
+      "handbookOnly": true,
+      "handbook": {
+        "kind": "policy",
+        "category": "payroll",
+        "scope": "Thiết kế mô phỏng HRTP; chưa xác nhận áp dụng tại doanh nghiệp",
+        "version": "HRTP-SIM-2026-V1"
+      }
+    },
+    {
+      "sourceId": "POL-SECURITY",
+      "file": "chunks/POL-SECURITY.md",
+      "title": "Tham chiếu tài khoản, phân quyền và bảo mật",
+      "section": "docs/07 §1.1; docs/10 §1, §3.3, §4.4, §5; docs/18 §1 (DEC-03)",
+      "roles": [
+        "AD"
+      ],
+      "requiredPermissions": [
+        "accounts.manage"
+      ],
+      "label": "SIMULATION",
+      "effectiveFrom": null,
+      "effectiveTo": null,
+      "actions": [
+        "AD_ACCOUNTS"
+      ],
+      "pageKeys": [
+        "accounts"
+      ],
+      "keywords": [
+        "tài khoản",
+        "phân quyền",
+        "mật khẩu",
+        "khóa tài khoản",
+        "thu hồi phiên",
+        "bảo mật"
+      ],
+      "handbookOnly": true,
+      "handbook": {
+        "kind": "policy",
+        "category": "administration",
+        "scope": "Thiết kế mô phỏng HRTP; chưa xác nhận áp dụng tại doanh nghiệp",
+        "version": "HRTP-SIM-2026-V1"
+      }
     },
     {
       "sourceId": "DRAFT-01",

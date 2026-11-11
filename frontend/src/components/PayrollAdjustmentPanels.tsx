@@ -8,7 +8,7 @@ import { payrollApi } from "../api/payroll";
 import { payrollAdjustmentsApi } from "../api/payroll-adjustments";
 import type { BonusAllocation, BonusPlan, BonusType, PayrollAdjustmentRow, RetroCalculation, RetroCandidateRow, RetroPeriod } from "../api/payroll-adjustments";
 
-const { Text, Paragraph, Title } = Typography;
+const { Text, Title } = Typography;
 const money = (value: string | number) => Math.round(Number(value)).toLocaleString("vi-VN") + " đ";
 const signed = (value: string | number) => (Number(value) > 0 ? "+" : "") + money(value);
 const BONUS_TYPE: Record<BonusType, string> = { MONTHLY: "Tháng", QUARTERLY: "Quý", ANNUAL: "Năm", KPI: "KPI", HOLIDAY: "Lễ Tết", SENIORITY: "Thâm niên", AD_HOC: "Đột xuất" };
@@ -57,7 +57,6 @@ function BonusDrawer({ id, onClose }: { id: string; onClose: () => void }) {
           {plan.calculationMode === "FORMULA" && variables.map(variable => <label key={variable.name}>{variable.name}<Input style={{ width: 140 }} value={inputs[variable.name] ?? ""} placeholder={variable.defaultValue ?? "bắt buộc"} onChange={event => setInputs(current => ({ ...current, [variable.name]: event.target.value }))} /></label>)}
           <Button type="primary" icon={<PlusOutlined />} loading={allocate.isPending} disabled={target === "unit" ? !orgUnitId : !employeeIds.length} onClick={() => allocate.mutate()}>Thêm</Button>
         </Space>
-        <Paragraph type="secondary">Mỗi người chỉ nhận một lần trong đợt. Điểm chuyên cần, KPI chỉ là biến của công thức thưởng, không trừ lương.</Paragraph>
         {allocate.isError && <Alert type="error" showIcon message={errorMessage(allocate.error)} />}
       </div>}
       <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách người nhận thưởng; dùng phím mũi tên để cuộn"><Table<BonusAllocation>     size="small" rowKey="id" pagination={{ pageSize: 20, showSizeChanger: false }} dataSource={detail.data!.allocations} scroll={{ x: 720 }} columns={[
@@ -95,7 +94,6 @@ export function BonusPlansPanel() {
   };
   return <div className="tab-stack">
     <div className="workspace-filters"><Button type="primary" icon={<PlusOutlined />} onClick={() => { form.setFieldsValue({ bonusType: "KPI", calculationMode: "FORMULA", formula: "TARGET * KPI_RATE", variablesText: "TARGET=5000000, KPI_RATE" }); setCreating(true); }}>Tạo đợt thưởng</Button></div>
-    <Paragraph type="secondary">Thưởng chỉ vào bảng lương của kỳ chi đã chọn, tính trước tổng thu nhập và chịu thuế theo ngày chi của kỳ đó.</Paragraph>
     {plans.isError && <Alert type="error" showIcon message={errorMessage(plans.error)} />}
     <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách đợt thưởng; dùng phím mũi tên để cuộn"><Table<BonusPlan>     rowKey="id" loading={plans.isLoading} dataSource={plans.data?.items ?? []} scroll={{ x: 900 }} onRow={row => ({ onClick: () => setOpen(row.id) })} columns={[
       { title: "Mã", dataIndex: "code", width: 160 }, { title: "Tên", dataIndex: "name" }, { title: "Loại", dataIndex: "bonusType", width: 100, render: (value: BonusType) => BONUS_TYPE[value] },
@@ -162,7 +160,6 @@ export function RetroAdjustmentsPanel() {
   const confirm = useMutation({ mutationFn: async () => { const { token } = await payrollApi.reauthenticate(password); return payrollAdjustmentsApi.confirmRetro(calculationId!, token, calculation.data!.calculation.resultHash); }, onSuccess: () => { setPassword(""); refresh(); }, onError: () => setPassword("") });
   const view = calculation.data?.calculation;
   return <div className="tab-stack">
-    <Paragraph type="secondary">Quyết định lương có hiệu lực rơi vào kỳ đã khóa tạo ứng viên hồi tố. Tính lại kỳ gốc bằng công, OT, tham số của kỳ gốc; kỳ đã khóa không đổi, chênh lệch ghi vào kỳ đang mở sau khi xác nhận.</Paragraph>
     <div className="workspace-filters"><label>Trạng thái<Select allowClear value={status} onChange={setStatus} style={{ minWidth: 200 }} options={[{ value: "PENDING", label: "Chờ xử lý" }, { value: "RESOLVED", label: "Đã ghi bút toán" }, { value: "DISMISSED", label: "Bỏ qua" }]} /></label></div>
     {calculate.isError && <Alert type="error" showIcon message="Không tính được chênh lệch" description={errorMessage(calculate.error)} />}
     <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách ứng viên hồi tố; dùng phím mũi tên để cuộn"><Table<RetroCandidateRow>     rowKey="id" loading={candidates.isLoading} dataSource={candidates.data?.items ?? []} scroll={{ x: 860 }} columns={[

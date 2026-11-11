@@ -63,6 +63,14 @@ native app, hybrid app, màn hình cài PWA hoặc chế độ offline trong ph�
 - Một tiêu đề trang và một hành động chính tại mỗi vùng làm việc. Không lặp cùng bộ
   KPI lớn trên mọi trang; không thêm biểu đồ khi danh sách việc cần xử lý hữu ích hơn.
 - Nhãn rõ: “Khóa kỳ công”, “Duyệt lịch ca”, “Xuất file chi lương”; không chỉ ghi “OK”.
+- Nội dung ngắn gọn ở mọi trang, tab, modal và drawer: không dùng tagline dưới
+  tiêu đề hay banner thường trực để giải thích lại tên tab, phạm vi phân quyền,
+  quy trình hiển nhiên hoặc chi tiết triển khai (API, chỉ số nội bộ, JSON).
+  Giữ nhãn/đơn vị/múi giờ trong trường và cột; chỉ giữ trợ giúp khi cần nhập đúng
+  định dạng, hiểu số liệu hoặc biết hậu quả thao tác. Không lược bỏ lỗi, validation,
+  trạng thái loading/empty/forbidden, consent, cảnh báo mất dữ liệu/khóa kỳ,
+  provenance mô phỏng và yêu cầu bảo mật. Gỡ prose khỏi JSX thay vì ẩn bằng CSS;
+  tiêu đề và minh họa phải vừa khung sau khi bỏ mô tả, không chừa hàng trống thay thế.
 - Không thêm chức năng ngoài R1 để lấp đầy bố cục; số liệu, ảnh và biểu đồ demo phải có nhãn.
 
 ## 2. Token và typography
@@ -134,6 +142,7 @@ Icon sidebar 20px, tiêu đề 24px trong vùng màu nhóm 44px, hành động 1
 | Thiết lập | SettingOutlined |
 | Nhật ký kiểm toán | AuditOutlined |
 | Hệ thống | CloudServerOutlined |
+| Cẩm nang & chính sách | ReadOutlined |
 
 Thao tác xem dùng EyeOutlined; sửa dùng EditOutlined chỉ khi có chức năng/quyền,
 thao tác khác MoreOutlined, lọc FilterOutlined, chọn cột TableOutlined nếu có chức năng,
@@ -340,6 +349,32 @@ tĩnh đúng quyền. Nguồn/link do backend kiểm tra; không render HTML/URL
 Đổi quyền/phiên/corpus version làm mất hiệu lực nội dung cũ tương ứng. Feature flag
 tắt không chặn website. Giao diện chat không có nút thực hiện/duyệt/khóa thay người dùng.
 
+### 9.2. Cẩm nang & chính sách
+
+Mục `handbook` nằm trong nhóm Hỗ trợ cuối sidebar và drawer điều hướng, dùng
+ReadOutlined và palette lavender của shell quản trị. Trang chỉ đọc, có hai tab
+“Hướng dẫn sử dụng” và “Chính sách & quy định”; không cần bật AI hay có Gemini key.
+
+Desktop dùng danh mục và danh sách bài bên trái, nội dung bên phải. Dưới 768px,
+chuyển danh mục/bài viết thành Select có nhãn; không ép cột đọc hẹp. Tìm kiếm hỗ
+trợ tiếng Việt không dấu, kết hợp vai trò hiện hành và danh mục. Chỉ liệt kê vai
+trò mà phiên thực sự có; đổi bộ lọc không cấp thêm quyền.
+
+Bài viết có tình huống sử dụng, bước đánh số, lưu ý cần thiết và nút “Mở chức
+năng” khi được phép. Header bài nhận màu mint/sky/rose/sand/lavender theo chủ đề;
+vùng đọc sáng, không thêm card lồng nhau hoặc animation trang trí. Nguồn, phiên
+bản, phạm vi và hiệu lực nằm cuối bài. Ngày chưa có phải ghi chưa xác nhận, không
+lấy ngày tạo trang làm ngày hiệu lực.
+
+`GET /api/handbook` kiểm tra phiên, vai trò, quyền và hiệu lực tài liệu ở server;
+liên kết còn phải qua quyền action và quyền đọc trang đích. Client đối chiếu
+thêm menu được phép. Tài liệu chính sách hiện có đều là tham chiếu SIMULATION,
+không phải quy chế do doanh nghiệp ban hành. Các mục `handbookOnly` không đi vào
+retrieval, hướng dẫn tĩnh hoặc prompt AI. Không có thao tác sửa/duyệt chính sách.
+
+Loading không hiển thị số bài/rỗng giả; lỗi tải ẩn bài cũ và có Thử lại. Bài
+được chọn có `aria-current`, nút/danh mục có focus rõ; tôn trọng reduced motion.
+
 ## 10. Trạng thái UI, accessibility và chuyển động
 
 | Trường hợp | Quy định |
@@ -477,6 +512,25 @@ giữ font, palette và icon hiện hành, không áp dụng bố cục funnel/l
   Chạy kiểm tra ở cổng riêng 3002/5181, không dừng ứng dụng đang dùng ở 3001/5174.
   Không tạo bản ghi nghiệp vụ, chốt/khóa kỳ hay tính lương để kiểm tra giao diện.
 
+
+### 12.4. Kiểm chứng Cẩm nang & chính sách
+
+- Typecheck và build hai workspace đạt. Corpus kiểm tra 28 mục, loại bản nháp
+  thiếu metadata quyền theo thiết kế. Hồi quy AI (Gemini giả lập) và cẩm nang
+  đạt 11/11; lệnh riêng `npm run verify:handbook` đạt 2/2.
+- Production với API/PostgreSQL thật, AI tắt: đăng nhập TT/QĐ/KT/AD, duyệt mọi
+  bài được phép và mở 16 cặp vai trò–trang đích từ nút trong bài; không có
+  liên kết vượt quyền. Tài liệu 2025 hết hiệu lực không xuất hiện.
+- Hai tab × bốn vai trò tại 1440, 1280, 1024, 768, 390 và 375px không tràn ngang
+  trang. Đã dùng dropdown danh mục/bài viết và drawer điều hướng trên màn hình
+  hẹp; kiểm tra tìm không dấu, nhóm rỗng, xóa lọc, focus bàn phím và reduced motion.
+- Giữ GET để quan sát loading; mô phỏng HTTP 503 trên trình duyệt để kiểm tra
+  ẩn nội dung cũ, sau đó Thử lại lấy dữ liệu thật. Không ghi nhận lỗi JavaScript.
+  Ảnh `handbook-*.png` và `handbook-report.json` trong `.local/ui-redesign/`.
+
+Đây là smoke test local, không thay thế nghiệm thu chính sách doanh nghiệp hoặc
+Gemini thật. Không tạo/sửa dữ liệu nghiệp vụ để lấy bằng chứng. Cảnh báo bundle
+>500 kB còn tồn tại.
 
 ## 13. Tài liệu tham khảo
 

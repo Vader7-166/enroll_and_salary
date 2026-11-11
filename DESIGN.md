@@ -14,11 +14,13 @@ Token chuẩn: [hrtp-ui-tokens.json](docs/config/hrtp-ui-tokens.json).
 - Ngày công, kỳ lương và ngày chi trả là các khái niệm riêng; không gộp nhãn.
 - CLOSED khác LOCKED. Không có nút mở khóa kỳ LOCKED; nghỉ bù OT chưa kích hoạt.
 - Màu trạng thái luôn đi kèm chữ; loading/empty/error/forbidden phải được thiết kế.
+- Nội dung UI ngắn gọn: không thêm tagline, mô tả dưới tiêu đề hoặc banner thường trực chỉ giải thích lại trang/tab/phạm vi hay cách triển khai. Modal/drawer chỉ giữ hướng dẫn nhập liệu không hiển nhiên, nhãn/đơn vị, trạng thái, lỗi và cảnh báo ảnh hưởng dữ liệu; không bỏ validation, consent hoặc cảnh báo thao tác không thể hoàn tác.
 - Modal/drawer nhận màu nhóm qua ConfigProvider để portal không mất palette; nền canvas nhẹ, header/nhãn/phân vùng có màu, bảng và ô nhập trắng. Chi tiết ngày công có danh tính + chỉ số + nguồn; trạng thái rỗng gọn, không tạo khoảng trắng lớn.
-- Sidebar và drawer điều hướng cùng nền xanh đen, mục chọn teal đậm với chữ/icon sáng và chỉ dấu cạnh trái. Một bộ Ant Design Outlined theo bảng 19 mục trong guide; `routeIcons` dùng chung cho menu, breadcrumb và tiêu đề. Màu trạng thái không bị thay bằng teal; CLOSED/LOCKED có nhãn và icon riêng.
+- Sidebar và drawer điều hướng cùng nền xanh đen, mục chọn teal đậm với chữ/icon sáng và chỉ dấu cạnh trái. Một bộ Ant Design Outlined theo bảng 20 mục trong guide; `routeIcons` dùng chung cho menu, breadcrumb và tiêu đề. Màu trạng thái không bị thay bằng teal; CLOSED/LOCKED có nhãn và icon riêng.
 - Không coi mock/stub hoặc ảnh giao diện là bằng chứng nghiệm thu chức năng.
 - Nhân sự chỉ dùng số liệu API hiện có; không thêm biểu đồ tăng trưởng/cơ cấu, trạng thái “Tạm nghỉ”, tìm kiếm toàn cục hoặc hành động sửa/xóa để sao chép hình mẫu khi chưa có contract tương ứng.
 - AI ưu tiên là [AI-02](docs/24-ai-tro-ly-nghiep-vu-theo-vai-tro.md): Google Gemini, nút Trợ lý AI/drawer cho TT/QĐ/KT/AD, gợi ý/hướng dẫn/nguồn/link lọc theo quyền, có fallback; không đọc dữ liệu nhân sự/lương hoặc thực hiện hành động.
+- Cẩm nang & chính sách nằm trong nhóm Hỗ trợ cuối sidebar, chỉ đọc và độc lập với AI. Hai tab dùng chung corpus đã kiểm soát, lọc vai trò/quyền/hiệu lực phía server; chỉ hiện liên kết chức năng được phép. Bố cục danh mục–bài viết chuyển sang dropdown trên màn hình hẹp; dùng màu nhóm hiện có. Tài liệu mô phỏng phải ghi rõ là tham khảo, không phải chính sách doanh nghiệp; không tự đặt ngày hiệu lực.
 - AI-01 giải thích lương ở tài liệu 23 chuyển sang sau sprint; không thêm nút đó vào lịch 5 ngày. Truy vết lương thông thường vẫn thuộc lõi.
 
 Guide quy định giao diện, không thay đổi [phạm vi R1](docs/19-pham-vi-ban-dau-va-ma-tran-nghiem-thu.md)
