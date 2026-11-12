@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<CorrectionStatus, string> = {
   DRAFT: "Nháp", PENDING: "Chờ duyệt", RETURNED: "Trả lại", REJECTED: "Từ chối", APPROVED: "Đã duyệt",
 };
 const STATUS_COLOR: Record<CorrectionStatus, string> = {
-  DRAFT: "default", PENDING: "processing", RETURNED: "warning", REJECTED: "error", APPROVED: "success",
+  DRAFT: "default", PENDING: "warning", RETURNED: "warning", REJECTED: "error", APPROVED: "success",
 };
 const HISTORY_LABEL: Record<string, string> = {
   CREATE: "Tạo", UPDATE: "Cập nhật", SUBMIT: "Gửi duyệt", APPROVE: "Duyệt", RETURN: "Trả lại", REJECT: "Từ chối", ADD_EVIDENCE: "Thêm bằng chứng",
@@ -273,8 +273,8 @@ function CorrectionEditor({
           <Input.Search aria-label="Tìm ngày công cần giải trình" placeholder="Tìm mã hoặc tên nhân viên" value={targetSearch} onChange={event => { setTargetSearch(event.target.value); setTargetPage(1); }} />
           <Text type="secondary">Chọn trong trang hiện tại; mỗi yêu cầu tối đa 100 người.</Text>
         </div>
-        {!workDate ? <Alert type="info" showIcon message="Chọn ngày công trước để tìm dữ liệu có thể giải trình." /> : targetQuery.isError ? <Alert type="error" showIcon message="Không tải được dữ liệu cần giải trình" description={errorMessage(targetQuery.error)} /> : <>
-          <div className="table-panel attendance-table correction-target-table">
+        {!workDate ? null : targetQuery.isError ? <Alert type="error" showIcon message="Không tải được dữ liệu cần giải trình" description={errorMessage(targetQuery.error)} /> : <>
+          <div className="table-panel attendance-table correction-target-table" role="region" tabIndex={0} aria-label="Ngày công có thể giải trình">
             <Table<CorrectionTarget>
               rowKey={targetKey}
               components={{ body: { wrapper: TableBody } }}
@@ -367,7 +367,7 @@ function CorrectionDetail({
         {correction.items.map(item => <div className="correction-detail-item" key={item.id}>
           <Text strong>{item.employee.code} · {item.employee.fullName} · {item.orgUnitCode} · {item.workDate}</Text>
           <p>{item.intervals === null ? "Chỉ giải trình, giữ nguyên lượt quẹt gốc." : item.intervals.length ? item.intervals.map(interval => `${vietnamTime(interval.startAt)} – ${vietnamTime(interval.endAt)}`).join("; ") : "Xác nhận không có khoảng hiện diện."}</p>
-          {item.excuseLateEarly && <Tag color="gold">Có đề nghị miễn đi muộn/về sớm</Tag>}
+          {item.excuseLateEarly && <Tag color="warning">Có đề nghị miễn đi muộn/về sớm</Tag>}
           <div className="correction-snapshots"><SnapshotView title="Trước" value={item.before} /><SnapshotView title="Sau" value={item.after} /></div>
         </div>)}
       </div>
@@ -473,7 +473,7 @@ export function AttendanceCorrectionsPanel({
     {focusCorrectionId && focused.isFetching && <div className="workspace-loading"><Spin /> Đang mở hồ sơ giải trình…</div>}
     {focusCorrectionId && focused.isError && <Alert type="error" showIcon message="Không mở được hồ sơ giải trình" description={errorMessage(focused.error)} />}
     {corrections.isLoading ? <div className="attendance-workspace"><Spin /></div> : !corrections.isError && !corrections.data?.items.length ? <Empty description="Không có giải trình phù hợp." /> : <>
-      <div className="table-panel attendance-table">
+      <div className="table-panel attendance-table" role="region" tabIndex={0} aria-label="Danh sách giải trình chấm công">
         <Table<Correction> rowKey="id" components={{ body: { wrapper: TableBody } }} columns={columns} dataSource={corrections.data?.items ?? []} loading={corrections.isFetching} pagination={false} scroll={{ x: 1280 }} onRow={correction => ({ className: "clickable-row", onClick: () => setSelected(correction) })} />
       </div>
       {corrections.data && <Pagination className="attendance-pagination" current={corrections.data.page} pageSize={corrections.data.pageSize} total={corrections.data.total} showSizeChanger={false} onChange={setPage} />}

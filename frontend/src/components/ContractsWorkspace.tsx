@@ -20,9 +20,8 @@ function AlertsTab() {
   const alerts = useQuery({ queryKey: ["contract-alerts", days], queryFn: () => terminationApi.alerts(days) });
   return <div className="tab-stack">
     <Space wrap><Text>Ngưỡng cảnh báo</Text><Radio.Group value={days} onChange={event => setDays(event.target.value)} options={[{ value: 30, label: "30 ngày" }, { value: 60, label: "60 ngày" }]} optionType="button" /></Space>
-    <Alert type="info" showIcon message="Cảnh báo chỉ để theo dõi: hệ thống không tự chấm dứt hay đổi trạng thái hợp đồng khi hết hạn." />
     {alerts.isError ? <Alert type="error" showIcon message="Không tải được cảnh báo" description={errorMessage(alerts.error)} /> :
-      <Table<ContractAlert> rowKey={row => row.kind + row.contract.id} size="small" loading={alerts.isLoading} dataSource={alerts.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Cảnh báo hợp đồng; dùng phím mũi tên để cuộn"><Table<ContractAlert>     rowKey={row => row.kind + row.contract.id} size="small" loading={alerts.isLoading} dataSource={alerts.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
         locale={{ emptyText: <Empty description="Không có hợp đồng cần chú ý" /> }}
         columns={[
           { title: "Loại", width: 200, render: (_, row) => <Tag color={ALERT[row.kind][1]}>{ALERT[row.kind][0]}</Tag> },
@@ -30,7 +29,7 @@ function AlertsTab() {
           { title: "Hợp đồng", width: 200, render: (_, row) => <>{row.contract.number}<small className="table-subtext">{row.contract.startDate} → {row.contract.endDate ?? "không thời hạn"}</small></> },
           { title: "Còn lại", width: 100, align: "right", render: (_, row) => row.daysLeft === null ? "—" : row.daysLeft < 0 ? <Text type="danger">{row.daysLeft} ngày</Text> : row.daysLeft + " ngày" },
           { title: "Nội dung", dataIndex: "message" },
-        ]} />}
+        ]} /></section>}
   </div>;
 }
 
@@ -68,7 +67,7 @@ function TerminationDrawer({ decision, onClose }: { decision: TerminationDecisio
   const confirm = useMutation({ mutationFn: async () => terminationApi.confirm(shown!, (await payrollApi.reauthenticate(password)).token), onSuccess: data => { setConfirming(false); setPassword(""); done(data.decision); } });
   const cancel = useMutation({ mutationFn: () => terminationApi.cancel(shown!, cancelReason ?? ""), onSuccess: data => { setCancelReason(null); done(data.decision); } });
   const error = refresh.error ?? confirm.error ?? cancel.error;
-  return <Drawer width={760} open={Boolean(decision)} onClose={onClose} title={shown ? "Quyết định " + shown.decisionNumber : ""} destroyOnHidden>
+  return <Drawer width="min(760px, 100vw)" open={Boolean(decision)} onClose={onClose} title={shown ? "Quyết định " + shown.decisionNumber : ""} destroyOnHidden>
     {shown && <div className="tab-stack">
       <Space wrap><Tag color={STATUS[shown.status][1]}>{STATUS[shown.status][0]}</Tag><Text type="secondary">Lập bởi {shown.createdBy}{shown.confirmedBy ? " · xác nhận bởi " + shown.confirmedBy : ""}</Text></Space>
       {shown.status === "DRAFT" && <Alert type="warning" showIcon message="Đây là bản xem trước. Hợp đồng, nhân sự, bảng lương và BH chưa thay đổi cho đến khi KT xác nhận." />}
@@ -125,7 +124,7 @@ function TerminationsTab({ canManage }: { canManage: boolean }) {
   return <div className="tab-stack">
     {canManage && <div><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>Lập quyết định chấm dứt</Button></div>}
     {list.isError ? <Alert type="error" showIcon message="Không tải được quyết định" description={errorMessage(list.error)} /> :
-      <Table<TerminationDecision> rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách quyết định chấm dứt hợp đồng; dùng phím mũi tên để cuộn"><Table<TerminationDecision>     rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
         onRow={row => ({ onClick: () => setSelected(row), className: "clickable-row" })} locale={{ emptyText: <Empty description="Chưa có quyết định chấm dứt" /> }}
         columns={[
           { title: "Số quyết định", dataIndex: "decisionNumber", width: 180 },
@@ -134,7 +133,7 @@ function TerminationsTab({ canManage }: { canManage: boolean }) {
           { title: "Lý do", width: 220, render: (_, row) => REASONS[row.reason] },
           { title: "Trợ cấp + phép", width: 160, align: "right", render: (_, row) => vnd(String(Number(row.preview.allowance?.amount ?? 0) + Number(row.preview.unusedLeave.amount))) },
           { title: "Trạng thái", width: 200, render: (_, row) => <Tag color={STATUS[row.status][1]}>{STATUS[row.status][0]}</Tag> },
-        ]} />}
+        ]} /></section>}
     <CreateTermination open={creating} onClose={() => setCreating(false)} onCreated={decision => { setCreating(false); setSelected(decision); void list.refetch(); }} />
     <TerminationDrawer decision={selected} onClose={() => setSelected(null)} />
   </div>;
@@ -143,7 +142,7 @@ function TerminationsTab({ canManage }: { canManage: boolean }) {
 export function ContractsWorkspace({ user }: { user: AuthUser }) {
   return <div className="content-stack">
     <div className="page-heading"><div><p className="eyebrow">HỒ SƠ / HỢP ĐỒNG</p><Title level={1}>Hợp đồng & chấm dứt</Title>
-      <Paragraph type="secondary">Theo dõi hợp đồng sắp hết hạn và lập quyết định chấm dứt có xem trước trợ cấp, tiền phép chưa nghỉ và báo giảm BH.</Paragraph></div></div>
+    </div></div>
     <section className="panel settings-panel"><Tabs items={[{ key: "alerts", label: "Cảnh báo hợp đồng", children: <AlertsTab /> }, { key: "terminations", label: "Chấm dứt hợp đồng", children: <TerminationsTab canManage={user.permissions.includes("contract.manage")} /> }]} /></section>
   </div>;
 }

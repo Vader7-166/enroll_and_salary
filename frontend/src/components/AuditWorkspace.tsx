@@ -6,7 +6,7 @@ import { errorMessage } from "../api/client";
 import { auditApi } from "../api/audit";
 import type { AuditFilter, AuditRecord, IntegrityCheck } from "../api/audit";
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const resultColor: Record<string, string> = { SUCCESS: "success", ALLOWED: "success", VALID: "success", DENIED: "error", EMPTY: "warning", BROKEN: "error" };
 const resultLabel: Record<string, string> = { DENIED: "Bị từ chối", EMPTY: "Ngoài phạm vi", ALLOWED: "Được phép", SUCCESS: "Thành công" };
 const localInput = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -35,19 +35,20 @@ function AuditLogTab() {
   }).filter(([, value]) => value)) as AuditFilter);
   const rows = logs.data?.pages.flatMap(page => page.items) ?? [];
   return <div className="tab-stack">
-    <Form form={form} layout="inline" className="history-toolbar" onFinish={submit} initialValues={{ from: localInput(new Date(Date.now() - 7 * 86400000)) }}>
-      <Form.Item name="from" label="Từ"><Input type="datetime-local" /></Form.Item>
-      <Form.Item name="to" label="Đến"><Input type="datetime-local" /></Form.Item>
-      <Form.Item name="actor"><Input placeholder="Người thực hiện" allowClear /></Form.Item>
-      <Form.Item name="action"><Select placeholder="Hành động" allowClear showSearch options={options(facets.data?.actions)} style={{ minWidth: 160 }} /></Form.Item>
-      <Form.Item name="entityType"><Select placeholder="Loại đối tượng" allowClear showSearch options={options(facets.data?.entityTypes)} style={{ minWidth: 180 }} /></Form.Item>
-      <Form.Item name="entityId"><Input placeholder="Mã đối tượng" allowClear /></Form.Item>
-      <Form.Item name="result"><Select placeholder="Kết quả" allowClear options={options(facets.data?.results)} style={{ minWidth: 150 }} /></Form.Item>
+    <Form form={form} layout="vertical" className="audit-filters" onFinish={submit} initialValues={{ from: localInput(new Date(Date.now() - 7 * 86400000)) }}>
+      <Form.Item name="from" label="Từ thời điểm"><Input type="datetime-local" /></Form.Item>
+      <Form.Item name="to" label="Đến thời điểm"><Input type="datetime-local" /></Form.Item>
+      <Form.Item name="actor" label="Người thực hiện"><Input placeholder="Tên hoặc mã tài khoản" allowClear /></Form.Item>
+      <Form.Item name="action" label="Hành động"><Select placeholder="Tất cả hành động" allowClear showSearch options={options(facets.data?.actions)} /></Form.Item>
+      <Form.Item name="entityType" label="Loại đối tượng"><Select placeholder="Tất cả đối tượng" allowClear showSearch options={options(facets.data?.entityTypes)} /></Form.Item>
+      <Form.Item name="entityId" label="Mã đối tượng"><Input placeholder="Nhập mã đối tượng" allowClear /></Form.Item>
+      <Form.Item name="result" label="Kết quả"><Select placeholder="Tất cả kết quả" allowClear options={options(facets.data?.results)} /></Form.Item>
       <Space><Button type="primary" htmlType="submit" icon={<SearchOutlined />}>Tra cứu</Button><Button icon={<DownloadOutlined />} loading={exporter.isPending} onClick={() => exporter.mutate()}>Xuất Excel</Button></Space>
     </Form>
     {exporter.isError && <Alert type="error" showIcon message="Không xuất được nhật ký" description={errorMessage(exporter.error)} />}
     {logs.isError ? <Alert type="error" showIcon message="Không tải được nhật ký" description={errorMessage(logs.error)} /> : <>
-      <Alert type="info" showIcon message="Giá trị lương được che (***) với quản trị hệ thống. Mỗi lần xuất tệp đều được ghi nhật ký." />
+      <Alert type="info" showIcon message="Giá trị lương được che (***) với quản trị hệ thống." />
+      <section className="table-panel" role="region" tabIndex={0} aria-label="Bảng nhật ký kiểm toán, cuộn ngang để xem đầy đủ">
       <Table<AuditRecord> rowKey="id" size="small" loading={logs.isLoading} dataSource={rows} pagination={false} scroll={{ x: 1300 }}
         locale={{ emptyText: <Empty description="Không có bản ghi phù hợp" /> }}
         expandable={{ expandedRowRender: row => <Space align="start" wrap><div><Text type="secondary">Giá trị cũ</Text><Value value={row.oldValue} /></div><div><Text type="secondary">Giá trị mới</Text><Value value={row.newValue} /></div></Space> }}
@@ -60,6 +61,7 @@ function AuditLogTab() {
           { title: "Kết quả", dataIndex: "result", width: 130, render: value => <Tag color={resultColor[value] ?? "default"}>{resultLabel[value] ?? value}</Tag> },
           { title: "IP", dataIndex: "ipAddress", width: 130, render: value => value ?? "—" },
         ]} />
+      </section>
       {logs.hasNextPage && <Button block loading={logs.isFetchingNextPage} onClick={() => void logs.fetchNextPage()}>Tải thêm</Button>}
     </>}
   </div>;
@@ -71,14 +73,14 @@ function IntegrityTab() {
   const run = useMutation({ mutationFn: auditApi.runCheck, onSuccess: () => void client.invalidateQueries({ queryKey: ["audit-integrity"] }) });
   const latest = checks.data?.items[0];
   return <div className="tab-stack">
-    <div className="history-toolbar"><Text type="secondary">Hệ thống tự kiểm tra lúc 02:00 hằng ngày: tính lại mã băm từng bản ghi theo thứ tự và so với bản ghi trước.</Text>
+    <div className="history-toolbar">
       <Button type="primary" icon={<SafetyCertificateOutlined />} loading={run.isPending} onClick={() => run.mutate()}>Kiểm tra ngay</Button></div>
     {run.isError && <Alert type="error" showIcon message="Không chạy được kiểm tra" description={errorMessage(run.error)} />}
     {latest && <Alert type={latest.status === "VALID" ? "success" : "error"} showIcon
       message={latest.status === "VALID" ? "Chuỗi nhật ký nguyên vẹn (" + latest.checkedCount + " bản ghi)" : "Phát hiện can thiệp tại bản ghi #" + latest.firstBrokenId}
       description={latest.status === "BROKEN" ? (latest.failureReason === "HASH_MISMATCH" ? "Nội dung bản ghi không khớp mã băm." : "Liên kết với bản ghi trước bị đứt (bản ghi bị xóa hoặc chèn).") + " Lập biên bản sự cố và đối chiếu bản sao lưu." : undefined} />}
     {checks.isError ? <Alert type="error" showIcon message="Không tải được lịch sử kiểm tra" description={errorMessage(checks.error)} /> :
-      <Table<IntegrityCheck> rowKey="id" size="small" loading={checks.isLoading} dataSource={checks.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
+      <section className="table-panel" role="region" tabIndex={0} aria-label="Bảng kiểm tra toàn vẹn nhật ký, có thể cuộn ngang"><Table<IntegrityCheck> rowKey="id" size="small" loading={checks.isLoading} dataSource={checks.data?.items ?? []} pagination={false} scroll={{ x: 900 }}
         locale={{ emptyText: <Empty description="Chưa có lần kiểm tra nào" /> }}
         columns={[
           { title: "Bắt đầu", dataIndex: "startedAt", width: 170, render: value => new Date(value).toLocaleString("vi-VN") },
@@ -87,14 +89,14 @@ function IntegrityTab() {
           { title: "Khoảng bản ghi", width: 160, render: (_, row) => row.fromId ? "#" + row.fromId + " – #" + row.toId : "—" },
           { title: "Số bản ghi", dataIndex: "checkedCount", width: 110, align: "right" },
           { title: "Bản ghi lỗi đầu tiên", width: 200, render: (_, row) => row.firstBrokenId ? "#" + row.firstBrokenId + " (" + row.failureReason + ")" : "—" },
-        ]} />}
+        ]} /></section>}
   </div>;
 }
 
 export function AuditWorkspace() {
   return <div className="content-stack">
     <div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / KIỂM TOÁN</p><Title level={1}>Nhật ký kiểm toán</Title>
-      <Paragraph type="secondary">Tra cứu thao tác trong phạm vi được cấp, gồm cả truy cập bị từ chối. Nhật ký chỉ được ghi thêm, không sửa hay xóa.</Paragraph></div></div>
+    </div></div>
     <section className="panel settings-panel"><Tabs items={[{ key: "logs", label: "Tra cứu nhật ký", children: <AuditLogTab /> }, { key: "integrity", label: "Toàn vẹn chuỗi băm", children: <IntegrityTab /> }]} /></section>
   </div>;
 }

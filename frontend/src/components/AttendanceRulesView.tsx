@@ -41,10 +41,10 @@ export function AttendanceRulesView({ rules }: { rules: unknown }) {
     { title: "Thời lượng", dataIndex: "minutes", align: "right", width: 150, render: value => `${value.toLocaleString("vi-VN")} phút` },
   ];
 
-  return <>
+  return <section aria-label="Quy tắc đối soát chấm công">
     {rows.length > 0
-      ? <Table<RuleRow> rowKey="key" size="small" columns={columns} dataSource={rows} pagination={false} />
+      ? <div className="table-panel" role="region" tabIndex={0} aria-label="Bảng quy tắc đối soát"><Table<RuleRow> rowKey="key" size="small" columns={columns} dataSource={rows} pagination={false} /></div>
       : <Descriptions size="small" column={1}><Descriptions.Item label="Quy tắc"><Text type="secondary">Không có dữ liệu quy tắc.</Text></Descriptions.Item></Descriptions>}
     <TechnicalDetails title="Chi tiết kỹ thuật quy tắc"><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: 0 }}>{JSON.stringify(technical, null, 2)}</pre></TechnicalDetails>
-  </>;
+  </section>;
 }

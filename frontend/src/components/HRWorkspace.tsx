@@ -1,6 +1,8 @@
 import {
+  CheckCircleOutlined,
   FileAddOutlined,
   HistoryOutlined,
+  LockOutlined,
   PlusOutlined,
   ReloadOutlined,
   SwapOutlined,
@@ -9,6 +11,7 @@ import {
   Alert,
   Button,
   Descriptions,
+  Drawer,
   Empty,
   Form,
   Input,
@@ -119,15 +122,14 @@ export function EmployeeProfileDrawer({ employee, user, onClose }: { employee: E
       ]
     : [];
   return (
-    <Modal
+    <Drawer
       title="Hồ sơ nhân sự"
       open={Boolean(employee)}
-      onCancel={onClose}
-      footer={null}
+      onClose={onClose}
       width={920}
       destroyOnHidden
-      afterClose={() => setActiveTab("profile")}
-      className="employee-profile-modal"
+      afterOpenChange={(visible) => { if (!visible) setActiveTab("profile"); }}
+      className="employee-profile-drawer"
     >
       {detail.isLoading ? <div className="content-loading"><Spin /></div> : detail.isError ? <ApiProblem title="Không tải được hồ sơ" error={detail.error} /> : person ? (
         <div className="drawer-detail">
@@ -139,7 +141,7 @@ export function EmployeeProfileDrawer({ employee, user, onClose }: { employee: E
           <Tabs activeKey={activeTab} onChange={setActiveTab} items={items} />
         </div>
       ) : <Empty description="Không tìm thấy hồ sơ trong phạm vi hiện tại" />}
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -185,7 +187,7 @@ function ContractsTab({ employeeId, canManage }: { employeeId: string; canManage
       { title: "Loại", dataIndex: "type", width: 150, render: contractTypeLabel },
       { title: "Hiệu lực", key: "dates", render: (_, item) => <span>{item.startDate}<small className="table-subtext">{item.endDate ? `đến ${item.endDate}` : "Không thời hạn"}</small></span> },
       { title: "Lương", dataIndex: "salary", align: "right", render: (value, item) => <span className="numeric">{value}<small className="table-subtext">{item.salaryBasis === "MONTHLY" ? "Theo tháng" : "Theo giờ"}</small></span> },
-      { title: "Trạng thái", dataIndex: "status", width: 110, render: (status) => <Tag color={status === "ACTIVE" ? "success" : "gold"}>{status === "ACTIVE" ? "Đang hiệu lực" : "Dự thảo"}</Tag> },
+      { title: "Trạng thái", dataIndex: "status", width: 110, render: (status) => <Tag color={status === "ACTIVE" ? "success" : "default"}>{status === "ACTIVE" ? "Đang hiệu lực" : "Dự thảo"}</Tag> },
       ...(canManage ? [{ title: "Thao tác", key: "actions", width: 210, render: (_: unknown, item: EmploymentContract) => <Space size="small" wrap>{item.status === "DRAFT" && <Button size="small" loading={activate.isPending && activate.variables === item.id} onClick={() => activate.mutate(item.id)}>Kích hoạt</Button>}<Button size="small" icon={<FileAddOutlined />} onClick={() => setAnnexContract(item)}>Phụ lục</Button></Space> }] : []),
     ]} />
     {activate.isError && <ApiProblem title="Không thể kích hoạt hợp đồng" error={activate.error} />}
@@ -296,7 +298,7 @@ function TransferEmployee({ open, employeeId, onClose }: { open: boolean; employ
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState("parameters");
-  return <div className="content-stack"><div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / HIỆU LỰC PHÁP LÝ</p><Title level={1}>Tham số và chính sách</Title><Paragraph type="secondary">Mỗi thay đổi tạo một phiên bản hiệu lực mới; dữ liệu đã chốt không bị ghi đè.</Paragraph></div></div><section className="panel settings-panel"><Tabs activeKey={activeTab} onChange={setActiveTab} items={[{ key: "parameters", label: "Tham số pháp lý", children: <LegalParametersPanel /> }, { key: "policies", label: "Chính sách chốt công", children: <PoliciesTab /> }]} /></section></div>;
+  return <div className="content-stack"><div className="page-heading"><div><p className="eyebrow">QUẢN TRỊ / HIỆU LỰC PHÁP LÝ</p><Title level={1}>Tham số và chính sách</Title></div></div><section className="panel settings-panel"><Tabs activeKey={activeTab} onChange={setActiveTab} items={[{ key: "parameters", label: "Tham số pháp lý", children: <LegalParametersPanel /> }, { key: "policies", label: "Chính sách chốt công", children: <PoliciesTab /> }]} /></section></div>;
 }
 
 
@@ -313,7 +315,7 @@ function PoliciesTab() {
     { title: "Đơn vị", dataIndex: "orgUnitId", render: (id: string) => context.data?.units.find(unit => unit.id === id)?.pathLabel ?? <><Text type="secondary">Chưa xác định tên đơn vị</Text><TechnicalDetails>{id}</TechnicalDetails></> },
     { title: "Chính sách", width: 230, render: (_, item) => <><Text>Ngày chốt công hằng tháng</Text><TechnicalDetails><pre>{JSON.stringify(item, null, 2)}</pre></TechnicalDetails></> },
     { title: "Ngày chốt", dataIndex: "value", width: 120, align: "right" },
-    { title: "Trạng thái", dataIndex: "status", width: 170, render: value => <Tag color={value === "BUSINESS_CONFIRMED" ? "success" : "gold"}>{value === "BUSINESS_CONFIRMED" ? "Đã xác nhận nghiệp vụ" : "Mô phỏng"}</Tag> },
+    { title: "Trạng thái", dataIndex: "status", width: 170, render: value => <Tag color={value === "BUSINESS_CONFIRMED" ? "success" : "warning"}>{value === "BUSINESS_CONFIRMED" ? "Đã xác nhận nghiệp vụ" : "Mô phỏng"}</Tag> },
     { title: "Căn cứ", dataIndex: "decisionReference", width: 220 },
     { title: "Hiệu lực", key: "validity", width: 220, render: (_, item) => `${item.effectiveFrom} — ${item.effectiveTo ?? "Không giới hạn ngày kết thúc"}` },
   ]} />}{create.isError && <ApiProblem title="Không tạo được chính sách" error={create.error} />}<PolicyForm open={open} loading={create.isPending} onClose={() => setOpen(false)} onSubmit={(payload) => create.mutate(payload)} /></div>;
@@ -332,13 +334,13 @@ export function PeriodsPage({ user }: { user: AuthUser }) {
   const periods = useQuery({ queryKey: ["attendance-periods"], queryFn: periodApi.list });
   const preview = useQuery({ queryKey: ["period-preview", previewArgs], queryFn: () => periodApi.preview(previewArgs!.scopeOrgUnitId, previewArgs!.month), enabled: Boolean(previewArgs) });
   const openPeriod = useMutation({ mutationFn: ({ id, revision }: AttendancePeriod) => periodApi.open(id, revision), onSuccess: () => void client.invalidateQueries({ queryKey: ["attendance-periods"] }) });
-  return <div className="content-stack"><div className="page-heading"><div><p className="eyebrow">CHẤM CÔNG / KỲ HIỆU LỰC</p><Title level={1}>Kỳ công</Title><Paragraph type="secondary">Danh sách kỳ công trong phạm vi được cấp. Kỳ mới dùng chính sách chốt công hiệu lực tại ngày đầu tháng.</Paragraph></div>{canManage && <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo kỳ công</Button>}</div>{canManage && <PeriodPreview onPreview={setPreviewArgs} data={preview.data} loading={preview.isFetching} error={preview.error} isError={preview.isError} />}
-    <section className="panel table-panel">{periods.isError ? <ApiProblem title="Không tải được danh sách kỳ công" error={periods.error} /> : <Table<AttendancePeriod> components={{ body: { wrapper: PeriodTableBody } }} rowKey="id" loading={periods.isLoading} dataSource={periods.data?.items ?? []} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <Empty description="Chưa có kỳ công" /> }} columns={[
+  return <div className="content-stack"><div className="page-heading"><div><p className="eyebrow">CHẤM CÔNG / KỲ HIỆU LỰC</p><Title level={1}>Kỳ công</Title></div>{canManage && <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo kỳ công</Button>}</div>{canManage && <PeriodPreview onPreview={setPreviewArgs} data={preview.data} loading={preview.isFetching} error={preview.error} isError={preview.isError} />}
+    <section className="panel table-panel" role="region" tabIndex={0} aria-label="Bảng dữ liệu, dùng phím mũi tên hoặc Home/End để cuộn ngang">{periods.isError ? <ApiProblem title="Không tải được danh sách kỳ công" error={periods.error} /> : <Table<AttendancePeriod> components={{ body: { wrapper: PeriodTableBody } }} rowKey="id" loading={periods.isLoading} dataSource={periods.data?.items ?? []} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <Empty description="Chưa có kỳ công" /> }} columns={[
       { title: "Mã kỳ", dataIndex: "code", width: 150 },
       { title: "Phạm vi", dataIndex: "scopeOrgUnitName" },
       { title: "Khoảng công", key: "dates", render: (_, item) => item.dateFrom + " — " + item.dateTo },
       { title: "Ngày chốt", dataIndex: "cutoffDay", align: "right", width: 110 },
-      { title: "Trạng thái", dataIndex: "status", width: 150, render: (status: string) => <><Tag color={status === "OPEN" ? "success" : status === "PLANNED" ? "gold" : "default"}>{({ OPEN: "Đang mở", PLANNED: "Chưa mở", CLOSED: "Đã chốt", LOCKED: "Đã khóa" } as Record<string, string>)[status] ?? "Cần kiểm tra trạng thái"}</Tag>{!["OPEN", "PLANNED", "CLOSED", "LOCKED"].includes(status) && <TechnicalDetails>{status}</TechnicalDetails>}</> },
+      { title: "Trạng thái", dataIndex: "status", width: 150, render: (status: string) => <><Tag color={status === "OPEN" ? "processing" : "default"} className={status === "CLOSED" || status === "LOCKED" ? "status-locked" : undefined} icon={status === "CLOSED" ? <CheckCircleOutlined /> : status === "LOCKED" ? <LockOutlined /> : undefined}>{({ OPEN: "Đang mở", PLANNED: "Chưa mở", CLOSED: "Đã chốt", LOCKED: "Đã khóa" } as Record<string, string>)[status] ?? "Cần kiểm tra trạng thái"}</Tag>{!["OPEN", "PLANNED", "CLOSED", "LOCKED"].includes(status) && <TechnicalDetails>{status}</TechnicalDetails>}</> },
       { title: "Phiên bản", dataIndex: "revision", align: "right", width: 100 },
       ...(canManage ? [{ title: "Thao tác", key: "action", width: 130, render: (_: unknown, item: AttendancePeriod) => item.status === "PLANNED" ? <Button size="small" loading={openPeriod.isPending && openPeriod.variables?.id === item.id} onClick={() => openPeriod.mutate(item)}>Mở kỳ</Button> : "—" }] : []),
     ]} />}</section>{openPeriod.isError && <ApiProblem title="Không thể mở kỳ công" error={openPeriod.error} />}<CreatePeriod open={createOpen} onClose={() => setCreateOpen(false)} /></div>;
@@ -358,7 +360,7 @@ function PeriodPreview({ onPreview, data, loading, error, isError }: { onPreview
       <Form.Item name="month" label="Tháng" rules={[{ required: true, pattern: /^\d{4}-(0[1-9]|1[0-2])$/, message: "Chọn tháng hợp lệ." }]}>
         <Input type="month" />
       </Form.Item>
-      <Button htmlType="submit" icon={<ReloadOutlined />} loading={loading}>Xem dự kiến</Button>
+      <Button className="action-secondary" htmlType="submit" icon={<ReloadOutlined />} loading={loading}>Xem dự kiến</Button>
     </Form>
     {isError ? <ApiProblem title="Không xem được dự kiến kỳ công" error={error} /> : data ? <div aria-live="polite">
       <Text strong>{data.dateFrom} — {data.dateTo}</Text><br />

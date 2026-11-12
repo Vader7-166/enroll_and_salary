@@ -50,7 +50,7 @@ export function SalaryDecisionsTab({ employeeId, canManage }: { employeeId: stri
   if (decisions.isError) return <Alert type="error" showIcon message="Không tải được quyết định lương" description={errorMessage(decisions.error)} />;
   return <div className="tab-stack">
     <div className="tab-actions"><Title level={4}>Quyết định thay đổi lương</Title>{canManage && <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Lập quyết định</Button>}</div>
-    <Table<SalaryDecision> size="small" rowKey="id" pagination={false} dataSource={decisions.data?.items ?? []} scroll={{ x: 720 }} locale={{ emptyText: <Empty description="Chưa có quyết định; lương lấy theo hợp đồng" /> }}
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Danh sách quyết định thay đổi lương; dùng phím mũi tên để cuộn"><Table<SalaryDecision>     size="small" rowKey="id" pagination={false} dataSource={decisions.data?.items ?? []} scroll={{ x: 720 }} locale={{ emptyText: <Empty description="Chưa có quyết định; lương lấy theo hợp đồng" /> }}
       expandable={{ expandedRowRender: row => <Descriptions size="small" column={1} bordered items={[
         { key: "basis", label: "Căn cứ", children: row.legalBasis }, { key: "reason", label: "Lý do", children: row.reason },
         ...(row.warnings.length ? [{ key: "warn", label: "Cảnh báo", children: <>{row.warnings.map(w => <Tag key={w.code} color="warning">{w.code} {w.fromRegion}→{w.toRegion}</Tag>)} {row.warningAcknowledgement}</> }] : []),
@@ -60,18 +60,18 @@ export function SalaryDecisionsTab({ employeeId, canManage }: { employeeId: stri
         { title: "Số QĐ", dataIndex: "decisionNumber" }, { title: "Hiệu lực", dataIndex: "effectiveFrom", width: 110 },
         { title: "Mức mới", render: (_, row) => row.lines.map(line => <div key={line.componentId ?? "agreed"}>{line.componentName}: <Text strong>{money(line.amount)}</Text></div>) },
         { title: "Hồi tố", width: 90, render: (_, row) => row.retroCandidates.length ? <Tag color="orange">{row.retroCandidates.length} kỳ</Tag> : "—" },
-      ]} />
+      ]} /></section>
     <div className="tab-actions"><Title level={4}>Dòng thời gian lương</Title>
-      <Space><Input type="date" value={range.from} onChange={event => setRange(current => ({ ...current, from: event.target.value }))} /><Input type="date" value={range.to} onChange={event => setRange(current => ({ ...current, to: event.target.value }))} /></Space></div>
+      <Space wrap><Input type="date" value={range.from} onChange={event => setRange(current => ({ ...current, from: event.target.value }))} /><Input type="date" value={range.to} onChange={event => setRange(current => ({ ...current, to: event.target.value }))} /></Space></div>
     {timeline.isError ? <Alert type="error" showIcon message="Không tải được dòng thời gian" description={errorMessage(timeline.error)} /> : <>
-      <Table size="small" rowKey={row => row.componentId + row.from} loading={timeline.isLoading} pagination={false} dataSource={timeline.data?.segments ?? []} scroll={{ x: 640 }} columns={[
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Dòng thời gian lương; dùng phím mũi tên để cuộn"><Table     size="small" rowKey={row => row.componentId + row.from} loading={timeline.isLoading} pagination={false} dataSource={timeline.data?.segments ?? []} scroll={{ x: 640 }} columns={[
         { title: "Khoản", dataIndex: "componentName" }, { title: "Từ", dataIndex: "from", width: 110 }, { title: "Đến", dataIndex: "to", width: 110 },
         { title: "Số tiền", dataIndex: "amount", align: "right", render: money }, { title: "Nguồn", render: (_, row) => <Tag color={row.source === "DECISION" ? "blue" : "default"}>{row.source === "DECISION" ? "Quyết định " : "Hợp đồng "}{row.reference}</Tag> },
-      ]} />
-      <Table size="small" rowKey={row => row.orgUnitId + row.from} loading={timeline.isLoading} pagination={false} dataSource={timeline.data?.units ?? []} scroll={{ x: 640 }} columns={[
+      ]} /></section>
+      <section className="workspace-table" role="region" tabIndex={0} aria-label="Dòng thời gian đơn vị; dùng phím mũi tên để cuộn"><Table     size="small" rowKey={row => row.orgUnitId + row.from} loading={timeline.isLoading} pagination={false} dataSource={timeline.data?.units ?? []} scroll={{ x: 640 }} columns={[
         { title: "Đơn vị", render: (_, row) => `${row.orgUnitName} (${row.orgUnitCode})` }, { title: "Vùng", dataIndex: "wageRegionCode", width: 70 }, { title: "Cost center", dataIndex: "costCenterCode", render: value => value ?? "—" },
         { title: "Khoảng", render: (_, row) => `${row.from} → ${row.to}` }, { title: "Số ngày", dataIndex: "days", width: 80, align: "right" },
-      ]} />
+      ]} /></section>
     </>}
     {open && <CreateDecision employeeId={employeeId} onClose={() => setOpen(false)} />}
   </div>;

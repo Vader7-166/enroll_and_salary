@@ -12,8 +12,9 @@ import { TaxFinalizationPanel } from "./TaxFinalizationPanel";
 import { PayrollSheetPanel } from "./PayrollSheetPanel";
 import { BankTemplatesPanel, PaymentBatchesPanel, PayslipsPanel } from "./PayrollOutputPanels";
 import { BonusPlansPanel, RetroAdjustmentsPanel } from "./PayrollAdjustmentPanels";
+import { BusinessIllustration } from "./BusinessIllustration";
 
-const { Title, Paragraph } = Typography;
+const { Title } = Typography;
 const RETRO_STATUS: Record<RetroCandidate["status"], [string, string]> = { PENDING: ["Chờ xử lý", "orange"], RESOLVED: ["Đã truy lĩnh/truy thu", "success"], DISMISSED: ["Bỏ qua có lý do", "default"] };
 
 function RetroCandidatesPanel({ canManage }: { canManage: boolean }) {
@@ -23,17 +24,18 @@ function RetroCandidatesPanel({ canManage }: { canManage: boolean }) {
   const client = useQueryClient();
   const list = useQuery({ queryKey: ["retro-candidates", status], queryFn: () => salaryDecisionApi.retroCandidates(status) });
   const dismiss = useMutation({ mutationFn: () => salaryDecisionApi.dismiss(dismissing!.id, note), onSuccess: () => { setDismissing(null); setNote(""); void client.invalidateQueries({ queryKey: ["retro-candidates"] }); } });
-  return <section aria-label="Ứng viên hồi tố">
-    <Paragraph type="secondary">Quyết định lương có ngày hiệu lực rơi vào kỳ lương đã khóa. Kỳ đã khóa không bị sửa; chênh lệch được xử lý ở kỳ đang mở.</Paragraph>
+  return <section aria-label="Ứng viên hồi tố" className="tab-stack">
     <div className="workspace-filters"><label>Trạng thái<Select allowClear value={status} onChange={setStatus} style={{ minWidth: 200 }} options={Object.entries(RETRO_STATUS).map(([value, [label]]) => ({ value, label }))} /></label></div>
     {list.isError && <Alert type="error" showIcon message="Không tải được ứng viên hồi tố" description={errorMessage(list.error)} />}
-    <Table<RetroCandidate> className="workspace-table" rowKey="id" loading={list.isLoading} dataSource={list.data?.items ?? []} scroll={{ x: 820 }} columns={[
-      { title: "Nhân sự", render: (_, row) => `${row.employee.code} — ${row.employee.fullName}` },
-      { title: "Quyết định", render: (_, row) => `${row.decision.decisionNumber} (hiệu lực ${row.decision.effectiveFrom})` },
-      { title: "Kỳ lương khóa", render: (_, row) => `${row.payrollPeriod.code} (${row.payrollPeriod.dateFrom} → ${row.payrollPeriod.dateTo})` },
-      { title: "Trạng thái", dataIndex: "status", render: (value: RetroCandidate["status"]) => <Tag color={RETRO_STATUS[value][1]}>{RETRO_STATUS[value][0]}</Tag> },
-      ...(canManage ? [{ title: "", width: 110, render: (_: unknown, row: RetroCandidate) => row.status === "PENDING" && <Button size="small" onClick={() => setDismissing(row)}>Bỏ qua</Button> }] : []),
-    ]} />
+    <div className="table-panel" role="region" tabIndex={0} aria-label="Bảng ứng viên hồi tố; dùng phím mũi tên để cuộn">
+      <Table<RetroCandidate> rowKey="id" loading={list.isLoading} dataSource={list.data?.items ?? []} scroll={{ x: 820 }} columns={[
+        { title: "Nhân sự", render: (_, row) => `${row.employee.code} — ${row.employee.fullName}` },
+        { title: "Quyết định", render: (_, row) => `${row.decision.decisionNumber} (hiệu lực ${row.decision.effectiveFrom})` },
+        { title: "Kỳ lương khóa", render: (_, row) => `${row.payrollPeriod.code} (${row.payrollPeriod.dateFrom} → ${row.payrollPeriod.dateTo})` },
+        { title: "Trạng thái", dataIndex: "status", render: (value: RetroCandidate["status"]) => <Tag color={RETRO_STATUS[value][1]}>{RETRO_STATUS[value][0]}</Tag> },
+        ...(canManage ? [{ title: "", width: 110, render: (_: unknown, row: RetroCandidate) => row.status === "PENDING" && <Button size="small" onClick={() => setDismissing(row)}>Bỏ qua</Button> }] : []),
+      ]} />
+    </div>
     <Modal title="Bỏ qua ứng viên hồi tố" open={Boolean(dismissing)} onCancel={() => setDismissing(null)} okText="Xác nhận" okButtonProps={{ disabled: !note.trim(), loading: dismiss.isPending }} onOk={() => dismiss.mutate()}>
       <Input.TextArea rows={3} value={note} onChange={event => setNote(event.target.value)} placeholder="Lý do không cần truy lĩnh/truy thu" />
       {dismiss.isError && <Alert type="error" showIcon message={errorMessage(dismiss.error)} />}
@@ -54,8 +56,8 @@ export function PayrollWorkspace({ user }: { user: AuthUser }) {
     ...(user.permissions.includes("payroll.adjust") ? [{ key: "retro", label: "Hồi tố & điều chỉnh", children: <RetroAdjustmentsPanel /> }]
       : user.permissions.includes("contract.read") ? [{ key: "retro", label: "Ứng viên hồi tố", children: <RetroCandidatesPanel canManage={user.permissions.includes("contract.manage")} /> }] : []),
   ];
-  return <section className="workspace" aria-labelledby="payroll-title">
-    <div className="page-heading"><div><Title id="payroll-title" level={2}>Bảng lương</Title><Paragraph type="secondary">Tính, duyệt, khóa bảng lương; phát hành phiếu lương, chi lương và xử lý điều chỉnh theo kỳ.</Paragraph></div></div>
-    <Tabs items={items} />
+  return <section className="workspace content-stack" aria-labelledby="payroll-title">
+    <div className="page-heading page-heading-illustrated"><div><Title id="payroll-title" level={1}>Bảng lương</Title></div><BusinessIllustration kind="payroll" className="business-art-header" /></div>
+    <section className="panel settings-panel"><Tabs items={items} /></section>
   </section>;
 }

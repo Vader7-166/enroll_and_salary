@@ -170,10 +170,10 @@ function EvidenceTables({ review, onNavigate }: { review: TeamConfirmationReview
   ], [people, onNavigate]);
 
   return <div className="team-confirmation-evidence">
-    <section aria-labelledby="team-confirmation-days"><Title level={3} id="team-confirmation-days">Công theo lịch đã duyệt</Title><div className="table-panel"><Table<TeamConfirmationDay> rowKey="scheduleId" size="small" components={{ body: { wrapper: TableBody } }} columns={days} dataSource={review.days} pagination={false} scroll={{ x: 1210 }} locale={{ emptyText: "Không có ngày công trong phạm vi tổ." }} /></div></section>
-    <section aria-labelledby="team-confirmation-overtime"><Title level={3} id="team-confirmation-overtime">OT thực tế</Title><div className="table-panel"><Table<TeamConfirmationOvertime> rowKey={row => `${row.employeeId}-${row.workDate}`} size="small" components={{ body: { wrapper: TableBody } }} columns={overtime} dataSource={review.overtime} pagination={false} scroll={{ x: 990 }} locale={{ emptyText: "Không có OT thực tế trong kỳ." }} /></div></section>
-    <section aria-labelledby="team-confirmation-leaves"><Title level={3} id="team-confirmation-leaves">Hồ sơ nghỉ trong phạm vi</Title><div className="table-panel"><Table<TeamConfirmationReview["leaves"][number]> rowKey="id" size="small" components={{ body: { wrapper: TableBody } }} columns={leaves} dataSource={review.leaves} pagination={false} scroll={{ x: 730 }} locale={{ emptyText: "Không có hồ sơ nghỉ." }} /></div></section>
-    <section aria-labelledby="team-confirmation-corrections"><Title level={3} id="team-confirmation-corrections">Giải trình / điều chỉnh</Title><div className="table-panel"><Table<TeamConfirmationCorrection> rowKey="id" size="small" components={{ body: { wrapper: TableBody } }} columns={corrections} dataSource={review.corrections} pagination={false} scroll={{ x: 1160 }} locale={{ emptyText: "Không có giải trình hoặc điều chỉnh." }} /></div></section>
+    <section aria-labelledby="team-confirmation-days"><Title level={3} id="team-confirmation-days">Công theo lịch đã duyệt</Title><div className="table-panel" role="region" tabIndex={0} aria-label="Công theo lịch đã duyệt"><Table<TeamConfirmationDay> rowKey="scheduleId" size="small" components={{ body: { wrapper: TableBody } }} columns={days} dataSource={review.days} pagination={false} scroll={{ x: 1210 }} locale={{ emptyText: "Không có ngày công trong phạm vi tổ." }} /></div></section>
+    <section aria-labelledby="team-confirmation-overtime"><Title level={3} id="team-confirmation-overtime">OT thực tế</Title><div className="table-panel" role="region" tabIndex={0} aria-label="Đối soát tăng ca thực tế của tổ"><Table<TeamConfirmationOvertime> rowKey={row => `${row.employeeId}-${row.workDate}`} size="small" components={{ body: { wrapper: TableBody } }} columns={overtime} dataSource={review.overtime} pagination={false} scroll={{ x: 990 }} locale={{ emptyText: "Không có OT thực tế trong kỳ." }} /></div></section>
+    <section aria-labelledby="team-confirmation-leaves"><Title level={3} id="team-confirmation-leaves">Hồ sơ nghỉ trong phạm vi</Title><div className="table-panel" role="region" tabIndex={0} aria-label="Hồ sơ nghỉ của tổ"><Table<TeamConfirmationReview["leaves"][number]> rowKey="id" size="small" components={{ body: { wrapper: TableBody } }} columns={leaves} dataSource={review.leaves} pagination={false} scroll={{ x: 730 }} locale={{ emptyText: "Không có hồ sơ nghỉ." }} /></div></section>
+    <section aria-labelledby="team-confirmation-corrections"><Title level={3} id="team-confirmation-corrections">Giải trình / điều chỉnh</Title><div className="table-panel" role="region" tabIndex={0} aria-label="Giải trình và điều chỉnh của tổ"><Table<TeamConfirmationCorrection> rowKey="id" size="small" components={{ body: { wrapper: TableBody } }} columns={corrections} dataSource={review.corrections} pagination={false} scroll={{ x: 1160 }} locale={{ emptyText: "Không có giải trình hoặc điều chỉnh." }} /></div></section>
   </div>;
 }
 
@@ -306,7 +306,7 @@ export function AttendanceTeamConfirmationPanel({ user, periodId, onNavigate }: 
   return <section className="team-confirmation" aria-labelledby="team-confirmation-title">
     {contextHolder}
     <div className="team-confirmation-toolbar">
-      <div><Title level={2} id="team-confirmation-title">Xác nhận tổ</Title><Text type="secondary">Đối chiếu công, OT, nghỉ, giải trình và căn cứ nguồn theo đúng tổ trong phạm vi được cấp.</Text></div>
+      <div><Title level={2} id="team-confirmation-title">Xác nhận tổ</Title></div>
       <Space wrap><Button onClick={reload} disabled={!teamId} loading={review.isFetching}>Tải lại</Button></Space>
     </div>
     <div className="team-confirmation-picker">
@@ -315,7 +315,6 @@ export function AttendanceTeamConfirmationPanel({ user, periodId, onNavigate }: 
     </div>
     {teams.isError && <Alert type="error" showIcon message="Không tải được tổ trong phạm vi" description={errorMessage(teams.error)} />}
     {!teams.isLoading && !teams.isError && teams.data?.items.length === 0 && <Empty description="Không có tổ nào trong phạm vi của bạn ở kỳ này." />}
-    {!teamId && teams.data?.items.length ? <Alert type="info" showIcon message="Chọn một tổ để tải đối soát và lịch sử xác nhận." /> : null}
     {teamId && review.isLoading && <div className="content-loading"><Spin tip="Đang rà soát nguồn công tổ…" /></div>}
     {teamId && review.isError && <Alert type="error" showIcon message="Không tải được đối soát tổ" description={errorMessage(review.error)} action={<Button size="small" onClick={reload}>Tải lại</Button>} />}
     {current && <div className="team-confirmation-stack">

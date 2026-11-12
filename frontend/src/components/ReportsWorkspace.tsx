@@ -9,7 +9,7 @@ import { payrollInputsApi } from "../api/payroll-inputs";
 import { reportsApi } from "../api/reports";
 import type { ReportCatalogItem, ReportParams, ReportRun } from "../api/reports";
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const GROUPS: Record<string, string> = { "10.1": "Công & OT", "10.2": "Nhân sự", "10.3": "Lương", "10.4": "BH, thuế & lao động", LABOR: "Sổ quản lý lao động" };
 const format = (value: unknown, type?: string) => value === null || value === undefined ? "" : type === "money" && typeof value === "number" ? value.toLocaleString("vi-VN") : String(value);
 
@@ -30,12 +30,12 @@ function Params({ report, params, onChange }: { report: ReportCatalogItem; param
 
 function RunsTab() {
   const runs = useQuery({ queryKey: ["report-runs"], queryFn: reportsApi.runs, refetchInterval: query => query.state.data?.items.some(item => item.status === "RUNNING") ? 1500 : false });
-  return <Table<ReportRun> rowKey="id" size="small" loading={runs.isLoading} dataSource={runs.data?.items ?? []} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <Empty description="Chưa có lần kết xuất" /> }} columns={[
+  return <section className="workspace-table" role="region" tabIndex={0} aria-label="Lịch sử kết xuất báo cáo; dùng phím mũi tên để cuộn"><Table<ReportRun>     rowKey="id" size="small" loading={runs.isLoading} dataSource={runs.data?.items ?? []} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <Empty description="Chưa có lần kết xuất" /> }} columns={[
     { title: "Báo cáo", dataIndex: "title" }, { title: "Định dạng", dataIndex: "format", width: 90 }, { title: "Lúc", width: 170, render: (_, row) => new Date(row.requestedAt).toLocaleString("vi-VN") },
-    { title: "Trạng thái", width: 200, render: (_, row) => row.status === "COMPLETED" ? <Space><Tag color="success">Xong</Tag>{row.statusLabel && <Tag>{row.statusLabel}</Tag>}{row.rowWarning && <Tag color="orange">Nhiều dòng</Tag>}</Space> : row.status === "FAILED" ? <Tag color="red" title={row.failure ?? ""}>Lỗi</Tag> : <Tag color="processing">Đang chạy</Tag> },
+    { title: "Trạng thái", width: 200, render: (_, row) => row.status === "COMPLETED" ? <Space wrap><Tag color="success">Xong</Tag>{row.statusLabel && <Tag>{row.statusLabel}</Tag>}{row.rowWarning && <Tag color="orange">Nhiều dòng</Tag>}</Space> : row.status === "FAILED" ? <Tag color="red" title={row.failure ?? ""}>Lỗi</Tag> : <Tag color="processing">Đang chạy</Tag> },
     { title: "Số dòng", dataIndex: "rowCount", width: 90, align: "right" },
     { title: "", width: 110, render: (_, row) => row.status === "COMPLETED" && <Button size="small" icon={<DownloadOutlined />} href={reportsApi.downloadUrl(row.id)}>Tải</Button> },
-  ]} />;
+  ]} /></section>;
 }
 
 export function ReportsWorkspace() {
@@ -51,14 +51,14 @@ export function ReportsWorkspace() {
   const data = preview.data;
   return <div className="content-stack">
     <div className="page-heading"><div><p className="eyebrow">BÁO CÁO 10.x</p><Title level={1}>Báo cáo</Title>
-      <Paragraph type="secondary">Chỉ hiện báo cáo theo vai trò và phạm vi của bạn. Kỳ đã khóa đọc bản lưu (Chính thức); kỳ chưa khóa là Nháp. Mỗi lần kết xuất được lưu lại.</Paragraph></div></div>
+    </div></div>
     <section className="panel settings-panel"><Tabs activeKey={tab} onChange={setTab} items={[
       { key: "view", label: "Xem & kết xuất", children: <div className="tab-stack">
         {catalog.isError && <Alert type="error" showIcon message="Không tải được danh mục báo cáo" description={errorMessage(catalog.error)} />}
         <Select style={{ minWidth: 360 }} placeholder="Chọn báo cáo" value={type} onChange={value => { setType(value); setParams({}); setSubmitted(null); }} showSearch optionFilterProp="label"
           options={Object.entries(GROUPS).map(([group, label]) => ({ label, options: (catalog.data?.items ?? []).filter(item => item.group === group).map(item => ({ value: item.type, label: item.title })) })).filter(group => group.options.length)} />
         {report && <><Params report={report} params={params} onChange={setParams} />
-          <Space><Button type="primary" icon={<EyeOutlined />} onClick={() => setSubmitted({ type: report.type, params })}>Xem trước</Button>
+          <Space wrap><Button type="primary" icon={<EyeOutlined />} onClick={() => setSubmitted({ type: report.type, params })}>Xem trước</Button>
             <Button icon={<DownloadOutlined />} loading={exporter.isPending} onClick={() => exporter.mutate("XLSX")}>Xuất Excel</Button>
             <Button icon={<FilePdfOutlined />} loading={exporter.isPending} onClick={() => exporter.mutate("PDF")}>Xuất PDF</Button></Space></>}
         {(preview.error ?? exporter.error) && <Alert type="error" showIcon message="Không chạy được báo cáo" description={errorMessage(preview.error ?? exporter.error)} />}
@@ -67,8 +67,8 @@ export function ReportsWorkspace() {
           {data.notes.map(note => <Alert key={note} type="info" showIcon message={note} />)}
           {data.rowWarning && <Alert type="warning" showIcon message={"Báo cáo có " + data.total + " dòng, vượt ngưỡng cảnh báo; nên thu hẹp tham số."} />}
           {data.truncated && <Text type="secondary">Xem trước {data.rows.length}/{data.total} dòng; tệp kết xuất có đủ.</Text>}
-          <Table size="small" rowKey={(_, index) => String(index)} loading={preview.isFetching} dataSource={data.rows} pagination={false} scroll={{ x: Math.max(900, data.columns.length * 110) }}
-            columns={data.columns.map(column => ({ title: column.title, key: column.key, align: column.type === "money" || column.type === "number" ? "right" as const : undefined, render: (_: unknown, row: Record<string, unknown>) => format(row[column.key], column.type) }))} />
+          <section className="workspace-table" role="region" tabIndex={0} aria-label="Xem trước báo cáo; dùng phím mũi tên để cuộn"><Table     size="small" rowKey={(_, index) => String(index)} loading={preview.isFetching} dataSource={data.rows} pagination={false} scroll={{ x: Math.max(900, data.columns.length * 110) }}
+            columns={data.columns.map(column => ({ title: column.title, key: column.key, align: column.type === "money" || column.type === "number" ? "right" as const : undefined, render: (_: unknown, row: Record<string, unknown>) => format(row[column.key], column.type) }))} /></section>
         </>}
       </div> },
       { key: "runs", label: "Lịch sử kết xuất", children: <RunsTab /> },

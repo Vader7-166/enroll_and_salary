@@ -16,7 +16,7 @@ const statusLabels: Record<OvertimeStatus, string> = {
   DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", RETURNED: "Trả lại", REJECTED: "Từ chối", CANCELLED: "Đã hủy",
 };
 const statusColors: Record<OvertimeStatus, string> = {
-  DRAFT: "default", PENDING: "processing", APPROVED: "success", RETURNED: "warning", REJECTED: "error", CANCELLED: "default",
+  DRAFT: "default", PENDING: "warning", APPROVED: "success", RETURNED: "warning", REJECTED: "error", CANCELLED: "default",
 };
 
 function vietnamToday(): string {
@@ -117,7 +117,6 @@ function RequestEditor({ request, onClose }: { request: OvertimeSnapshot | null;
       }}
       onFinish={(values) => mutation.mutate(values)}
     >
-      <Alert type="info" showIcon message="Thời gian bắt đầu và kết thúc được ghi nhận theo giờ Việt Nam (UTC+07:00)." />
       <div className="form-grid overtime-form-grid">
         <Form.Item name="teamOrgUnitId" label="Đơn vị / tổ" rules={required}><Select loading={context.isLoading} options={context.data?.units.map((unit) => ({ value: unit.id, label: `${unit.code} — ${unit.name}` }))} /></Form.Item>
         <Form.Item name="workDate" label="Ngày tăng ca" rules={required}><Input type="date" /></Form.Item>
@@ -253,18 +252,17 @@ export function OvertimeWorkspace({ user }: { user: AuthUser }) {
   ];
   const requestList = <>
     {context.isError && <Alert type="error" showIcon message="Không tải được phạm vi tăng ca" description={errorMessage(context.error)} />}
-    {!context.isLoading && context.data && !context.data.canPlan && !context.data.canApprove && <Alert type="info" showIcon message="Bạn có quyền xem đề nghị tăng ca trong phạm vi được cấp." />}
     <div className="workspace-filters" aria-label="Bộ lọc đề nghị tăng ca">
       <label>Từ ngày<Input type="date" value={filters.dateFrom} onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
       <label>Đến ngày<Input type="date" value={filters.dateTo} onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))} /></label>
       <label>Đơn vị<Select allowClear value={filters.teamOrgUnitId} placeholder="Tất cả đơn vị" options={context.data?.units.map((unit) => ({ value: unit.id, label: `${unit.code} — ${unit.name}` }))} onChange={(teamOrgUnitId) => setFilters((current) => ({ ...current, teamOrgUnitId }))} /></label>
       <label>Trạng thái<Select allowClear value={filters.status} placeholder="Tất cả trạng thái" options={(Object.keys(statusLabels) as OvertimeStatus[]).map((status) => ({ value: status, label: statusLabels[status] }))} onChange={(status) => setFilters((current) => ({ ...current, status }))} /></label>
     </div>
-    {requests.isError ? <Alert type="error" showIcon message="Không tải được danh sách đề nghị" description={errorMessage(requests.error)} /> : requests.isLoading ? <div className="workspace-loading"><Spin /> Đang tải đề nghị tăng ca…</div> : <Table className="workspace-table" rowKey="id" dataSource={requests.data?.items ?? []} columns={columns} scroll={{ x: 1060 }} pagination={{ pageSize: 12, showSizeChanger: false }} locale={{ emptyText: <Empty description="Không có đề nghị tăng ca trong khoảng ngày đã chọn" /> }} />}
+    {requests.isError ? <Alert type="error" showIcon message="Không tải được danh sách đề nghị" description={errorMessage(requests.error)} /> : requests.isLoading ? <div className="workspace-loading"><Spin /> Đang tải đề nghị tăng ca…</div> : <div className="table-panel" role="region" tabIndex={0} aria-label="Danh sách đề nghị tăng ca"><Table className="workspace-table" rowKey="id" dataSource={requests.data?.items ?? []} columns={columns} scroll={{ x: 1060 }} pagination={{ pageSize: 12, showSizeChanger: false }} locale={{ emptyText: <Empty description="Không có đề nghị tăng ca trong khoảng ngày đã chọn" /> }} /></div>}
   </>;
   const canSeePay = user.roles.some((role) => role === "KT" || role === "QD");
   return <section className="workspace overtime-workspace" aria-labelledby="overtime-title">
-    <div className="page-heading"><div><Title id="overtime-title" level={2}>Tăng ca (OT)</Title><Paragraph type="secondary">Lập, phê duyệt và truy vết đề nghị làm thêm theo đơn vị được phân quyền.</Paragraph></div>
+    <div className="page-heading"><div><Title id="overtime-title" level={1}>Tăng ca (OT)</Title></div>
       {context.data?.canPlan && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor(null)}>Lập đề nghị OT</Button>}
     </div>
     {canSeePay ? <Tabs items={[{ key: "requests", label: "Đề nghị OT", children: requestList }, { key: "pay", label: "Giờ OT theo hệ số", children: <OvertimePayPanel /> }]} /> : requestList}

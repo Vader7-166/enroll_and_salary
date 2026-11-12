@@ -85,6 +85,7 @@ Phạm vi thiết kế R1 gồm **10 phân hệ, 158 yêu cầu chức năng**, 
 | Giờ OT theo hệ số | Tách đoạn 00:00/06:00/22:00, loại ngày theo lịch lễ và ngày nghỉ tuần; hệ số tính từ tham số theo công thức ba số hạng (150/200/210/270/390 là kết quả); giờ đêm không OT; kỳ khóa đọc snapshot; quy đổi nghỉ bù luôn `COMP_TIME_DISABLED` |
 | Đầu vào lương | KT nhận bằng biểu mẫu/CSV, kiểm phương án và phiên bản nguồn, chứng từ mã hóa, phân bổ tổ, xác nhận/trả/thay thế bất biến, chống trùng và đọc nguồn CONFIRMED |
 | Trợ lý AI nghiệp vụ (AI-02, tắt mặc định) | Hỏi đáp theo vai trò chỉ từ corpus hướng dẫn đã duyệt (lọc quyền trước truy xuất và trước gọi Gemini), mỗi bước có nguồn, liên kết dựng từ route registry, chặn PII, chống injection, fallback hướng dẫn tĩnh, kiểm tra lại phiên/quyền, audit chỉ metadata; đã kiểm bằng Gemini giả lập, chưa nghiệm thu với Gemini thật |
+| Cẩm nang & chính sách | Trang Hỗ trợ chỉ đọc: hướng dẫn theo TT/QĐ/KT/AD, chính sách tham khảo theo nhóm, tìm tiếng Việt không dấu, nguồn/phiên bản/phạm vi/hiệu lực và mở chức năng đúng quyền; dùng corpus chung, hoạt động khi AI tắt. Chính sách hiện có là SIMULATION, chưa phải quy chế doanh nghiệp |
 | Báo cáo 10.x | Khung báo cáo chung (quyền/phạm vi/loại trừ trước truy vấn, che cột cả trong tệp, nhãn Nháp/Chính thức, kỳ khóa đọc bản lưu, cây tổ chức theo kỳ, kết xuất Excel/PDF nền có audit); 18 báo cáo: bảng chấm công tháng, OT so trần, đi muộn/về sớm, ngoại lệ, giờ tuần, biến động nhân sự, sổ quản lý lao động 20 tiêu chí, bảng thanh toán lương/thưởng, quỹ lương, phân bổ chi phí 622/642, trích BH, tăng/giảm BH, C12, thuế khấu trừ, quyết toán, sử dụng lao động, OT 200–300 giờ |
 | Ốm đau, thai sản & tỷ lệ vắng | KT nhập hồ sơ chế độ BHXH (chứng từ bắt buộc, chồng ngày, chính sách loại nghỉ), số ngày và mức hưởng dự tính có vết từ lương đóng đã khóa, ghi thực chi và chênh lệch; QĐ xem tỷ lệ vắng xưởng theo tổ/ngày/loại nghỉ, cảnh báo vượt ngưỡng |
 | Quyết toán TNCN năm | KT lập dự thảo theo năm của ngày chi trả thực tế, thuế năm bằng biểu năm (giảm trừ bản thân 12 tháng, NPT theo tháng, BH, trần năm), chênh lệch nộp thêm/hoàn; giữ nguyên số đã khai 6 tháng đầu 2026 (TC-T10); chỉ người ủy quyền, liệt kê người không đủ điều kiện; chặn hoàn tất khi còn khoản dự kiến hoặc `TAX_CONTEXT_CHANGED`; phiên bản bất biến; xuất tờ khai tổng hợp + phụ lục |
@@ -417,6 +418,7 @@ Prefix chung: `/api`. Ngoại trừ đăng nhập và health, các endpoint bên
 | `GET` | `/api/payroll/adjustments` | Bút toán chờ/đã vào kỳ lương (hồi tố, đền bù chậm trả) |
 | `GET`, `POST` | `/api/shifts/rotation-patterns`, `/plans/:id/generate`, `/plans/:id/bulk-assign`, `/plans/copy-previous`, `/swaps`, `/swaps/:id/approve`, `/return`, `/reject`, `/cancel` | Mẫu xoay ca, sinh lịch/phân hàng loạt/sao chép; đề xuất và duyệt đổi ca |
 | `GET`, `POST` | `/api/ai/business-assistant/context`, `/guide`, `/answers` | Trợ lý AI: gợi ý theo vai trò, hướng dẫn tĩnh, hỏi đáp có nguồn (cần `AI_BUSINESS_ASSISTANT_ENABLED=true` và `GEMINI_API_KEY`) |
+| `GET` | `/api/handbook` | Cẩm nang chỉ đọc theo phiên/quyền/hiệu lực, gồm hướng dẫn và chính sách tham khảo; độc lập với AI/Gemini, không trả dữ liệu nhân sự/lương |
 | `GET`, `POST` | `/api/reports`, `/:type/preview`, `/:type/export`, `/runs`, `/runs/:id`, `/runs/:id/download` | Danh mục báo cáo theo quyền, xem trước, kết xuất nền và tải tệp |
 | `GET`, `POST` | `/api/leave/sickness-maternity`, `/:id`, `/:id/payment`, `/:id/evidence`, `/api/leave/absence-rate` | Hồ sơ ốm đau/thai sản, thực chi, chứng từ; tỷ lệ vắng mặt |
 | `GET`, `POST` | `/api/pit/finalizations`, `/run`, `/:id`, `/:id/complete`, `/export` | Dự thảo quyết toán thuế TNCN năm, hoàn tất, xuất Excel |
@@ -468,6 +470,7 @@ npm run verify:tax-finalization
 npm run verify:sickness-maternity
 npm run verify:reports
 npm run verify:ai-assistant
+npm run verify:handbook
 npm run verify:key-rotation
 npm run verify:backup
 npm run verify:acceptance-tools
@@ -502,7 +505,8 @@ Các lệnh tích hợp tự tạo database local cách ly, migrate/seed, khởi
 | `verify:tax-finalization` | Biểu năm trên tổng năm, nhóm theo năm chi, TC-T10 dòng gốc, ủy quyền, khoản dự kiến chặn, phiên bản bất biến, năm 2025, xuất có audit | 6/6 |
 | `verify:sickness-maternity` | Quy tắc ngày/mức hưởng, chứng từ, chồng ngày, dự tính từ lương đã khóa, thai sản bình quân 6 tháng, thực chi; tỷ lệ vắng theo phạm vi QĐ, ngày lễ, ngưỡng (UAT-25) | 5/5 |
 | `verify:reports` | Quyền/phạm vi (UAT-14, UAT-22), kỳ khóa in lại từ bản lưu, bảng lương/kỳ gốc, phân bổ UAT-21, thuế theo ngày chi, kết xuất Excel/PDF nền có audit, che cột, mọi báo cáo chạy, tên đơn vị theo kỳ | 9/9 |
-| `verify:ai-assistant` | Build corpus, lọc quyền/hiệu lực, PII, validator; bộ 22 câu Q&A, prompt không có dữ liệu nghiệp vụ, cache theo quyền, fallback, thu hồi phiên, flag tắt — với Gemini giả lập | 9/9 |
+| `verify:ai-assistant` | Build corpus, lọc quyền/hiệu lực, PII, validator; bộ 22 câu Q&A, prompt không có dữ liệu nghiệp vụ, cache theo quyền, fallback, thu hồi phiên, flag tắt — với Gemini giả lập; kèm hồi quy cẩm nang độc lập AI | 11/11 |
+| `verify:handbook` | Danh mục đầy đủ theo quyền/hiệu lực, tách chính sách khỏi AI, chặn link ngoài/thiếu quyền đọc trang, phiên bắt buộc và bỏ qua role/quyền giả mạo từ query khi AI tắt | 2/2 |
 | `verify:key-rotation` | Vòng khóa tương thích bản mã cũ, tiền tố khóa mới, `keys:rotate` chuyển mọi `*_cipher` và blind index sang v2, đọc lại không đổi, MST trùng vẫn bị chặn | 2/2 |
 | `verify:backup` | `payroll-lock.test.cjs` kèm sao lưu `pg_dump` mã hóa → khôi phục vào DB sạch → kiểm migration, chuỗi audit, hash snapshot lương và kỳ công khóa; sai khóa không khôi phục được | 12/12 |
 | `verify:acceptance-tools` | Luật lint tuân thủ trên fixture và mã nguồn (`--strict` sạch), script ghi nghiệm thu từ chối khi thiếu/sai bằng chứng, chính sách giữ bản sao lưu | 6/6 |

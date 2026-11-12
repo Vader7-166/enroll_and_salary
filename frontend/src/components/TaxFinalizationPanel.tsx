@@ -20,7 +20,7 @@ export function TaxFinalizationPanel({ canManage }: { canManage: boolean }) {
   const exporter = useMutation({ mutationFn: () => finalizationApi.export(year), onSuccess: blob => { const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "quyet-toan-tncn-" + year + ".xlsx"; link.click(); URL.revokeObjectURL(link.href); } });
   const error = list.error ?? run.error ?? complete.error ?? exporter.error;
   return <section aria-label="Quyết toán thuế TNCN" className="tab-stack">
-    <Paragraph type="secondary">Tổng hợp theo năm của <b>ngày chi trả thực tế</b> (lương tháng 12 chi tháng 1 thuộc năm sau), tính thuế bằng biểu năm và so với số đã khấu trừ. Các lần chi 01/01–30/06/2026 giữ nguyên số đã khai; chênh lệch ghi ở quyết toán. Chỉ lập cho người ủy quyền quyết toán; không kê khai điện tử.</Paragraph>
+    <Paragraph type="secondary">Năm quyết toán theo <b>ngày chi trả thực tế</b>. Các lần chi 01/01–30/06/2026 giữ nguyên số đã khai; chênh lệch ghi ở quyết toán. Chỉ lập cho người ủy quyền quyết toán; không kê khai điện tử.</Paragraph>
     <Space wrap>
       <label>Năm <InputNumber min={2020} max={2100} value={year} onChange={value => value && (setYear(value), setLastRun(null))} /></label>
       {canManage && <Button type="primary" icon={<PlayCircleOutlined />} loading={run.isPending} onClick={() => run.mutate()}>Lập / cập nhật dự thảo</Button>}
@@ -29,7 +29,7 @@ export function TaxFinalizationPanel({ canManage }: { canManage: boolean }) {
     {error && <Alert type="error" showIcon message="Không thực hiện được" description={errorMessage(error)} />}
     {lastRun && <Alert type="info" showIcon message={`Tạo ${lastRun.created} phiên bản mới, ${lastRun.unchanged} không đổi.`}
       description={lastRun.ineligible.length ? <>Không lập cho {lastRun.ineligible.length} người: {lastRun.ineligible.map(row => row.employee.code + " (" + row.label + ")").join("; ")}</> : undefined} />}
-    <Table<TaxFinalization> rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 1150 }}
+    <section className="workspace-table" role="region" tabIndex={0} aria-label="Bảng quyết toán thuế TNCN; dùng phím mũi tên để cuộn"><Table<TaxFinalization>     rowKey="id" size="small" loading={list.isLoading} dataSource={list.data?.items ?? []} pagination={false} scroll={{ x: 1150 }}
       locale={{ emptyText: <Empty description="Chưa có dự thảo cho năm này" /> }}
       expandable={{ expandedRowRender: row => <Descriptions size="small" bordered column={{ xs: 1, sm: 3 }} items={[
         { key: "p", label: "Số lần chi", children: row.summary.payments }, { key: "i", label: "Tổng thu nhập", children: vnd(row.summary.totalIncome) }, { key: "e", label: "Thu nhập miễn", children: vnd(row.summary.exempt) },
@@ -48,6 +48,6 @@ export function TaxFinalizationPanel({ canManage }: { canManage: boolean }) {
         { title: "Trạng thái", width: 180, render: (_, row) => row.status === "DONE" ? <Tag color="success">Hoàn tất</Tag> : canManage
           ? <Popconfirm title="Hoàn tất dự thảo?" description="Dự thảo hoàn tất không sửa được; tính lại sẽ tạo phiên bản mới." onConfirm={() => complete.mutate(row)}><Button size="small" disabled={row.issues.some(issue => issue.blocking)} loading={complete.isPending}>Hoàn tất</Button></Popconfirm>
           : <Tag color="gold">Dự thảo</Tag> },
-      ]} />
+      ]} /></section>
   </section>;
 }

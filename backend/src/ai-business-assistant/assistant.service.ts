@@ -7,6 +7,7 @@ import { businessDate } from "../auth/business-date";
 import { PrismaService } from "../database/prisma.service";
 import { effectiveAt } from "../organization/scope.service";
 import { fold, loadCorpus, permitted, retrieve, type Corpus, type CorpusChunk } from "./corpus";
+import { buildHandbookCatalog } from "./handbook";
 import { GeminiProvider, ProviderError, buildPrompt } from "./gemini.provider";
 import { detectPii, validateAnswer } from "./guards";
 
@@ -61,6 +62,11 @@ export class BusinessAssistantService {
   /** Static guidance filtered by permission: always available, also when the AI is off or failing. */
   staticGuide(user: AuthUser, pageKey: string | null) {
     return { label: "Hướng dẫn tĩnh từ tài liệu hệ thống", corpusVersion: this.corpus.version, items: this.guide(permitted(this.corpus, user, key(businessDate())), pageKey) };
+  }
+
+  /** Complete read-only catalogue uses this service's already-loaded corpus and never touches business records. */
+  handbookCatalog(user: AuthUser) {
+    return buildHandbookCatalog(this.corpus, user, key(businessDate()));
   }
 
   context(user: AuthUser, pageKey: string | null) {
